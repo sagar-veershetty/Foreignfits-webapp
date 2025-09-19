@@ -9,7 +9,7 @@ import { ImageCarousel } from '../Products/ImageCarousel';
 import { generateId } from '../../utils/mockData';
 
 export function SalesTerminal() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, createSale } = useApp();
   const { state: authState } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -64,29 +64,39 @@ export function SalesTerminal() {
     }
   };
 
-  const completeSale = () => {
+  const completeSale = async () => {
     if (state.currentSale.length === 0) return;
 
-    const sale: Sale = {
-      id: generateId(),
-      items: state.currentSale,
-      subtotal,
-      tax,
-      total,
+    const saleData = {
       paymentMethod,
-      customerName: customerName || undefined,
-      soldBy: authState.user?.name || 'Unknown User',
-      soldById: authState.user?.id || 'unknown',
-      createdAt: new Date(),
+      customerName,
     };
 
-    dispatch({ type: 'COMPLETE_SALE', payload: sale });
-    
-    // Show receipt printer
-    setCompletedSale(sale);
-    
-    setCustomerName('');
-    setSearchTerm('');
+    try {
+      await createSale(saleData, state.currentSale);
+      
+      // Create a sale object for the receipt
+      const sale: Sale = {
+        id: Date.now().toString(),
+        items: state.currentSale,
+        subtotal,
+        tax,
+        total,
+        paymentMethod,
+        customerName: customerName || undefined,
+        soldBy: authState.user?.name || 'Unknown User',
+        soldById: authState.user?.id || 'unknown',
+        createdAt: new Date(),
+      };
+      
+      // Show receipt printer
+      setCompletedSale(sale);
+      
+      setCustomerName('');
+      setSearchTerm('');
+    } catch (error) {
+      alert('Failed to complete sale. Please try again.');
+    }
   };
 
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
@@ -184,7 +194,18 @@ export function SalesTerminal() {
                   >
                     <Minus className="h-4 w-4" />
                   </button>
-                  <span className="w-8 text-center font-medium">{item.quantity}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={item.product.stock + item.quantity}
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const newQuantity = parseInt(e.target.value) || 1;
+                      updateQuantity(item.productId, newQuantity);
+                    }}
+                    className="w-16 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onFocus={(e) => e.target.select()}
+                  />
                   <button
                     onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                     className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"

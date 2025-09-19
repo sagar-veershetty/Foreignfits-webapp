@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { AuthUser, LoginCredentials, SignupData, AuthState } from '../types/auth';
+import { apiClient } from '../services/api';
+import { convertApiUserToUser } from '../utils/apiConverters';
 
 type AuthAction =
   | { type: 'LOGIN_START' }
@@ -19,36 +21,6 @@ const initialState: AuthState = {
   error: null,
 };
 
-// Mock users database
-const mockUsers: (AuthUser & { password: string })[] = [
-  {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@foreignfits.com',
-    password: 'admin123',
-    role: 'admin',
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-  },
-  {
-    id: '2',
-    name: 'Sales Representative',
-    email: 'sales@foreignfits.com',
-    password: 'sales123',
-    role: 'sales',
-    createdAt: new Date('2024-01-15'),
-    lastLogin: new Date(),
-  },
-  {
-    id: '3',
-    name: 'Warehouse Manager',
-    email: 'warehouse@foreignfits.com',
-    password: 'warehouse123',
-    role: 'warehouse',
-    createdAt: new Date('2024-01-20'),
-    lastLogin: new Date(),
-  },
-];
 
 const AuthContext = createContext<{
   state: AuthState;
@@ -116,12 +88,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user from localStorage on app start
   useEffect(() => {
     const savedUser = localStorage.getItem('foreignfits_user');
+   const savedToken = localStorage.getItem('foreignfits_token');
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser);
-        dispatch({ type: 'LOAD_USER', payload: user });
+       // Only load user if we also have a valid token
+       if (savedToken) {
+         dispatch({ type: 'LOAD_USER', payload: user });
+       } else {
+         // Clean up invalid session
+         localStorage.removeItem('foreignfits_user');
+       }
       } catch (error) {
         localStorage.removeItem('foreignfits_user');
+       localStorage.removeItem('foreignfits_token');
       }
     }
   }, []);
@@ -129,43 +109,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (credentials: LoginCredentials): Promise<void> => {
     dispatch({ type: 'LOGIN_START' });
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    const user = mockUsers.find(
-      u => u.email === credentials.email && u.password === credentials.password
-    );
-
-    if (user) {
-      const authUser: AuthUser = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        createdAt: user.createdAt,
-        lastLogin: new Date(),
-      };
-
+    try {
+      const response = await apiClient.login(credentials.email, credentials.password);
+      const authUser = convertApiUserToUser(response.user);
+      
+      localStorage.setItem('foreignfits_token', response.token);
       localStorage.setItem('foreignfits_user', JSON.stringify(authUser));
       dispatch({ type: 'LOGIN_SUCCESS', payload: authUser });
-    } else {
-      dispatch({ type: 'LOGIN_FAILURE', payload: 'Invalid email or password' });
+    } catch (error) {
+      dispatch({ type: 'LOGIN_FAILURE', payload: error instanceof Error ? error.message : 'Login failed' });
     }
   };
 
   const signup = async (data: SignupData): Promise<void> => {
     dispatch({ type: 'SIGNUP_START' });
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Check if user already exists
-    const existingUser = mockUsers.find(u => u.email === data.email);
-    if (existingUser) {
-      dispatch({ type: 'SIGNUP_FAILURE', payload: 'User with this email already exists' });
-      return;
-    }
 
     // Validate password confirmation
     if (data.password !== data.confirmPassword) {
@@ -173,24 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Create new user
-    const newUser: AuthUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: data.name,
-      email: data.email,
-      role: data.role,
-      createdAt: new Date(),
-      lastLogin: new Date(),
-    };
-
-    // Add to mock database
-    mockUsers.push({ ...newUser, password: data.password });
-
-    localStorage.setItem('foreignfits_user', JSON.stringify(newUser));
-    dispatch({ type: 'SIGNUP_SUCCESS', payload: newUser });
+    try {
+      const response = await apiClient.register(data.name, data.email, data.password, data.role.toUpperCase());
+      const authUser = convertApiUserToUser(response.user);
+      
+      localStorage.setItem('foreignfits_user', JSON.stringify(authUser));
+      dispatch({ type: 'SIGNUP_SUCCESS', payload: authUser });
+    } catch (error) {
+      dispatch({ type: 'SIGNUP_FAILURE', payload: error instanceof Error ? error.message : 'Registration failed' });
+    }
   };
 
   const logout = () => {
+    localStorage.removeItem('foreignfits_token');
     localStorage.removeItem('foreignfits_user');
     dispatch({ type: 'LOGOUT' });
   };

@@ -1,7 +1,24 @@
 import { Product } from '../types';
 import { generateBarcode } from './barcodeUtils';
 import { Sale, Location } from '../types';
+import { generateMockLocations } from './mockData';
 
+// Add missing generateId function
+export function generateId(): string {
+  return Math.random().toString(36).substr(2, 9);
+}
+
+// Add missing getCurrentUser function for fallback
+function getCurrentUser() {
+  return {
+    id: 'mock-user',
+    name: 'Mock User',
+    email: 'mock@example.com',
+    role: 'admin' as const
+  };
+}
+
+// Keep these for fallback/demo purposes
 export function generateMockLocations(): Location[] {
   return [
     {
@@ -229,10 +246,6 @@ export function generateMockData(): Product[] {
     ...product,
     barcode: generateBarcode(product.id, product.category)
   }));
-}
-
-export function generateId(): string {
-  return Math.random().toString(36).substr(2, 9);
 }
 
 export function generateMockSales(): Sale[] {

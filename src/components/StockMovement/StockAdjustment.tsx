@@ -5,7 +5,7 @@ import { BarcodeInput } from '../Barcode/BarcodeInput';
 import { Search, Plus, Minus, RotateCcw, Save, X } from 'lucide-react';
 
 export function StockAdjustmentForm() {
-  const { state, dispatch } = useApp();
+  const { state, adjustStock } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease' | 'set'>('increase');
@@ -34,7 +34,7 @@ export function StockAdjustmentForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct || !quantity || !reason) return;
 
@@ -46,16 +46,20 @@ export function StockAdjustmentForm() {
       reference: reference || undefined,
     };
 
-    dispatch({ type: 'ADJUST_STOCK', payload: adjustment });
-    
-    // Reset form
-    setSelectedProduct(null);
-    setQuantity('');
-    setReason('');
-    setReference('');
-    setAdjustmentType('increase');
-    
-    alert('Stock adjustment completed successfully!');
+    try {
+      await adjustStock(adjustment);
+      
+      // Reset form
+      setSelectedProduct(null);
+      setQuantity('');
+      setReason('');
+      setReference('');
+      setAdjustmentType('increase');
+      
+      alert('Stock adjustment completed successfully!');
+    } catch (error) {
+      alert('Failed to adjust stock. Please try again.');
+    }
   };
 
   const handleReset = () => {

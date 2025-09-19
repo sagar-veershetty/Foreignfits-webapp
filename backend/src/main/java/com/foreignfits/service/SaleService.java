@@ -1,0 +1,223 @@
+package com.foreignfits.service;
+
+import com.foreignfits.dto.LocationDto;
+import com.foreignfits.dto.ProductDto;
+import com.foreignfits.dto.SaleDto;
+import com.foreignfits.dto.SaleItemDto;
+import com.foreignfits.dto.UserDto;
+import com.foreignfits.dto.request.CreateSaleRequest;
+import com.foreignfits.dto.request.SaleItemRequest;
+import com.foreignfits.entity.*;
+import com.foreignfits.repository.ProductRepository;
+import com.foreignfits.repository.SaleRepository;
+import com.foreignfits.repository.StockMovementRepository;
+import com.foreignfits.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@Transactional
+public class SaleService {
+    
+    @Autowired
+    private SaleRepository saleRepository;
+    
+    @Autowired
+    private ProductRepository productRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
+    
+    @Autowired
+    private StockMovementRepository stockMovementRepository;
+    
+    @Autowired
+    private ProductService productService;
+    
+    @Autowired
+    private UserService userService;
+    
+    private static final BigDecimal GST_RATE = new BigDecimal("0.18"); // 18% GST
+    
+    public List<SaleDto> getAllSales() {
+        return saleRepository.findAll().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    public SaleDto createSale(CreateSaleRequest request, Long soldById) {
+        User soldBy = userRepository.findById(soldById)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + soldById));
+        
+        // Validate and prepare sale items
+        List<SaleItem> saleItems = new ArrayList<>();
+        BigDecimal subtotal = BigDecimal.ZERO;
+        
+        for (SaleItemRequest itemRequest : request.getItems()) {
+            Product product = productRepository.findById(itemRequest.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found with id: " + itemRequest.getProductId()));
+            
+            // Check stock availability
+            if (product.getStock() < itemRequest.getQuantity()) {
+                throw new RuntimeException("Insufficient stock for product: " + product.getName() + 
+                    ". Available: " + product.getStock() + ", Requested: " + itemRequest.getQuantity());
+            }
+            
+            // Determine price (wholesale vs retail)
+            BigDecimal unitPrice = itemRequest.getQuantity() >= product.getWholesaleMinQuantity() 
+                ? product.getWholesalePrice() 
+                : product.getPrice();
+            
+            BigDecimal itemTotal = unitPrice.multiply(new BigDecimal(itemRequest.getQuantity()));
+            
+            SaleItem saleItem = new SaleItem();
+            saleItem.setProduct(product);
+            saleItem.setQuantity(itemRequest.getQuantity());
+            saleItem.setPrice(unitPrice);
+            saleItem.setTotal(itemTotal);
+            
+            saleItems.add(saleItem);
+            subtotal = subtotal.add(itemTotal);
+        }
+        
+        // Calculate tax and total
+        BigDecimal tax = subtotal.multiply(GST_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = subtotal.add(tax);
+        
+        // Create sale
+        Sale sale = new Sale();
+        sale.setSubtotal(subtotal);
+        sale.setTax(tax);
+        sale.setTotal(total);
+        sale.setPaymentMethod(request.getPaymentMethod());
+        sale.setCustomerName(request.getCustomerName());
+        sale.setCustomerEmail(request.getCustomerEmail());
+        sale.setSoldBy(soldBy);
+        
+        Sale savedSale = saleRepository.save(sale);
+        
+        // Set sale reference in items and save
+        for (SaleItem item : saleItems) {
+            item.setSale(savedSale);
+        }
+        savedSale.setItems(saleItems);
+        savedSale = saleRepository.save(savedSale);
+        
+        // Update product stock and create stock movements
+        for (SaleItem item : saleItems) {
+            Product product = item.getProduct();
+            int previousStock = product.getStock();
+            int newStock = previousStock - item.getQuantity();
+            
+            product.setStock(newStock);
+            productRepository.save(product);
+            
+            // Create stock movement
+            StockMovement movement = new StockMovement();
+            movement.setProduct(product);
+            movement.setType(StockMovement.MovementType.SALE);
+            movement.setQuantity(-item.getQuantity());
+            movement.setPreviousStock(previousStock);
+            movement.setNewStock(newStock);
+            movement.setReason("Sale #" + savedSale.getId());
+            movement.setReference(savedSale.getId().toString());
+            movement.setLocation(product.getLocation());
+            movement.setCreatedBy(soldBy.getName());
+            
+            stockMovementRepository.save(movement);
+        }
+        
+        return convertToDto(savedSale);
+    }
+    
+    public List<SaleDto> getSalesBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
+        return saleRepository.findSalesBetweenDates(startDate, endDate).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    public List<SaleDto> getTodaysSales() {
+        return saleRepository.findTodaysSales().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    public BigDecimal getTodaysRevenue() {
+        BigDecimal revenue = saleRepository.getTodaysRevenue();
+        return revenue != null ? revenue : BigDecimal.ZERO;
+    }
+    
+    private SaleDto convertToDto(Sale sale) {
+        SaleDto dto = new SaleDto();
+        dto.setId(sale.getId());
+        dto.setSubtotal(sale.getSubtotal());
+        dto.setTax(sale.getTax());
+        dto.setTotal(sale.getTotal());
+        dto.setPaymentMethod(sale.getPaymentMethod());
+        dto.setCustomerName(sale.getCustomerName());
+        dto.setCustomerEmail(sale.getCustomerEmail());
+        dto.setCreatedAt(sale.getCreatedAt());
+        
+        // Convert sold by user
+        if (sale.getSoldBy() != null) {
+            UserDto userDto = new UserDto();
+            userDto.setId(sale.getSoldBy().getId());
+            userDto.setName(sale.getSoldBy().getName());
+            userDto.setEmail(sale.getSoldBy().getEmail());
+            userDto.setRole(sale.getSoldBy().getRole());
+            dto.setSoldBy(userDto);
+        }
+        
+        // Convert sale items
+        if (sale.getItems() != null) {
+            List<SaleItemDto> itemDtos = sale.getItems().stream()
+                    .map(this::convertSaleItemToDto)
+                    .collect(Collectors.toList());
+            dto.setItems(itemDtos);
+        }
+        
+        return dto;
+    }
+    
+    private SaleItemDto convertSaleItemToDto(SaleItem item) {
+        SaleItemDto dto = new SaleItemDto();
+        dto.setId(item.getId());
+        dto.setQuantity(item.getQuantity());
+        dto.setPrice(item.getPrice());
+        dto.setTotal(item.getTotal());
+        
+        if (item.getProduct() != null) {
+            // Convert product manually to avoid circular dependency
+            ProductDto productDto = new ProductDto();
+            Product product = item.getProduct();
+            productDto.setId(product.getId());
+            productDto.setName(product.getName());
+            productDto.setCategory(product.getCategory());
+            productDto.setSize(product.getSize());
+            productDto.setColor(product.getColor());
+            productDto.setPrice(product.getPrice());
+            productDto.setCost(product.getCost());
+            productDto.setWholesalePrice(product.getWholesalePrice());
+            productDto.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
+            productDto.setStock(product.getStock());
+            productDto.setMinStock(product.getMinStock());
+            productDto.setSku(product.getSku());
+            productDto.setDescription(product.getDescription());
+            productDto.setBarcode(product.getBarcode());
+            productDto.setImageUrls(product.getImageUrls());
+            productDto.setCreatedAt(product.getCreatedAt());
+            productDto.setUpdatedAt(product.getUpdatedAt());
+            dto.setProduct(productDto);
+        }
+        
+        return dto;
+    }
+}

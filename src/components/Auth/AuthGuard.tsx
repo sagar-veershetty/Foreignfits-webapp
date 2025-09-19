@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useApp } from '../../context/AppContext';
 import { LoginPage } from './LoginPage';
 import { SignupPage } from './SignupPage';
 import { Loader } from 'lucide-react';
@@ -10,7 +11,15 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const { state } = useAuth();
+ const { loadInitialData } = useApp();
   const [showSignup, setShowSignup] = useState(false);
+
+  // Load data when user is authenticated
+  React.useEffect(() => {
+    if (state.isAuthenticated) {
+     loadInitialData().catch(console.error);
+    }
+ }, [state.isAuthenticated, loadInitialData]);
 
   if (state.isLoading) {
     return (

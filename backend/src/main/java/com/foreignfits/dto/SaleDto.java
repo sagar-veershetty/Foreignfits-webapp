@@ -1,0 +1,57 @@
+package com.foreignfits.dto;
+
+import com.foreignfits.entity.Sale;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class SaleDto {
+    private Long id;
+    private List<SaleItemDto> items;
+    private BigDecimal subtotal;
+    private BigDecimal tax;
+    private BigDecimal total;
+    private Sale.PaymentMethod paymentMethod;
+    private String customerName;
+    private String customerEmail;
+    private UserDto soldBy;
+    private LocalDateTime createdAt;
+    
+    // Manual getters and setters to ensure compatibility
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    
+    public List<SaleItemDto> getItems() { return items; }
+    public void setItems(List<SaleItemDto> items) { this.items = items; }
+    
+    public BigDecimal getSubtotal() { return subtotal; }
+    public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
+    
+    public BigDecimal getTax() { return tax; }
+    public void setTax(BigDecimal tax) { this.tax = tax; }
+    
+    public BigDecimal getTotal() { return total; }
+    public void setTotal(BigDecimal total) { this.total = total; }
+    
+    public Sale.PaymentMethod getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(Sale.PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
+    
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
+    
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    
+    public UserDto getSoldBy() { return soldBy; }
+    public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }
+    
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}

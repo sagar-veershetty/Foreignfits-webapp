@@ -1,0 +1,44 @@
+package com.foreignfits.dto.request;
+
+import com.foreignfits.entity.Sale;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreateSaleRequest {
+    
+    @NotEmpty(message = "Sale items are required")
+    @Valid
+    private List<SaleItemRequest> items;
+    
+    @NotNull(message = "Payment method is required")
+    private Sale.PaymentMethod paymentMethod;
+    
+    @Size(max = 100, message = "Customer name cannot exceed 100 characters")
+    private String customerName;
+    
+    @Size(max = 150, message = "Customer email cannot exceed 150 characters")
+    private String customerEmail;
+    
+    // Manual getters and setters to ensure compatibility
+    public List<SaleItemRequest> getItems() { return items; }
+    public void setItems(List<SaleItemRequest> items) { this.items = items; }
+    
+    public Sale.PaymentMethod getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(Sale.PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
+    
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String customerName) { this.customerName = customerName; }
+    
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+}

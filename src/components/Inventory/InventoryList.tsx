@@ -10,7 +10,7 @@ import { Search, Edit, Trash2, AlertTriangle, Package, Printer, Image as ImageIc
 import { BarcodePrinter } from '../Barcode/BarcodePrinter';
 
 export function InventoryList() {
-  const { state, dispatch } = useApp();
+  const { state, deleteProduct } = useApp();
   const { state: authState } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -39,15 +39,15 @@ export function InventoryList() {
     { value: 'accessories', label: 'Accessories' },
   ];
 
-  const handleDelete = (productId: string) => {
+  const handleDelete = async (productId: string) => {
     if (authState.user?.role === 'admin' && window.confirm('Are you sure you want to delete this product?')) {
-      dispatch({ type: 'DELETE_PRODUCT', payload: productId });
+      try {
+        await deleteProduct(productId);
+        alert('Product deleted successfully!');
+      } catch (error) {
+        alert('Failed to delete product. Please try again.');
+      }
     }
-  };
-
-  const handleSaveProduct = (updatedProduct: Product) => {
-    dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
-    setEditingProduct(null);
   };
 
   const canEdit = () => {
@@ -285,7 +285,6 @@ export function InventoryList() {
         <EditProduct
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
-          onSave={handleSaveProduct}
         />
       )}
     </div>

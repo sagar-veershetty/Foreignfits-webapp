@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product } from '../../types';
-import { generateId } from '../../utils/mockData';
 import { generateBarcode } from '../../utils/barcodeUtils';
 import { BarcodeGenerator } from '../Barcode/BarcodeGenerator';
 import { BarcodeInput } from '../Barcode/BarcodeInput';
@@ -9,7 +8,7 @@ import { MultiImageUpload } from './MultiImageUpload';
 import { Save, X } from 'lucide-react';
 
 export function AddProduct() {
-  const { state, dispatch } = useApp();
+  const { state, createProduct } = useApp();
   const [formData, setFormData] = useState({
     name: '',
     category: 'shirts' as Product['category'],
@@ -28,7 +27,7 @@ export function AddProduct() {
     locationId: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const selectedLocation = state.locations.find(loc => loc.id === formData.locationId);
@@ -37,8 +36,7 @@ export function AddProduct() {
       return;
     }
     
-    const product: Product = {
-      id: generateId(),
+    const product = {
       name: formData.name,
       category: formData.category,
       size: formData.size,
@@ -51,36 +49,38 @@ export function AddProduct() {
       minStock: parseInt(formData.minStock),
       sku: formData.sku,
       description: formData.description,
-      barcode: formData.barcode || generateBarcode(generateId(), formData.category),
+      barcode: formData.barcode || generateBarcode(Date.now().toString(), formData.category),
       imageUrls: formData.imageUrls,
       locationId: formData.locationId,
       location: selectedLocation,
-      createdAt: new Date(),
-      updatedAt: new Date(),
     };
 
-    dispatch({ type: 'ADD_PRODUCT', payload: product });
-    
-    // Reset form
-    setFormData({
-      name: '',
-      category: 'shirts',
-      size: '',
-      color: '',
-      price: '',
-      cost: '',
-      wholesalePrice: '',
-      wholesaleMinQuantity: '100',
-      stock: '',
-      minStock: '',
-      sku: '',
-      description: '',
-      barcode: '',
-      imageUrls: [],
-      locationId: '',
-    });
+    try {
+      await createProduct(product);
+      
+      // Reset form
+      setFormData({
+        name: '',
+        category: 'shirts',
+        size: '',
+        color: '',
+        price: '',
+        cost: '',
+        wholesalePrice: '',
+        wholesaleMinQuantity: '100',
+        stock: '',
+        minStock: '',
+        sku: '',
+        description: '',
+        barcode: '',
+        imageUrls: [],
+        locationId: '',
+      });
 
-    alert('Product added successfully!');
+      alert('Product added successfully!');
+    } catch (error) {
+      alert('Failed to add product. Please try again.');
+    }
   };
 
   const handleReset = () => {
@@ -104,7 +104,7 @@ export function AddProduct() {
   };
 
   const handleGenerateBarcode = () => {
-    const tempId = generateId();
+    const tempId = Date.now().toString();
     const barcode = generateBarcode(tempId, formData.category);
     setFormData({ ...formData, barcode });
   };

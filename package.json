@@ -7,9 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:backend": "cd backend && ./mvnw spring-boot:run",
+    "start:frontend": "npm run dev",
+    "start:all": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "setup": "npm install && echo 'Frontend dependencies installed. Now start MySQL and run: npm run start:backend (in another terminal)'"
   },
   "dependencies": {
+    "axios": "^1.11.0",
     "jsbarcode": "^3.12.1",
     "lucide-react": "^0.344.0",
     "quagga": "^0.12.1",

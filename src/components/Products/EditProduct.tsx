@@ -11,11 +11,10 @@ import { Save, X, Edit } from 'lucide-react';
 interface EditProductProps {
   product: Product;
   onClose: () => void;
-  onSave: (product: Product) => void;
 }
 
-export function EditProduct({ product, onClose, onSave }: EditProductProps) {
-  const { state } = useApp();
+export function EditProduct({ product, onClose }: EditProductProps) {
+  const { state, updateProduct } = useApp();
   const { state: authState } = useAuth();
   const [formData, setFormData] = useState({
     name: product.name,
@@ -36,7 +35,7 @@ export function EditProduct({ product, onClose, onSave }: EditProductProps) {
   const isAdmin = authState.user?.role === 'admin';
   const isWarehouse = authState.user?.role === 'warehouse';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const updatedProduct: Product = {
@@ -57,7 +56,13 @@ export function EditProduct({ product, onClose, onSave }: EditProductProps) {
       updatedAt: new Date(),
     };
 
-    onSave(updatedProduct);
+    try {
+      await updateProduct(updatedProduct);
+      onClose();
+      alert('Product updated successfully!');
+    } catch (error) {
+      alert('Failed to update product. Please try again.');
+    }
   };
 
   const handleGenerateBarcode = () => {

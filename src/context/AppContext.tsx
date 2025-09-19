@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import { Product, Sale, SaleItem, Location, StockTransfer, StockMovement, StockAdjustment } from '../types';
-import { generateMockData, generateMockSales, generateMockLocations, generateId } from '../utils/mockData';
-import { useAuth } from './AuthContext';
+import { apiClient } from '../services/api';
+import { convertApiProductToProduct, convertApiSaleToSale, convertApiStockMovementToStockMovement, convertApiLocationToLocation, convertProductToCreateRequest, convertSaleToCreateRequest, convertStockAdjustmentToRequest } from '../utils/apiConverters';
+
+import { generateMockLocations } from '../utils/mockData';
 
 interface AppState {
   products: Product[];
@@ -10,6 +12,9 @@ interface AppState {
   stockMovements: StockMovement[];
   locations: Location[];
   stockTransfers: StockTransfer[];
+  isLoading: boolean;
+  error: string | null;
+  dataLoaded: boolean;
 }
 
 type AppAction =
@@ -25,36 +30,57 @@ type AppAction =
   | { type: 'CLEAR_CURRENT_SALE' }
   | { type: 'CREATE_STOCK_TRANSFER'; payload: StockTransfer }
   | { type: 'APPROVE_STOCK_TRANSFER'; payload: { transferId: string; approvedBy: string; approvedById: string } }
-  | { type: 'COMPLETE_STOCK_TRANSFER'; payload: { transferId: string; completedBy: string; completedById: string } };
+  | { type: 'COMPLETE_STOCK_TRANSFER'; payload: { transferId: string; completedBy: string; completedById: string } }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'LOAD_PRODUCTS'; payload: Product[] }
+  | { type: 'LOAD_SALES'; payload: Sale[] }
+  | { type: 'LOAD_STOCK_MOVEMENTS'; payload: StockMovement[] }
+ | { type: 'LOAD_LOCATIONS'; payload: Location[] }
+ | { type: 'SET_DATA_LOADED'; payload: boolean };
 
 const initialState: AppState = {
-  products: generateMockData(),
-  sales: generateMockSales(),
+  products: [],
+  sales: [],
   currentSale: [],
   stockMovements: [],
-  locations: generateMockLocations(),
+  locations: [],
   stockTransfers: [],
+  isLoading: false,
+  error: null,
+ dataLoaded: false,
 };
 
 const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  loadProducts: () => Promise<void>;
+  loadSales: () => Promise<void>;
+  loadStockMovements: () => Promise<void>;
+ loadInitialData: () => Promise<void>;
+  createProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  createSale: (saleData: any, items: any[]) => Promise<void>;
+  adjustStock: (adjustment: StockAdjustment) => Promise<void>;
 } | null>(null);
 
 function appReducer(state: AppState, action: AppAction): AppState {
-  const getCurrentUser = () => {
-    const savedUser = localStorage.getItem('foreignfits_user');
-    if (savedUser) {
-      try {
-        return JSON.parse(savedUser);
-      } catch (error) {
-        return { name: 'Unknown User' };
-      }
-    }
-    return { name: 'Unknown User' };
-  };
-
   switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
+   case 'SET_DATA_LOADED':
+     return { ...state, dataLoaded: action.payload };
+    case 'LOAD_PRODUCTS':
+      return { ...state, products: action.payload };
+    case 'LOAD_SALES':
+      return { ...state, sales: action.payload };
+    case 'LOAD_STOCK_MOVEMENTS':
+      return { ...state, stockMovements: action.payload };
+    case 'LOAD_LOCATIONS':
+      return { ...state, locations: action.payload };
     case 'ADD_PRODUCT':
       return {
         ...state,
@@ -71,50 +97,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         products: state.products.filter(p => p.id !== action.payload),
       };
     case 'ADJUST_STOCK':
-      const product = state.products.find(p => p.id === action.payload.productId);
-      if (!product) return state;
-      
-      let newStock: number;
-      switch (action.payload.adjustmentType) {
-        case 'increase':
-          newStock = product.stock + action.payload.quantity;
-          break;
-        case 'decrease':
-          newStock = Math.max(0, product.stock - action.payload.quantity);
-          break;
-        case 'set':
-          newStock = Math.max(0, action.payload.quantity);
-          break;
-        default:
-          return state;
-      }
-      
-      const updatedProduct = { ...product, stock: newStock, updatedAt: new Date() };
-      
-      // Create stock movement record
-      const stockMovement: StockMovement = {
-        id: generateId(),
-        productId: product.id,
-        product: updatedProduct,
-        type: 'adjustment',
-        quantity: action.payload.adjustmentType === 'set' 
-          ? newStock - product.stock 
-          : action.payload.adjustmentType === 'increase' 
-            ? action.payload.quantity 
-            : -action.payload.quantity,
-        previousStock: product.stock,
-        newStock,
-        reason: action.payload.reason,
-        reference: action.payload.reference,
-        createdBy: getCurrentUser().name,
-        createdAt: new Date(),
-      };
-      
-      return {
-        ...state,
-        products: state.products.map(p => p.id === action.payload.productId ? updatedProduct : p),
-        stockMovements: [stockMovement, ...state.stockMovements],
-      };
+      // This will be handled by the API service
+      return state;
     case 'ADD_STOCK_MOVEMENT':
       return {
         ...state,
@@ -279,37 +263,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ),
       };
     case 'COMPLETE_SALE':
-      // Update product stock
-      const updatedProducts = state.products.map(product => {
-        const saleItem = action.payload.items.find(item => item.productId === product.id);
-        if (saleItem) {
-          const newStock = product.stock - saleItem.quantity;
-          
-          // Create stock movement for sale
-          const saleMovement: StockMovement = {
-            id: generateId(),
-            productId: product.id,
-            product: { ...product, stock: newStock },
-            type: 'sale',
-            quantity: -saleItem.quantity,
-            previousStock: product.stock,
-            newStock,
-            reference: action.payload.id,
-            createdBy: getCurrentUser().name,
-            createdAt: new Date(),
-          };
-          
-          // Add to stock movements
-          state.stockMovements.unshift(saleMovement);
-          
-          return { ...product, stock: newStock };
-        }
-        return product;
-      });
-      
       return {
         ...state,
-        products: updatedProducts,
         sales: [...state.sales, action.payload],
         currentSale: [],
       };
@@ -326,8 +281,189 @@ function appReducer(state: AppState, action: AppAction): AppState {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
+  // Load locations on mount
+  React.useEffect(() => {
+    const locations = generateMockLocations();
+    dispatch({ type: 'LOAD_LOCATIONS', payload: locations });
+  }, []);
+ 
+ // Load initial data only once
+ const loadInitialData = React.useCallback(async () => {
+   if (state.dataLoaded) return;
+   
+   try {
+     dispatch({ type: 'SET_LOADING', payload: true });
+     await Promise.all([
+       loadProducts(),
+       loadSales(),
+       loadStockMovements(),
+     ]);
+     dispatch({ type: 'SET_DATA_LOADED', payload: true });
+   } catch (error) {
+     console.error('Failed to load initial data:', error);
+     dispatch({ type: 'SET_ERROR', payload: 'Failed to load initial data' });
+   } finally {
+     dispatch({ type: 'SET_LOADING', payload: false });
+   }
+ }, [state.dataLoaded]);
+ 
+  // Load initial data
+ const loadProducts = React.useCallback(async () => {
+    try {
+      try {
+        const apiProducts = await apiClient.getProducts();
+        const products = apiProducts.map(convertApiProductToProduct);
+        dispatch({ type: 'LOAD_PRODUCTS', payload: products });
+      } catch (apiError) {
+        console.warn('Failed to load products from API, using fallback data:', apiError);
+        // Use fallback data if API is not available
+        const { generateMockData } = await import('../utils/mockData');
+        const fallbackProducts = generateMockData();
+        dispatch({ type: 'LOAD_PRODUCTS', payload: fallbackProducts });
+      }
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to load products' });
+    }
+ }, []);
+
+ const loadSales = React.useCallback(async () => {
+    try {
+      try {
+        const apiSales = await apiClient.getSales();
+        const sales = apiSales.map(convertApiSaleToSale);
+        dispatch({ type: 'LOAD_SALES', payload: sales });
+      } catch (apiError) {
+        console.warn('Failed to load sales from API:', apiError);
+        // Use fallback data if API is not available
+        const { generateMockSales } = await import('../utils/mockData');
+        const fallbackSales = generateMockSales();
+        dispatch({ type: 'LOAD_SALES', payload: fallbackSales });
+      }
+    } catch (error) {
+      console.error('Failed to load sales:', error);
+    }
+ }, []);
+
+ const loadStockMovements = React.useCallback(async () => {
+    try {
+      try {
+        const apiMovements = await apiClient.getStockMovements();
+        const movements = apiMovements.map(convertApiStockMovementToStockMovement);
+        dispatch({ type: 'LOAD_STOCK_MOVEMENTS', payload: movements });
+      } catch (apiError) {
+        console.warn('Failed to load stock movements from API:', apiError);
+        // Use empty array as fallback
+        dispatch({ type: 'LOAD_STOCK_MOVEMENTS', payload: [] });
+      }
+    } catch (error) {
+      console.error('Failed to load stock movements:', error);
+    }
+ }, []);
+
+  const createProduct = async (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const request = convertProductToCreateRequest(product);
+      const apiProduct = await apiClient.createProduct(request);
+      const newProduct = convertApiProductToProduct(apiProduct);
+      dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create product' });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const updateProduct = async (product: Product) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const request = convertProductToCreateRequest(product);
+      const apiProduct = await apiClient.updateProduct(product.id, request);
+      const updatedProduct = convertApiProductToProduct(apiProduct);
+      dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to update product' });
+      throw error;
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    try {
+      await apiClient.deleteProduct(id);
+      dispatch({ type: 'DELETE_PRODUCT', payload: id });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to delete product' });
+      throw error;
+    }
+  };
+
+  const createSale = async (saleData: any, items: any[]) => {
+    try {
+      const request = convertSaleToCreateRequest(saleData, items);
+      const apiSale = await apiClient.createSale(request);
+      const sale = convertApiSaleToSale(apiSale);
+      dispatch({ type: 'COMPLETE_SALE', payload: sale });
+     // Update product stock locally instead of reloading
+     items.forEach(item => {
+       const product = state.products.find(p => p.id === item.productId);
+       if (product) {
+         const updatedProduct = { ...product, stock: product.stock - item.quantity };
+         dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
+       }
+     });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to create sale' });
+      throw error;
+    }
+  };
+
+  const adjustStock = async (adjustment: StockAdjustment) => {
+    try {
+      const request = convertStockAdjustmentToRequest(adjustment);
+      const apiMovement = await apiClient.adjustStock(request);
+      const movement = convertApiStockMovementToStockMovement(apiMovement);
+      dispatch({ type: 'ADD_STOCK_MOVEMENT', payload: movement });
+     // Update product stock locally
+     const product = state.products.find(p => p.id === adjustment.productId);
+     if (product) {
+       let newStock = product.stock;
+       switch (adjustment.adjustmentType) {
+         case 'increase':
+           newStock = product.stock + adjustment.quantity;
+           break;
+         case 'decrease':
+           newStock = Math.max(0, product.stock - adjustment.quantity);
+           break;
+         case 'set':
+           newStock = adjustment.quantity;
+           break;
+       }
+       const updatedProduct = { ...product, stock: newStock };
+       dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
+     }
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to adjust stock' });
+      throw error;
+    }
+  };
+
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ 
+      state, 
+      dispatch, 
+      loadProducts, 
+      loadSales, 
+      loadStockMovements, 
+     loadInitialData,
+      createProduct, 
+      updateProduct, 
+      deleteProduct, 
+      createSale, 
+      adjustStock 
+    }}>
       {children}
     </AppContext.Provider>
   );
