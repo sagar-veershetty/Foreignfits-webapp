@@ -32,9 +32,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT AVG(s.total) FROM Sale s WHERE s.createdAt BETWEEN :startDate AND :endDate")
     Double getAverageOrderValueBetweenDates(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
     
-    @Query("SELECT s FROM Sale s WHERE DATE(s.createdAt) = CURRENT_DATE")
+    @Query("SELECT s FROM Sale s WHERE s.createdAt = CURRENT_DATE")
     List<Sale> findTodaysSales();
     
-    @Query("SELECT SUM(s.total) FROM Sale s WHERE DATE(s.createdAt) = CURRENT_DATE")
+    @Query("SELECT SUM(s.total) FROM Sale s WHERE s.createdAt = CURRENT_DATE")
     BigDecimal getTodaysRevenue();
 }
