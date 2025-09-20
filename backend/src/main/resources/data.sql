@@ -11,12 +11,12 @@ INSERT INTO locations (id, name, type, address, city, state, zip_code, phone, ma
 -- Insert dummy users for testing
 -- Password for all users is 'password123' (BCrypt encoded)
 INSERT INTO users (id, name, email, password, role, is_active, created_at, updated_at) VALUES
-(1, 'Admin User', 'admin@foreignfits.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9b2.lCy.vWN.2Ci', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(2, 'Sales Representative', 'sales@foreignfits.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9b2.lCy.vWN.2Ci', 'SALES', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(3, 'Warehouse Manager', 'warehouse@foreignfits.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9b2.lCy.vWN.2Ci', 'WAREHOUSE', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(4, 'John Admin', 'john.admin@foreignfits.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9b2.lCy.vWN.2Ci', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(5, 'Sarah Sales', 'sarah.sales@foreignfits.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9b2.lCy.vWN.2Ci', 'SALES', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(6, 'Mike Warehouse', 'mike.warehouse@foreignfits.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9b2.lCy.vWN.2Ci', 'WAREHOUSE', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+(1, 'Admin User', 'admin@foreignfits.com', '$2a$10$59lKjwSKMFMC3ZqZ5ctg3OM6EAQKOPzDAxt2B1T3w90.V26oFyw/e', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(2, 'Sales Representative', 'sales@foreignfits.com', '$2a$10$59lKjwSKMFMC3ZqZ5ctg3OM6EAQKOPzDAxt2B1T3w90.V26oFyw/e', 'SALES', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(3, 'Warehouse Manager', 'warehouse@foreignfits.com', '$2a$10$59lKjwSKMFMC3ZqZ5ctg3OM6EAQKOPzDAxt2B1T3w90.V26oFyw/e', 'WAREHOUSE', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(4, 'John Admin', 'john.admin@foreignfits.com', '$2a$10$59lKjwSKMFMC3ZqZ5ctg3OM6EAQKOPzDAxt2B1T3w90.V26oFyw/e', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(5, 'Sarah Sales', 'sarah.sales@foreignfits.com', '$2a$10$59lKjwSKMFMC3ZqZ5ctg3OM6EAQKOPzDAxt2B1T3w90.V26oFyw/e', 'SALES', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(6, 'Mike Warehouse', 'mike.warehouse@foreignfits.com', '$2a$10$59lKjwSKMFMC3ZqZ5ctg3OM6EAQKOPzDAxt2B1T3w90.V26oFyw/e', 'WAREHOUSE', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- Insert sample products (prices in paise - multiply by 100)
 INSERT INTO products (id, name, category, size, color, price, cost, wholesale_price, wholesale_min_quantity, stock, min_stock, sku, description, barcode, location_id, created_at, updated_at) VALUES
