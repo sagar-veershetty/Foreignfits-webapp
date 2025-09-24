@@ -1,0 +1,454 @@
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable, throwError, forkJoin, of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { catchError, tap, map } from 'rxjs/operators';
+import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment } from '../models';
+import { environment } from '../../../environments/environment';
+
+export interface AppState {
+  products: Product[];
+  sales: Sale[];
+  currentSale: SaleItem[];
+  stockMovements: StockMovement[];
+  locations: Location[];
+  isLoading: boolean;
+  error: string | null;
+  dataLoaded: boolean;
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AppService {
+  private readonly API_BASE_URL = environment.apiUrl;
+  
+  private _appStateSubject = new BehaviorSubject<AppState>({
+    products: [],
+    sales: [],
+    currentSale: [],
+    stockMovements: [],
+    locations: [],
+    isLoading: false,
+    error: null,
+    dataLoaded: false
+  });
+
+  public appState$ = this._appStateSubject.asObservable();
+  
+  public get appStateBehaviorSubject() {
+    return this._appStateSubject;
+  }
+
+  constructor(private http: HttpClient) {
+    this.initializeLocations();
+  }
+
+  private initializeLocations(): void {
+    const mockLocations: Location[] = [
+      {
+        id: '1',
+        name: 'Main Warehouse',
+        type: 'warehouse',
+        address: '1234 Industrial Blvd',
+        city: 'Fashion City',
+        state: 'CA',
+        zipCode: '90210',
+        phone: '(555) 123-4567',
+        manager: 'John Warehouse',
+        capacity: 10000,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      },
+      {
+        id: '2',
+        name: 'Downtown Store',
+        type: 'store',
+        address: '456 Fashion Ave',
+        city: 'Fashion City',
+        state: 'CA',
+        zipCode: '90211',
+        phone: '(555) 234-5678',
+        manager: 'Sarah Store',
+        capacity: 500,
+        isActive: true,
+        createdAt: new Date('2024-01-01'),
+      }
+    ];
+
+    this.updateAppState({
+      ...this._appStateSubject.value,
+      locations: mockLocations
+    });
+  }
+
+  loadInitialData(): Observable<any> {
+    if (this._appStateSubject.value.dataLoaded) {
+      return new Observable(observer => observer.next(true));
+    }
+
+    this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
+
+    return forkJoin({
+      products: this.loadProducts(),
+      sales: this.loadSales(),
+      stockMovements: this.loadStockMovements()
+    }).pipe(
+      tap(() => {
+        this.updateAppState({
+          ...this._appStateSubject.value,
+          dataLoaded: true,
+          isLoading: false
+        });
+      }),
+      catchError(error => {
+        this.updateAppState({
+          ...this._appStateSubject.value,
+          isLoading: false,
+          error: 'Failed to load initial data'
+        });
+        return throwError(() => error);
+      })
+    );
+  }
+
+  private loadProducts(): Observable<Product[]> {
+    return this.http.get<Product[]>(`${this.API_BASE_URL}/products`)
+      .pipe(
+        tap(apiProducts => {
+          const products = apiProducts.map(this.convertApiProductToProduct);
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            products
+          });
+        }),
+        catchError(error => {
+          console.warn('Failed to load products from API, using fallback data:', error);
+          const fallbackProducts = this.generateMockProducts();
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            products: fallbackProducts
+          });
+          return new Observable<Product[]>(observer => observer.next(fallbackProducts));
+        })
+      );
+  }
+
+  // Availability checks
+  productExistsBySku(sku: string): Observable<boolean> {
+    if (!sku?.trim()) return of(false);
+    return this.http.get<any>(`${this.API_BASE_URL}/products/sku/${encodeURIComponent(sku)}`, { observe: 'response' })
+      .pipe(
+        map(res => !!res),
+        catchError(err => err.status === 404 ? of(false) : throwError(() => err))
+      );
+  }
+
+  productExistsByBarcode(barcode: string): Observable<boolean> {
+    if (!barcode?.trim()) return of(false);
+    return this.http.get<any>(`${this.API_BASE_URL}/products/barcode/${encodeURIComponent(barcode)}`, { observe: 'response' })
+      .pipe(
+        map(res => !!res),
+        catchError(err => err.status === 404 ? of(false) : throwError(() => err))
+      );
+  }
+
+  private loadSales(): Observable<Sale[]> {
+    return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales`)
+      .pipe(
+        tap(apiSales => {
+          const sales = apiSales.map(this.convertApiSaleToSale);
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            sales
+          });
+        }),
+        catchError(error => {
+          console.warn('Failed to load sales from API:', error);
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            sales: []
+          });
+          return new Observable<Sale[]>(observer => observer.next([]));
+        })
+      );
+  }
+
+  private loadStockMovements(): Observable<StockMovement[]> {
+    return this.http.get<StockMovement[]>(`${this.API_BASE_URL}/stock/movements`)
+      .pipe(
+        tap(apiMovements => {
+          const movements = apiMovements.map(this.convertApiStockMovementToStockMovement);
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            stockMovements: movements
+          });
+        }),
+        catchError(error => {
+          console.warn('Failed to load stock movements from API:', error);
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            stockMovements: []
+          });
+          return new Observable<StockMovement[]>(observer => observer.next([]));
+        })
+      );
+  }
+
+  createProduct(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Observable<Product> {
+    this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
+
+    const request = this.convertProductToCreateRequest(product);
+    return this.http.post<Product>(`${this.API_BASE_URL}/products`, request)
+      .pipe(
+        tap(apiProduct => {
+          const newProduct = this.convertApiProductToProduct(apiProduct);
+          const currentState = this._appStateSubject.value;
+          this.updateAppState({
+            ...currentState,
+            products: [...currentState.products, newProduct],
+            isLoading: false
+          });
+        }),
+        catchError(error => {
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            isLoading: false,
+            error: 'Failed to create product'
+          });
+          return throwError(() => error);
+        })
+      );
+  }
+
+  addToSale(saleItem: SaleItem): void {
+    const currentState = this._appStateSubject.value;
+    const existingItem = currentState.currentSale.find(item => item.productId === saleItem.productId);
+    
+    let updatedSale: SaleItem[];
+    if (existingItem) {
+      updatedSale = currentState.currentSale.map(item =>
+        item.productId === saleItem.productId
+          ? { ...item, quantity: item.quantity + saleItem.quantity, total: (item.quantity + saleItem.quantity) * item.price }
+          : item
+      );
+    } else {
+      updatedSale = [...currentState.currentSale, saleItem];
+    }
+
+    this.updateAppState({
+      ...currentState,
+      currentSale: updatedSale
+    });
+  }
+
+  removeFromSale(productId: string): void {
+    const currentState = this._appStateSubject.value;
+    this.updateAppState({
+      ...currentState,
+      currentSale: currentState.currentSale.filter(item => item.productId !== productId)
+    });
+  }
+
+  updateSaleQuantity(productId: string, quantity: number, price?: number): void {
+    const currentState = this._appStateSubject.value;
+    this.updateAppState({
+      ...currentState,
+      currentSale: currentState.currentSale.map(item =>
+        item.productId === productId
+          ? { 
+              ...item, 
+              quantity, 
+              price: price || item.price,
+              total: quantity * (price || item.price) 
+            }
+          : item
+      )
+    });
+  }
+
+  createSale(saleData: any, items: SaleItem[]): Observable<Sale> {
+    const request = this.convertSaleToCreateRequest(saleData, items);
+    return this.http.post<Sale>(`${this.API_BASE_URL}/sales`, request)
+      .pipe(
+        tap(apiSale => {
+          const sale = this.convertApiSaleToSale(apiSale);
+          const currentState = this._appStateSubject.value;
+          
+          // Update products stock locally
+          const updatedProducts = currentState.products.map(product => {
+            const saleItem = items.find(item => item.productId === product.id);
+            if (saleItem) {
+              return { ...product, stock: product.stock - saleItem.quantity };
+            }
+            return product;
+          });
+
+          this.updateAppState({
+            ...currentState,
+            sales: [...currentState.sales, sale],
+            currentSale: [],
+            products: updatedProducts
+          });
+        }),
+        catchError(error => {
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            error: 'Failed to create sale'
+          });
+          return throwError(() => error);
+        })
+      );
+  }
+
+  private updateAppState(newState: AppState): void {
+    this._appStateSubject.next(newState);
+  }
+
+  private convertApiProductToProduct(apiProduct: any): Product {
+    return {
+      id: apiProduct.id.toString(),
+      name: apiProduct.name,
+      category: apiProduct.category.toLowerCase(),
+      size: apiProduct.size,
+      color: apiProduct.color,
+      price: apiProduct.price / 100,
+      cost: apiProduct.cost / 100,
+      wholesalePrice: apiProduct.wholesalePrice / 100,
+      wholesaleMinQuantity: apiProduct.wholesaleMinQuantity,
+      stock: apiProduct.stock,
+      minStock: apiProduct.minStock,
+      sku: apiProduct.sku,
+      description: apiProduct.description,
+      barcode: apiProduct.barcode,
+      imageUrls: apiProduct.imageUrls || [],
+      locationId: apiProduct.location.id.toString(),
+      location: {
+        id: apiProduct.location.id.toString(),
+        name: apiProduct.location.name,
+        type: apiProduct.location.type.toLowerCase(),
+        address: apiProduct.location.address,
+        city: apiProduct.location.city,
+        state: apiProduct.location.state,
+        zipCode: apiProduct.location.zipCode,
+        phone: apiProduct.location.phone,
+        manager: apiProduct.location.manager,
+        capacity: apiProduct.location.capacity,
+        isActive: apiProduct.location.isActive,
+        createdAt: new Date(apiProduct.location.createdAt),
+      },
+      createdAt: new Date(apiProduct.createdAt),
+      updatedAt: new Date(apiProduct.updatedAt),
+    };
+  }
+
+  private convertApiSaleToSale(apiSale: any): Sale {
+    return {
+      id: apiSale.id.toString(),
+      items: apiSale.items.map((item: any) => ({
+        productId: item.product.id.toString(),
+        product: this.convertApiProductToProduct(item.product),
+        quantity: item.quantity,
+        price: item.price / 100,
+        total: item.total / 100,
+      })),
+      subtotal: apiSale.subtotal / 100,
+      tax: apiSale.tax / 100,
+      total: apiSale.total / 100,
+      paymentMethod: apiSale.paymentMethod.toLowerCase(),
+      customerName: apiSale.customerName,
+      customerEmail: apiSale.customerEmail,
+      soldBy: apiSale.soldBy.name,
+      soldById: apiSale.soldBy.id.toString(),
+      createdAt: new Date(apiSale.createdAt),
+    };
+  }
+
+  private convertApiStockMovementToStockMovement(apiMovement: any): StockMovement {
+    return {
+      id: apiMovement.id.toString(),
+      productId: apiMovement.product.id.toString(),
+      product: this.convertApiProductToProduct(apiMovement.product),
+      type: apiMovement.type.toLowerCase(),
+      quantity: apiMovement.quantity,
+      previousStock: apiMovement.previousStock,
+      newStock: apiMovement.newStock,
+      reason: apiMovement.reason,
+      reference: apiMovement.reference,
+      locationId: apiMovement.location?.id.toString(),
+      location: apiMovement.location ? {
+        id: apiMovement.location.id.toString(),
+        name: apiMovement.location.name,
+        type: apiMovement.location.type.toLowerCase(),
+        address: apiMovement.location.address,
+        city: apiMovement.location.city,
+        state: apiMovement.location.state,
+        zipCode: apiMovement.location.zipCode,
+        isActive: apiMovement.location.isActive,
+        createdAt: new Date(apiMovement.location.createdAt),
+      } : undefined,
+      createdBy: apiMovement.createdBy,
+      createdAt: new Date(apiMovement.createdAt),
+    };
+  }
+
+  private convertProductToCreateRequest(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): any {
+    return {
+      name: product.name,
+      category: product.category.toUpperCase(),
+      size: product.size,
+      color: product.color,
+      price: Math.round(product.price * 100),
+      cost: Math.round(product.cost * 100),
+      wholesalePrice: Math.round(product.wholesalePrice * 100),
+      wholesaleMinQuantity: product.wholesaleMinQuantity,
+      stock: product.stock,
+      minStock: product.minStock,
+      sku: product.sku,
+      description: product.description,
+      barcode: product.barcode,
+      imageUrls: product.imageUrls,
+      locationId: parseInt(product.locationId),
+    };
+  }
+
+  private convertSaleToCreateRequest(saleData: any, items: SaleItem[]): any {
+    return {
+      items: items.map(item => ({
+        productId: parseInt(item.productId),
+        quantity: item.quantity,
+      })),
+      paymentMethod: saleData.paymentMethod.toUpperCase(),
+      customerName: saleData.customerName,
+      customerEmail: saleData.customerEmail,
+    };
+  }
+
+  private generateMockProducts(): Product[] {
+    const locations = this._appStateSubject.value.locations;
+    return [
+      {
+        id: '1',
+        name: 'Classic Cotton T-Shirt',
+        category: 'shirts',
+        size: 'M',
+        color: 'White',
+        price: 24.99,
+        cost: 12.50,
+        wholesalePrice: 19.99,
+        wholesaleMinQuantity: 100,
+        stock: 45,
+        minStock: 10,
+        sku: 'TSH-WHT-M-001',
+        description: 'Comfortable 100% cotton t-shirt perfect for everyday wear',
+        createdAt: new Date('2024-01-15'),
+        updatedAt: new Date('2024-01-15'),
+        locationId: '1',
+        location: locations[0],
+        imageUrls: [
+          'https://images.pexels.com/photos/1020585/pexels-photo-1020585.jpeg?auto=compress&cs=tinysrgb&w=400'
+        ],
+        barcode: '011234567890'
+      }
+    ];
+  }
+}

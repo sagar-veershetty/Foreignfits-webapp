@@ -1,0 +1,73 @@
+<nav class="navbar">
+  <div class="navbar-container">
+    <div class="navbar-content">
+      <!-- Logo and Brand -->
+      <div class="brand-section">
+        <img 
+          src="/WhatsApp Image 2025-07-23 at 20.17.32.jpeg" 
+          alt="Foreign Fits Logo" 
+          class="brand-logo"
+        />
+        <div class="brand-text">
+          <h1 class="brand-title">Foreign Fits</h1>
+          <p class="brand-subtitle">Global Fashion</p>
+        </div>
+      </div>
+      
+      <!-- Desktop Navigation -->
+      <div class="desktop-nav">
+        <div class="nav-tabs">
+          <button
+            *ngFor="let tab of getFilteredTabs()"
+            (click)="navigateTo(tab.route)"
+            [class]="getTabClasses(tab.route)"
+          >
+            <svg class="tab-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path [attr.d]="tab.iconPath" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+            <span class="tab-label">{{ tab.label }}</span>
+          </button>
+        </div>
+        
+        <!-- Desktop User Menu -->
+        <div class="user-menu" *ngIf="authState$ | async as authState">
+          <button class="user-button">
+            <div class="user-avatar">
+              <svg class="avatar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+              </svg>
+            </div>
+            <div class="user-info">
+              <p class="user-name">{{ authState.user?.name }}</p>
+              <p class="user-role">{{ authState.user?.role }}</p>
+            </div>
+            <svg class="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          
+          <div class="dropdown-menu">
+            <div class="dropdown-content">
+              <div class="dropdown-header">
+                <p class="dropdown-section-title">Account</p>
+              </div>
+              <div class="dropdown-user-info">
+                <p class="dropdown-user-name">{{ authState.user?.name }}</p>
+                <p class="dropdown-user-email">{{ authState.user?.email }}</p>
+                <p class="dropdown-user-access">{{ authState.user?.role }} Access</p>
+              </div>
+              <button (click)="logout()" class="logout-button">
+                <div class="logout-icon-container">
+                  <svg class="logout-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                  </svg>
+                </div>
+                <span class="logout-text">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>

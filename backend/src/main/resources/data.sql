@@ -40,3 +40,8 @@ INSERT INTO product_images (product_id, image_url) VALUES
 (5, 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&w=400'),
 (6, 'https://images.pexels.com/photos/1040945/pexels-photo-1040945.jpeg?auto=compress&cs=tinysrgb&w=400'),
 (6, 'https://images.pexels.com/photos/1020585/pexels-photo-1020585.jpeg?auto=compress&cs=tinysrgb&w=400');
+
+-- Ensure IDENTITY sequences continue after seeded IDs (H2 syntax)
+ALTER TABLE locations ALTER COLUMN id RESTART WITH 5;
+ALTER TABLE users ALTER COLUMN id RESTART WITH 7;
+ALTER TABLE products ALTER COLUMN id RESTART WITH 7;

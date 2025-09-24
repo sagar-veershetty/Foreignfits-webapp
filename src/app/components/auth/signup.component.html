@@ -1,0 +1,166 @@
+<div class="signup-container">
+  <div class="signup-card">
+    <!-- Header -->
+    <div class="signup-header">
+      <div class="logo-container">
+        <div class="logo-icon">
+          <svg class="logo-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+          </svg>
+        </div>
+      </div>
+      <h1 class="brand-title">Foreign Fits</h1>
+      <p class="brand-subtitle">Global Fashion Inventory Management</p>
+    </div>
+
+    <!-- Signup Form -->
+    <div class="signup-form-container">
+      <div class="form-header">
+        <h2 class="form-title">Create Account</h2>
+        <p class="form-subtitle">Join the Foreign Fits team</p>
+      </div>
+
+      <div *ngIf="(authState$ | async)?.error" class="error-container">
+        <div class="error-content">
+          <svg class="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="error-title">Signup Failed</span>
+        </div>
+        <p class="error-message">{{ (authState$ | async)?.error }}</p>
+      </div>
+
+      <div *ngIf="validationError" class="error-container">
+        <div class="error-content">
+          <svg class="error-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span class="error-title">Validation Error</span>
+        </div>
+        <p class="error-message">{{ validationError }}</p>
+      </div>
+
+      <form (ngSubmit)="onSubmit()" #signupForm="ngForm" class="signup-form">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input
+            type="text"
+            required
+            [(ngModel)]="signupData.name"
+            name="name"
+            (input)="clearErrors()"
+            class="form-input"
+            placeholder="Enter your full name"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input
+            type="email"
+            required
+            [(ngModel)]="signupData.email"
+            name="email"
+            (input)="clearErrors()"
+            class="form-input"
+            placeholder="Enter your email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select
+            required
+            [(ngModel)]="signupData.role"
+            name="role"
+            (change)="clearErrors()"
+            class="form-input"
+          >
+            <option value="">Select your role</option>
+            <option value="admin">Administrator</option>
+            <option value="sales">Sales Representative</option>
+            <option value="warehouse">Warehouse Manager</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <div class="password-container">
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              required
+              [(ngModel)]="signupData.password"
+              name="password"
+              (input)="clearErrors()"
+              class="form-input password-input"
+              placeholder="Enter your password"
+            />
+            <button
+              type="button"
+              (click)="showPassword = !showPassword"
+              class="password-toggle"
+            >
+              <svg *ngIf="!showPassword" class="toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+              <svg *ngIf="showPassword" class="toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Confirm Password</label>
+          <div class="password-container">
+            <input
+              [type]="showConfirmPassword ? 'text' : 'password'"
+              required
+              [(ngModel)]="signupData.confirmPassword"
+              name="confirmPassword"
+              (input)="clearErrors()"
+              class="form-input password-input"
+              placeholder="Confirm your password"
+            />
+            <button
+              type="button"
+              (click)="showConfirmPassword = !showConfirmPassword"
+              class="password-toggle"
+            >
+              <svg *ngIf="!showConfirmPassword" class="toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+              <svg *ngIf="showConfirmPassword" class="toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="(authState$ | async)?.isLoading || !signupForm.valid"
+          class="submit-button"
+        >
+          <svg *ngIf="(authState$ | async)?.isLoading" class="submit-spinner" fill="none" viewBox="0 0 24 24">
+            <circle class="spinner-circle" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="spinner-path" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>{{ (authState$ | async)?.isLoading ? 'Creating Account...' : 'Create Account' }}</span>
+        </button>
+      </form>
+
+      <!-- Login Link -->
+      <div class="login-section">
+        <div class="login-content">
+          <p class="login-text">Already have an account?</p>
+          <button (click)="goToLogin()" class="login-link">
+            <span>Sign In</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

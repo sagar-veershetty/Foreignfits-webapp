@@ -1,0 +1,113 @@
+<div class="space-y-6" *ngIf="appState$ | async as appState">
+  <!-- Search and Filter -->
+  <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+    <div class="space-y-4">
+      <!-- Search Bar -->
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        <input
+          type="text"
+          [(ngModel)]="searchTerm"
+          placeholder="Search products by name, SKU, or barcode..."
+          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
+      
+      <!-- Filters -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <select
+          [(ngModel)]="categoryFilter"
+          class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">All Categories</option>
+          <option value="shirts">Shirts</option>
+          <option value="pants">Pants</option>
+          <option value="dresses">Dresses</option>
+          <option value="jackets">Jackets</option>
+          <option value="shoes">Shoes</option>
+          <option value="accessories">Accessories</option>
+        </select>
+        <select
+          [(ngModel)]="locationFilter"
+          class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">All Locations</option>
+          <option *ngFor="let location of appState.locations" [value]="location.id">
+            {{ location.name }} ({{ location.type }})
+          </option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Products List (compact) -->
+  <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
+            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr *ngFor="let product of getFilteredProducts(appState)" class="hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <div class="flex items-center">
+                <div class="h-12 w-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 mr-3">
+                  <img *ngIf="product.imageUrls && product.imageUrls.length > 0; else thumbNoImage"
+                       [src]="product.imageUrls[0]" [alt]="product.name" class="h-full w-full object-cover" />
+                  <ng-template #thumbNoImage>
+                    <div class="h-full w-full flex items-center justify-center">
+                      <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                      </svg>
+                    </div>
+                  </ng-template>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-900 truncate max-w-[240px]">{{ product.name }}</div>
+                  <div class="text-xs text-gray-500 truncate max-w-[240px]">{{ product.description }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-700">{{ product.sku }}</td>
+            <td class="px-4 py-3"><span [class]="getCategoryColor(product.category)">{{ product.category }}</span></td>
+            <td class="px-4 py-3 text-sm text-gray-700">{{ product.size }}</td>
+            <td class="px-4 py-3 text-sm text-gray-700">{{ product.color }}</td>
+            <td class="px-4 py-3 text-sm text-right font-semibold text-green-600">₹{{ product.price.toFixed(2) }}</td>
+            <td class="px-4 py-3 text-right">
+              <span [class]="getStockBadgeClass(product)">{{ product.stock }}</span>
+              <span class="text-xs text-gray-500 ml-1">/ {{ product.minStock }}</span>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-700">{{ product.location?.name }}</td>
+            <td class="px-4 py-3 text-right" *ngIf="canEdit()">
+              <button class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit product">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- No Results -->
+  <div *ngIf="getFilteredProducts(appState).length === 0" class="text-center py-12">
+    <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+    </svg>
+    <p class="text-gray-500">No products found matching your criteria.</p>
+  </div>
+</div>

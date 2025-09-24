@@ -1,0 +1,23 @@
+.loading-container {
+  @apply min-h-screen bg-gray-50 flex items-center justify-center;
+}
+
+.loading-content {
+  @apply text-center;
+}
+
+.loading-spinner {
+  @apply animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4;
+}
+
+.loading-text {
+  @apply text-gray-600;
+}
+
+.main-app {
+  @apply min-h-screen bg-gray-50 overflow-x-hidden;
+}
+
+.main-content {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8;
+}

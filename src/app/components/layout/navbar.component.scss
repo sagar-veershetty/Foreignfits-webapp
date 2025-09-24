@@ -1,0 +1,139 @@
+.navbar {
+  @apply bg-white shadow-lg border-b border-gray-200 relative z-50;
+}
+
+.navbar-container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.navbar-content {
+  @apply flex justify-between items-center h-16;
+}
+
+.brand-section {
+  @apply flex items-center space-x-3 flex-shrink-0;
+}
+
+.brand-logo {
+  @apply h-10 w-10 object-contain rounded-lg;
+}
+
+.brand-text {
+  @apply space-y-0;
+}
+
+.brand-title {
+  @apply text-xl font-bold text-gray-900 whitespace-nowrap;
+}
+
+.brand-subtitle {
+  @apply text-xs text-gray-500 -mt-1 whitespace-nowrap;
+}
+
+.desktop-nav {
+  @apply hidden lg:flex items-center space-x-4;
+}
+
+.nav-tabs {
+  @apply flex space-x-1;
+}
+
+.tab-button {
+  @apply flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200;
+}
+
+.tab-button-active {
+  @apply text-blue-600;
+}
+
+.tab-button-inactive {
+  @apply text-gray-600 hover:bg-gray-100 hover:text-gray-900;
+}
+
+.tab-icon {
+  @apply h-4 w-4;
+}
+
+.tab-label {
+  @apply font-medium;
+}
+
+.user-menu {
+  @apply relative group;
+}
+
+.user-button {
+  @apply flex items-center space-x-2 px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0;
+}
+
+.user-avatar {
+  @apply p-1 bg-blue-600 rounded-full;
+}
+
+.avatar-icon {
+  @apply h-3 w-3 text-white;
+}
+
+.user-info {
+  @apply text-left;
+}
+
+.user-name {
+  @apply text-sm font-medium text-gray-900;
+}
+
+.user-role {
+  @apply text-xs text-gray-500 capitalize;
+}
+
+.dropdown-icon {
+  @apply h-4 w-4 text-gray-500;
+}
+
+.dropdown-menu {
+  @apply absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50;
+}
+
+.dropdown-content {
+  @apply p-2;
+}
+
+.dropdown-header {
+  @apply px-3 py-2 border-b border-gray-100;
+}
+
+.dropdown-section-title {
+  @apply text-xs font-medium text-gray-500 uppercase tracking-wide;
+}
+
+.dropdown-user-info {
+  @apply px-3 py-2 border-b border-gray-100;
+}
+
+.dropdown-user-name {
+  @apply text-sm font-medium text-gray-900;
+}
+
+.dropdown-user-email {
+  @apply text-xs text-gray-500;
+}
+
+.dropdown-user-access {
+  @apply text-xs text-blue-600 capitalize mt-1;
+}
+
+.logout-button {
+  @apply w-full text-left px-3 py-2 rounded-md hover:bg-red-50 text-red-600 transition-colors;
+}
+
+.logout-icon-container {
+  @apply p-1 bg-red-100 rounded-full inline-block mr-2;
+}
+
+.logout-icon {
+  @apply h-3 w-3 text-red-600;
+}
+
+.logout-text {
+  @apply text-sm font-medium;
+}

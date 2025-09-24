@@ -1,0 +1,20 @@
+<div *ngIf="authState$ | async as authState">
+  <!-- Loading State -->
+  <div *ngIf="authState.isLoading" class="loading-container">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading Foreign Fits...</p>
+    </div>
+  </div>
+
+  <!-- Login Page -->
+  <app-login *ngIf="!authState.isAuthenticated && !authState.isLoading"></app-login>
+
+  <!-- Main App -->
+  <div *ngIf="authState.isAuthenticated && !authState.isLoading" class="main-app">
+    <app-navbar></app-navbar>
+    <main class="main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
