@@ -62,7 +62,7 @@ export class NavbarComponent {
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    public router: Router
   ) {
     this.authState$ = this.authService.authState$;
   }

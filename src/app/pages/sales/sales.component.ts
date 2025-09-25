@@ -4,12 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Product, SaleItem } from '../../core/models';
+import { Product, SaleItem, Sale } from '../../core/models';
+import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
+import { ReceiptPrinterComponent } from '../../components/sales/receipt-printer.component';
 
 @Component({
   selector: 'app-sales',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BarcodeInputComponent, ReceiptPrinterComponent],
   templateUrl: './sales.component.html'
 })
 export class SalesComponent {
@@ -17,12 +19,23 @@ export class SalesComponent {
   searchTerm = '';
   customerName = '';
   paymentMethod: 'cash' | 'card' | 'other' = 'cash';
+  completedSale: Sale | null = null;
+  private imageIndex: Record<string, number> = {};
 
   constructor(
     private appService: AppService,
     private authService: AuthService
   ) {
     this.appState$ = this.appService.appState$;
+  }
+
+  // Template helpers for strict mode
+  hasImages(product: Product): boolean {
+    return !!(product.imageUrls && product.imageUrls.length > 0);
+  }
+
+  getFirstImage(product: Product): string | undefined {
+    return product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls[0] : undefined;
   }
 
   getFilteredProducts(appState: AppState): Product[] {
@@ -94,8 +107,8 @@ export class SalesComponent {
     };
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
-      next: () => {
-        alert('Sale completed successfully!');
+      next: (sale) => {
+        this.completedSale = sale as unknown as Sale;
         this.customerName = '';
         this.searchTerm = '';
       },
@@ -113,5 +126,47 @@ export class SalesComponent {
         }
       }
     });
+  }
+
+  onBarcodeScan(code: string): void {
+    const state = this.appService.appStateBehaviorSubject.value;
+    this.searchTerm = code;
+    const product = state.products.find((p: Product) => p.barcode === code && p.stock > 0);
+    if (product) {
+      this.addToSale(product);
+      this.searchTerm = '';
+    }
+  }
+
+  // Simple per-card image carousel helpers
+  hasMultipleImages(product: Product): boolean {
+    return !!(product.imageUrls && product.imageUrls.length > 1);
+  }
+
+  nextImage(product: Product): void {
+    if (!product.imageUrls || product.imageUrls.length <= 1) return;
+    const cur = this.imageIndex[product.id] || 0;
+    this.imageIndex[product.id] = (cur + 1) % product.imageUrls.length;
+  }
+
+  prevImage(product: Product): void {
+    if (!product.imageUrls || product.imageUrls.length <= 1) return;
+    const cur = this.imageIndex[product.id] || 0;
+    this.imageIndex[product.id] = (cur - 1 + product.imageUrls.length) % product.imageUrls.length;
+  }
+
+  currentImage(product: Product): string | undefined {
+    if (!product.imageUrls || product.imageUrls.length === 0) return undefined;
+    const idx = this.imageIndex[product.id] || 0;
+    return product.imageUrls[idx] || product.imageUrls[0];
+  }
+
+  currentImageNo(product: Product): number {
+    const idx = this.imageIndex[product.id] || 0;
+    return (idx + 1);
+  }
+
+  imageCount(product: Product): number {
+    return product.imageUrls ? product.imageUrls.length : 0;
   }
 }

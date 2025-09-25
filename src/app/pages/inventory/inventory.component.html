@@ -93,64 +93,89 @@
     <button (click)="clearLowStockFilter()" class="ml-2 underline hover:no-underline">Clear</button>
   </div>
 
-  <!-- Products List (compact) -->
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="overflow-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50 sticky top-0 z-10">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Color</th>
-            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-100">
-          <tr *ngFor="let product of getFilteredProducts(appState)" class="hover:bg-gray-50">
-            <td class="px-4 py-3 align-middle">
-              <div class="flex items-center">
-                <div class="h-14 w-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 mr-3">
-                  <img *ngIf="product.imageUrls && product.imageUrls.length > 0; else thumbNoImage"
-                       [src]="product.imageUrls[0]" [alt]="product.name" class="h-full w-full object-cover" />
-                  <ng-template #thumbNoImage>
-                    <div class="h-full w-full flex items-center justify-center">
-                      <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                      </svg>
-                    </div>
-                  </ng-template>
-                </div>
-                <div>
-                  <div class="text-sm font-semibold text-gray-900 truncate max-w-[240px]">{{ product.name }}</div>
-                  <div class="text-xs text-gray-500 truncate max-w-[360px]">{{ product.description }}</div>
-                </div>
-              </div>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-700">{{ product.sku }}</td>
-            <td class="px-4 py-3"><span [class]="getCategoryColor(product.category)">{{ product.category }}</span></td>
-            <td class="px-4 py-3 text-sm text-gray-700">{{ product.size }}</td>
-            <td class="px-4 py-3 text-sm text-gray-700">{{ product.color }}</td>
-            <td class="px-4 py-3 text-sm text-right font-semibold text-green-600">₹{{ product.price.toFixed(2) }}</td>
-            <td class="px-4 py-3 text-right">
-              <span [class]="getStockBadgeClass(product)">{{ product.stock }}</span>
-              <span class="text-xs text-gray-500 ml-1">/ {{ product.minStock }}</span>
-            </td>
-            <td class="px-4 py-3 text-sm text-gray-700">{{ product.location?.name }}</td>
-            <td class="px-4 py-3 text-right" *ngIf="canEdit()">
-              <button (click)="onEdit(product)" class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit product">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                </svg>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <!-- Toolbar: filter + barcodes + print -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-3 flex flex-wrap items-center gap-3">
+    <div class="relative flex-1 min-w-[240px]">
+      <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+        <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke-width="1.6"/><path stroke-linecap="round" stroke-width="1.6" d="M20 20l-3.5-3.5"/></svg>
+      </div>
+      <input type="text" [(ngModel)]="searchTerm" placeholder="Search products by name, SKU, or barcode..."
+             class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+    </div>
+    <select [(ngModel)]="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-lg">
+      <option value="all">All Categories</option>
+      <option value="shirts">Shirts</option>
+      <option value="pants">Pants</option>
+      <option value="dresses">Dresses</option>
+      <option value="jackets">Jackets</option>
+      <option value="shoes">Shoes</option>
+      <option value="accessories">Accessories</option>
+    </select>
+    <select [(ngModel)]="locationFilter" class="px-3 py-2 border border-gray-300 rounded-lg">
+      <option value="all">All Locations</option>
+      <option *ngFor="let location of appState.locations" [value]="location.id">{{ location.name }} ({{ location.type }})</option>
+    </select>
+    <span class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hidden sm:inline">Barcodes</span>
+    <button (click)="printFilteredBarcodes()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H5a2 2 0 01-2-2v-5a2 2 0 012-2h14a2 2 0 012 2v5a2 2 0 01-2 2h-1M9 14h6m-9 4h12v4H6v-4z"/></svg>
+      <span>Print</span>
+    </button>
+  </div>
+
+  <!-- Card Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div *ngFor="let product of getFilteredProducts(appState)" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <!-- Image carousel (simple) -->
+      <div class="relative h-44 bg-gray-100">
+        <img *ngIf="hasAnyImages(product); else noImg" [src]="getImage(product)" [alt]="product.name" class="w-full h-full object-cover" />
+        <ng-template #noImg>
+          <div class="w-full h-full flex items-center justify-center text-gray-400">
+            <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+        </ng-template>
+        <div *ngIf="hasMultipleImages(product)" class="absolute inset-y-0 left-0 flex items-center">
+          <button (click)="prevImage(product)" class="m-2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center">‹</button>
+        </div>
+        <div *ngIf="hasMultipleImages(product)" class="absolute inset-y-0 right-0 flex items-center">
+          <button (click)="nextImage(product)" class="m-2 h-8 w-8 rounded-full bg-white/80 hover:bg-white shadow flex items-center justify-center">›</button>
+        </div>
+        <div class="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full bg-black/60 text-white" *ngIf="hasAnyImages(product)">{{ currentImageNo(product) }} / {{ imageCount(product) }}</div>
+        <div class="absolute top-2 right-2 flex gap-1" *ngIf="canEdit()">
+          <button (click)="printBarcode(product)" title="Print" class="p-2 bg-white/90 rounded-lg hover:bg-white shadow">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H5a2 2 0 01-2-2v-5a2 2 0 012-2h14a2 2 0 012 2v5a2 2 0 01-2 2h-1M9 14h6m-9 4h12v4H6v-4z"/></svg>
+          </button>
+          <button (click)="onEdit(product)" title="Edit" class="p-2 bg-white/90 rounded-lg hover:bg-white shadow">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- Body -->
+      <div class="p-4">
+        <div class="flex items-center justify-between">
+          <div class="text-xs">
+            <span [class]="getCategoryColor(product.category)">{{ product.category }}</span>
+            <span class="ml-2 text-gray-500">{{ product.sku }}</span>
+          </div>
+        </div>
+        <h3 class="mt-2 text-base font-semibold text-gray-900">{{ product.name }}</h3>
+        <p class="text-sm text-gray-600 line-clamp-2">{{ product.description }}</p>
+
+        <div class="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <div><span class="text-gray-500">Size:</span> <span class="font-medium">{{ product.size }}</span></div>
+          <div><span class="text-gray-500">Color:</span> <span class="font-medium">{{ product.color }}</span></div>
+          <div class="col-span-2"><span class="text-gray-500">Location:</span> <span class="font-medium">{{ product.location.name }}</span></div>
+          <div><span class="text-gray-500">Price:</span> <span class="font-semibold text-green-600">₹{{ product.price.toFixed(2) }}</span></div>
+          <div><span class="text-gray-500">Wholesale (100+):</span> <span class="font-semibold text-green-600">₹{{ product.wholesalePrice.toFixed(2) }}</span></div>
+        </div>
+
+        <div class="mt-3" [class]="getStockStatusClass(product)">
+          <span class="text-sm font-medium text-gray-700">Stock:</span>
+          <div class="text-right">
+            <span [class]="getStockTextClass(product)">{{ product.stock }}</span>
+            <span class="text-xs text-gray-500 ml-1">/ {{ product.minStock }} min</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

@@ -6,6 +6,7 @@ import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product } from '../../core/models';
 import { Router } from '@angular/router';
+import * as JsBarcode from 'jsbarcode';
 
 @Component({
   selector: 'app-inventory',
@@ -19,6 +20,8 @@ export class InventoryComponent {
   categoryFilter = 'all';
   locationFilter = 'all';
   lowStockOnly = false;
+  // simple per-card image index (not persisted)
+  private imageIndex: Record<string, number> = {};
 
   constructor(
     private appService: AppService,
@@ -27,6 +30,7 @@ export class InventoryComponent {
   ) {
     this.appState$ = this.appService.appState$;
   }
+
 
   getFilteredProducts(appState: AppState): Product[] {
     return appState.products.filter(product => {
@@ -59,6 +63,70 @@ export class InventoryComponent {
 
   getFilteredLowStockCount(appState: AppState): number {
     return this.getFilteredProducts(appState).filter(p => p.stock <= p.minStock).length;
+  }
+
+  // Barcode/Label printing
+  printBarcode(product: Product): void {
+    const code = product.barcode || product.sku || product.id;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    try {
+      JsBarcode(svg, code, { format: 'CODE128', width: 2, height: 48, displayValue: false, margin: 0 });
+    } catch (e) {
+      // Fallback to CODE39 if CODE128 fails
+      try { JsBarcode(svg, code, { format: 'CODE39', width: 2, height: 48, displayValue: false, margin: 0 }); } catch {}
+    }
+    const svgMarkup = new XMLSerializer().serializeToString(svg);
+
+    const name = product.name || '';
+    const sku = product.sku || '';
+    const size = product.size || '';
+    const color = product.color || '';
+    const price = `₹${(product.price ?? 0).toFixed(2)}`;
+    const location = product.location?.name || '';
+
+    const labelHtml = `
+      <div class="label">
+        <div class="row top">
+          <div class="name">${this.escapeHtml(name)}</div>
+          <div class="price">${this.escapeHtml(price)}</div>
+        </div>
+        <div class="meta">SKU: ${this.escapeHtml(sku)} • ${this.escapeHtml(size)} • ${this.escapeHtml(color)}${location ? ' • ' + this.escapeHtml(location) : ''}</div>
+        <div class="barcode">${svgMarkup}</div>
+      </div>
+    `;
+
+    const win = window.open('', '', 'width=600,height=400');
+    if (!win) return;
+    win.document.open();
+    win.document.write(`
+      <html>
+        <head>
+          <title>Print Label</title>
+          <style>
+            @page { size: 62mm 30mm; margin: 3mm; }
+            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+            .label { width: 56mm; height: 24mm; display: flex; flex-direction: column; justify-content: space-between; }
+            .row.top { display:flex; justify-content: space-between; align-items: baseline; }
+            .name { font-size: 10pt; font-weight: 600; max-width: 42mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .price { font-size: 10pt; font-weight: 700; }
+            .meta { font-size: 8pt; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .barcode svg { width: 100%; height: 18mm; }
+            @media print { .label { page-break-after: always; } }
+          </style>
+        </head>
+        <body>${labelHtml}
+          <script>
+            window.onload = function(){ window.print(); setTimeout(function(){ window.close(); }, 200); };
+          <\/script>
+        </body>
+      </html>
+    `);
+    win.document.close();
+  }
+
+  private escapeHtml(text: string): string {
+    const map: any = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, (m) => map[m]);
   }
 
   getCategoryColor(category: string): string {
@@ -115,5 +183,49 @@ export class InventoryComponent {
 
   clearLowStockFilter(): void {
     this.lowStockOnly = false;
+  }
+
+  // Print all filtered products barcodes (first image index not relevant)
+  printFilteredBarcodes(): void {
+    const state = this.appService.appStateBehaviorSubject.value;
+    const products = this.getFilteredProducts(state);
+    products.forEach(p => this.printBarcode(p));
+  }
+
+  // image helpers for card (optional nav)
+  getImage(product: Product): string | undefined {
+    const idx = this.imageIndex[product.id] || 0;
+    return product.imageUrls && product.imageUrls[idx] ? product.imageUrls[idx] : product.imageUrls?.[0];
+  }
+
+  nextImage(product: Product): void {
+    if (!product.imageUrls || product.imageUrls.length <= 1) return;
+    const current = this.imageIndex[product.id] || 0;
+    this.imageIndex[product.id] = (current + 1) % product.imageUrls.length;
+  }
+
+  prevImage(product: Product): void {
+    if (!product.imageUrls || product.imageUrls.length <= 1) return;
+    const current = this.imageIndex[product.id] || 0;
+    this.imageIndex[product.id] = (current - 1 + product.imageUrls.length) % product.imageUrls.length;
+  }
+
+  // Template guards/helpers for strict mode
+  hasAnyImages(product: Product): boolean {
+    return !!(product.imageUrls && product.imageUrls.length > 0);
+  }
+
+  hasMultipleImages(product: Product): boolean {
+    return !!(product.imageUrls && product.imageUrls.length > 1);
+  }
+
+  imageCount(product: Product): number {
+    return product.imageUrls ? product.imageUrls.length : 0;
+  }
+
+  currentImageNo(product: Product): number {
+    const count = this.imageCount(product);
+    const idx = this.imageIndex[product.id] || 0;
+    return Math.min(idx + 1, count || 1);
   }
 }

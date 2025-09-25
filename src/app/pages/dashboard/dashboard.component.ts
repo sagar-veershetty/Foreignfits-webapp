@@ -81,4 +81,41 @@ export class DashboardComponent implements OnInit, OnDestroy {
   navigateTo(route: string): void {
     this.router.navigate([route]);
   }
+
+  getTopCategories(appState: AppState): Array<{ name: string; count: number; color: string }> {
+    const counts: Record<string, number> = {};
+    appState.sales.forEach(s => s.items.forEach(it => {
+      const cat = it.product.category;
+      counts[cat] = (counts[cat] || 0) + it.quantity;
+    }));
+    // Fallback: if no sales, show categories from products with 0
+    if (Object.keys(counts).length === 0) {
+      appState.products.forEach(p => { counts[p.category] = counts[p.category] || 0; });
+    }
+    const palette: Record<string, string> = {
+      shirts: 'bg-purple-500',
+      accessories: 'bg-pink-500',
+      pants: 'bg-green-500',
+      dresses: 'bg-yellow-500',
+      jackets: 'bg-slate-500',
+      shoes: 'bg-emerald-500'
+    };
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count, color: palette[name] || 'bg-gray-400' }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  }
+
+  getLowStockProducts(appState: AppState) {
+    return appState.products
+      .filter(p => p.stock <= p.minStock)
+      .sort((a, b) => (a.stock - a.minStock) - (b.stock - b.minStock))
+      .slice(0, 3);
+  }
+
+  getRecentTransactions(appState: AppState) {
+    return [...appState.sales]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 3);
+  }
 }

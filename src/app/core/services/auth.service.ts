@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { catchError, tap } from 'rxjs/operators';
 import { User } from '../models';
 import { environment } from '../../../environments/environment';
@@ -76,6 +76,29 @@ export class AuthService {
             isLoading: false,
             error: error.error?.error || 'Login failed'
           });
+          return throwError(() => error);
+        })
+      );
+  }
+
+  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse'): Observable<any> {
+    this.updateAuthState({ ...this.authStateSubject.value, isLoading: true, error: null });
+
+    const body = new HttpParams()
+      .set('name', name)
+      .set('email', email)
+      .set('password', password)
+      .set('role', role.toUpperCase());
+
+    const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' });
+
+    return this.http.post<any>(`${this.API_BASE_URL}/auth/register`, body.toString(), { headers })
+      .pipe(
+        tap(() => {
+          this.updateAuthState({ ...this.authStateSubject.value, isLoading: false, error: null });
+        }),
+        catchError(error => {
+          this.updateAuthState({ ...this.authStateSubject.value, isLoading: false, error: error.error?.error || 'Signup failed' });
           return throwError(() => error);
         })
       );

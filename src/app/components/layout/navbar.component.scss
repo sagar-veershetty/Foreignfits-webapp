@@ -59,7 +59,7 @@
 }
 
 .user-menu {
-  @apply relative group;
+  @apply relative; /* group class is applied in template, not via @apply */
 }
 
 .user-button {

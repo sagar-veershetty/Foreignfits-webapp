@@ -1,6 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  // Scan Angular templates and TS (for inline templates/classes)
+  content: [
+    './index.html',
+    './src/**/*.{html,ts}',
+  ],
   theme: {
     extend: {},
   },

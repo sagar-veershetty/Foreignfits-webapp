@@ -27,22 +27,47 @@ export const routes: Routes = [
   { 
     path: 'sales', 
     loadComponent: () => import('./pages/sales/sales.component').then(m => m.SalesComponent),
-    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales'] }
   },
   { 
     path: 'add-product', 
     loadComponent: () => import('./pages/add-product/add-product.component').then(m => m.AddProductComponent),
-    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','warehouse'] }
   },
   { 
     path: 'stock-movement', 
     loadComponent: () => import('./pages/stock-movement/stock-movement.component').then(m => m.StockMovementComponent),
-    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','warehouse'] }
   },
   { 
     path: 'sales-history', 
     loadComponent: () => import('./pages/sales-history/sales-history.component').then(m => m.SalesHistoryComponent),
-    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales'] }
+  },
+  { 
+    path: 'sales-analytics', 
+    loadComponent: () => import('./pages/sales-analytics/sales-analytics.component').then(m => m.SalesAnalyticsComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales'] }
   },
   { 
     path: 'customer', 

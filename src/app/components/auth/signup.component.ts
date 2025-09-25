@@ -56,9 +56,20 @@ export class SignupComponent {
       return;
     }
 
-    // For now, show success message since backend signup isn't implemented
-    alert('Account creation is not yet implemented. Please use the demo accounts on the login page.');
-    this.goToLogin();
+    this.authService.register(
+      this.signupData.name.trim(),
+      this.signupData.email.trim(),
+      this.signupData.password,
+      this.signupData.role
+    ).subscribe({
+      next: () => {
+        alert('Account created successfully. You can now sign in.');
+        this.goToLogin();
+      },
+      error: (err) => {
+        console.error('Signup failed', err);
+      }
+    });
   }
 
   clearErrors(): void {
