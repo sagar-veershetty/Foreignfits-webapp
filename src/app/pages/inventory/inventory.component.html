@@ -1,12 +1,15 @@
-<div class="space-y-6" *ngIf="appState$ | async as appState">
+<div class="max-w-7xl mx-auto px-4 space-y-6" *ngIf="appState$ | async as appState">
   <!-- Search and Filter -->
-  <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+  <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100">
     <div class="space-y-4">
       <!-- Search Bar -->
       <div class="relative">
-        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-        </svg>
+        <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+          <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7" stroke-width="1.6"></circle>
+            <path stroke-linecap="round" stroke-width="1.6" d="M20 20l-3.5-3.5"></path>
+          </svg>
+        </div>
         <input
           type="text"
           [(ngModel)]="searchTerm"
@@ -42,11 +45,59 @@
     </div>
   </div>
 
+  <!-- Summary (single row, scrollable on small screens) -->
+  <div class="overflow-x-auto">
+    <div class="flex flex-nowrap gap-3 md:gap-4">
+      <div class="min-w-[220px] bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center justify-between">
+        <div>
+        <div class="text-sm text-gray-500">Products</div>
+        <div class="mt-1 text-2xl font-semibold text-gray-900">{{ getFilteredCount(appState) | number }}</div>
+        </div>
+        <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      </div>
+      <div class="min-w-[220px] bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center justify-between">
+        <div>
+        <div class="text-sm text-gray-500">Total Quantity</div>
+        <div class="mt-1 text-2xl font-semibold text-gray-900">{{ getFilteredTotalStock(appState) | number }}</div>
+        </div>
+        <svg class="h-6 w-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h18M3 12h18M3 21h18"/></svg>
+      </div>
+      <div class="min-w-[220px] bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center justify-between">
+        <div>
+        <div class="text-sm text-gray-500">Inventory Value (Retail)</div>
+        <div class="mt-1 text-2xl font-semibold text-green-700">₹{{ getFilteredInventoryValueRetail(appState) | number:'1.2-2' }}</div>
+        </div>
+      </div>
+      <div class="min-w-[220px] bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center justify-between">
+        <div>
+        <div class="text-sm text-gray-500">Inventory Value (Cost)</div>
+        <div class="mt-1 text-2xl font-semibold text-emerald-700 text-green-700" >₹{{ getFilteredInventoryValueCost(appState) | number:'1.2-2' }}</div>
+        </div>
+      </div>
+      <div class="min-w-[220px] bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex items-center justify-between cursor-pointer hover:border-amber-300" (click)="showLowStock()" role="button" tabindex="0">
+        <div>
+          <div class="text-sm text-gray-500">Low Stock Items</div>
+          <div class="mt-1 text-2xl font-semibold" [class]="getFilteredLowStockCount(appState) > 0 ? 'text-amber-600' : 'text-gray-900'">
+            {{ getFilteredLowStockCount(appState) | number }}
+          </div>
+        </div>
+        <svg class="h-6 w-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 5c-.77-1.33-2.7-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active low stock filter banner -->
+  <div *ngIf="lowStockOnly" class="flex items-center gap-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 rounded-lg w-fit">
+    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 5c-.77-1.33-2.7-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>
+    <span>Showing low stock items only</span>
+    <button (click)="clearLowStockFilter()" class="ml-2 underline hover:no-underline">Clear</button>
+  </div>
+
   <!-- Products List (compact) -->
-  <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-    <div class="overflow-x-auto">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-auto">
       <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
+        <thead class="bg-gray-50 sticky top-0 z-10">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
@@ -59,24 +110,24 @@
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
+        <tbody class="bg-white divide-y divide-gray-100">
           <tr *ngFor="let product of getFilteredProducts(appState)" class="hover:bg-gray-50">
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 align-middle">
               <div class="flex items-center">
-                <div class="h-10 w-10 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 mr-3">
+                <div class="h-14 w-20 rounded-md overflow-hidden bg-gray-100 flex-shrink-0 mr-3">
                   <img *ngIf="product.imageUrls && product.imageUrls.length > 0; else thumbNoImage"
-                       [src]="product.imageUrls[0]" [alt]="product.name" class="h-full w-full object-contain" />
+                       [src]="product.imageUrls[0]" [alt]="product.name" class="h-full w-full object-cover" />
                   <ng-template #thumbNoImage>
                     <div class="h-full w-full flex items-center justify-center">
-                      <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                       </svg>
                     </div>
                   </ng-template>
                 </div>
                 <div>
-                  <div class="text-sm font-medium text-gray-900 truncate max-w-[240px]">{{ product.name }}</div>
-                  <div class="text-xs text-gray-500 truncate max-w-[240px]">{{ product.description }}</div>
+                  <div class="text-sm font-semibold text-gray-900 truncate max-w-[240px]">{{ product.name }}</div>
+                  <div class="text-xs text-gray-500 truncate max-w-[360px]">{{ product.description }}</div>
                 </div>
               </div>
             </td>

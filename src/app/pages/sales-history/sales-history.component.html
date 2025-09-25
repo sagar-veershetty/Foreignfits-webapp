@@ -101,6 +101,19 @@
             </td>
           </tr>
         </tbody>
+        <tfoot class="bg-gray-50 border-t border-gray-200">
+          <tr>
+            <td class="px-6 py-3" colspan="3"></td>
+            <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-700">
+              {{ getFilteredItemsCount(appState) }} items
+            </td>
+            <td class="px-6 py-3"></td>
+            <td class="px-6 py-3 whitespace-nowrap text-sm font-bold text-green-700">
+              ₹{{ getFilteredRevenue(appState) | number:'1.2-2' }}
+              <span class="text-gray-500 text-xs ml-2">({{ getFilteredCount(appState) }} sales)</span>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>

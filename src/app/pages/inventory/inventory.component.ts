@@ -18,6 +18,7 @@ export class InventoryComponent {
   searchTerm = '';
   categoryFilter = 'all';
   locationFilter = 'all';
+  lowStockOnly = false;
 
   constructor(
     private appService: AppService,
@@ -34,8 +35,30 @@ export class InventoryComponent {
                            (product.barcode && product.barcode.includes(this.searchTerm));
       const matchesCategory = this.categoryFilter === 'all' || product.category === this.categoryFilter;
       const matchesLocation = this.locationFilter === 'all' || product.locationId === this.locationFilter;
-      return matchesSearch && matchesCategory && matchesLocation;
+      const matchesLowStock = !this.lowStockOnly || product.stock <= product.minStock;
+      return matchesSearch && matchesCategory && matchesLocation && matchesLowStock;
     });
+  }
+
+  // Summary helpers (computed over the filtered list)
+  getFilteredCount(appState: AppState): number {
+    return this.getFilteredProducts(appState).length;
+  }
+
+  getFilteredTotalStock(appState: AppState): number {
+    return this.getFilteredProducts(appState).reduce((sum, p) => sum + (p.stock || 0), 0);
+  }
+
+  getFilteredInventoryValueRetail(appState: AppState): number {
+    return this.getFilteredProducts(appState).reduce((sum, p) => sum + (p.stock || 0) * (p.price || 0), 0);
+  }
+
+  getFilteredInventoryValueCost(appState: AppState): number {
+    return this.getFilteredProducts(appState).reduce((sum, p) => sum + (p.stock || 0) * (p.cost || 0), 0);
+  }
+
+  getFilteredLowStockCount(appState: AppState): number {
+    return this.getFilteredProducts(appState).filter(p => p.stock <= p.minStock).length;
   }
 
   getCategoryColor(category: string): string {
@@ -84,5 +107,13 @@ export class InventoryComponent {
   onEdit(product: Product): void {
     if (!this.canEdit()) return;
     this.router.navigate(['/add-product'], { queryParams: { id: product.id } });
+  }
+
+  showLowStock(): void {
+    this.lowStockOnly = true;
+  }
+
+  clearLowStockFilter(): void {
+    this.lowStockOnly = false;
   }
 }

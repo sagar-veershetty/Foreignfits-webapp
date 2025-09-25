@@ -69,4 +69,16 @@ export class SalesHistoryComponent {
 
     return sales;
   }
+
+  getFilteredCount(appState: AppState): number {
+    return this.getFilteredSales(appState).length;
+  }
+
+  getFilteredItemsCount(appState: AppState): number {
+    return this.getFilteredSales(appState).reduce((sum, s) => sum + (s.items?.length || 0), 0);
+  }
+
+  getFilteredRevenue(appState: AppState): number {
+    return this.getFilteredSales(appState).reduce((sum, s) => sum + (s.total || 0), 0);
+  }
 }
