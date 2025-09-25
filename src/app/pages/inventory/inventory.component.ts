@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product } from '../../core/models';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-inventory',
@@ -20,7 +21,8 @@ export class InventoryComponent {
 
   constructor(
     private appService: AppService,
-    private authService: AuthService
+    private authService: AuthService,
+    private router: Router
   ) {
     this.appState$ = this.appService.appState$;
   }
@@ -77,5 +79,10 @@ export class InventoryComponent {
   canEdit(): boolean {
     const user = this.authService.getCurrentUser();
     return user?.role === 'admin' || user?.role === 'warehouse';
+  }
+
+  onEdit(product: Product): void {
+    if (!this.canEdit()) return;
+    this.router.navigate(['/add-product'], { queryParams: { id: product.id } });
   }
 }

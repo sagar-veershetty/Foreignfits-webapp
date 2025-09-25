@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, throwError, forkJoin, of } from 'rxjs';
+import { BehaviorSubject, Observable, throwError, forkJoin, of, interval, Subscription } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { catchError, tap, map } from 'rxjs/operators';
 import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment } from '../models';
@@ -21,6 +21,7 @@ export interface AppState {
 })
 export class AppService {
   private readonly API_BASE_URL = environment.apiUrl;
+  private autoRefreshSub?: Subscription;
   
   private _appStateSubject = new BehaviorSubject<AppState>({
     products: [],
@@ -156,19 +157,16 @@ export class AppService {
     return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales`)
       .pipe(
         tap(apiSales => {
-          const sales = apiSales.map(this.convertApiSaleToSale);
+          const sales = apiSales.map(s => this.convertApiSaleToSale(s));
           this.updateAppState({
             ...this._appStateSubject.value,
             sales
           });
         }),
         catchError(error => {
-          console.warn('Failed to load sales from API:', error);
-          this.updateAppState({
-            ...this._appStateSubject.value,
-            sales: []
-          });
-          return new Observable<Sale[]>(observer => observer.next([]));
+          console.warn('Failed to load sales from API (keeping existing list):', error);
+          // Keep existing sales to avoid wiping dashboard stats
+          return new Observable<Sale[]>(observer => observer.next(this._appStateSubject.value.sales));
         })
       );
   }
@@ -177,7 +175,7 @@ export class AppService {
     return this.http.get<StockMovement[]>(`${this.API_BASE_URL}/stock/movements`)
       .pipe(
         tap(apiMovements => {
-          const movements = apiMovements.map(this.convertApiStockMovementToStockMovement);
+          const movements = apiMovements.map(m => this.convertApiStockMovementToStockMovement(m));
           this.updateAppState({
             ...this._appStateSubject.value,
             stockMovements: movements
@@ -215,6 +213,25 @@ export class AppService {
             isLoading: false,
             error: 'Failed to create product'
           });
+          return throwError(() => error);
+        })
+      );
+  }
+
+  updateProduct(id: string, product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Observable<Product> {
+    this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
+
+    const request = this.convertProductToCreateRequest(product);
+    return this.http.put<Product>(`${this.API_BASE_URL}/products/${parseInt(id)}`, request)
+      .pipe(
+        tap(apiProduct => {
+          const updated = this.convertApiProductToProduct(apiProduct);
+          const currentState = this._appStateSubject.value;
+          const products = currentState.products.map(p => p.id === id ? updated : p);
+          this.updateAppState({ ...currentState, products, isLoading: false });
+        }),
+        catchError(error => {
+          this.updateAppState({ ...this._appStateSubject.value, isLoading: false, error: 'Failed to update product' });
           return throwError(() => error);
         })
       );
@@ -289,6 +306,9 @@ export class AppService {
             currentSale: [],
             products: updatedProducts
           });
+
+          // Refresh sales from backend to ensure dashboard stats are up-to-date
+          this.loadSales().subscribe();
         }),
         catchError(error => {
           this.updateAppState({
@@ -298,6 +318,22 @@ export class AppService {
           return throwError(() => error);
         })
       );
+  }
+
+  // Auto-refresh utilities (for live-updating dashboards)
+  startAutoRefresh(intervalMs: number = 15000): void {
+    this.stopAutoRefresh();
+    this.autoRefreshSub = interval(intervalMs).subscribe(() => {
+      // Light-weight refresh: sales only (stats depend on it)
+      this.loadSales().subscribe();
+    });
+  }
+
+  stopAutoRefresh(): void {
+    if (this.autoRefreshSub) {
+      this.autoRefreshSub.unsubscribe();
+      this.autoRefreshSub = undefined;
+    }
   }
 
   private updateAppState(newState: AppState): void {
@@ -344,7 +380,7 @@ export class AppService {
   private convertApiSaleToSale(apiSale: any): Sale {
     return {
       id: apiSale.id.toString(),
-      items: apiSale.items.map((item: any) => ({
+      items: (apiSale.items || []).map((item: any) => ({
         productId: item.product.id.toString(),
         product: this.convertApiProductToProduct(item.product),
         quantity: item.quantity,
@@ -359,7 +395,7 @@ export class AppService {
       customerEmail: apiSale.customerEmail,
       soldBy: apiSale.soldBy.name,
       soldById: apiSale.soldBy.id.toString(),
-      createdAt: new Date(apiSale.createdAt),
+      createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
     };
   }
 

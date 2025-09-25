@@ -81,6 +81,12 @@ export class SalesComponent {
 
   completeSale(appState: AppState): void {
     if (appState.currentSale.length === 0) return;
+    // Permission check: only admin or sales can complete a sale
+    const user = this.authService.getCurrentUser();
+    if (!user || (user.role !== 'admin' && user.role !== 'sales')) {
+      alert("You don't have permission to complete sales. Please sign in as Sales or Admin.");
+      return;
+    }
 
     const saleData = {
       paymentMethod: this.paymentMethod,
@@ -93,8 +99,18 @@ export class SalesComponent {
         this.customerName = '';
         this.searchTerm = '';
       },
-      error: () => {
-        alert('Failed to complete sale. Please try again.');
+      error: (err) => {
+        const status = err?.status;
+        if (status === 401) {
+          alert('Session expired. Please log in again.');
+        } else if (status === 403) {
+          alert("You don't have permission to complete sales. Please sign in as Sales or Admin.");
+        } else if (status === 400) {
+          const message = err?.error?.message || err?.error?.error || 'Request invalid.';
+          alert(`Failed to complete sale: ${message}`);
+        } else {
+          alert('Failed to complete sale. Please try again.');
+        }
       }
     });
   }

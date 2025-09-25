@@ -215,6 +215,23 @@ public class SaleService {
             productDto.setImageUrls(product.getImageUrls());
             productDto.setCreatedAt(product.getCreatedAt());
             productDto.setUpdatedAt(product.getUpdatedAt());
+            // Include location details to match ProductDto shape used by frontend
+            if (product.getLocation() != null) {
+                Location location = product.getLocation();
+                LocationDto locationDto = new LocationDto();
+                locationDto.setId(location.getId());
+                locationDto.setName(location.getName());
+                locationDto.setType(location.getType());
+                locationDto.setAddress(location.getAddress());
+                locationDto.setCity(location.getCity());
+                locationDto.setState(location.getState());
+                locationDto.setZipCode(location.getZipCode());
+                locationDto.setPhone(location.getPhone());
+                locationDto.setManager(location.getManager());
+                locationDto.setCapacity(location.getCapacity());
+                locationDto.setIsActive(location.getIsActive());
+                productDto.setLocation(locationDto);
+            }
             dto.setProduct(productDto);
         }
         

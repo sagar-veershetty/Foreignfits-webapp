@@ -1,8 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { Product, Location } from '../../core/models';
 
@@ -14,7 +14,7 @@ import { Product, Location } from '../../core/models';
     <div class="max-w-2xl mx-auto">
       <div class="bg-white p-8 rounded-xl shadow-md border border-gray-100">
         <div class="mb-6">
-          <h2 class="text-2xl font-bold text-gray-900">Add New Product</h2>
+          <h2 class="text-2xl font-bold text-gray-900">{{ isEditMode ? 'Edit Product' : 'Add New Product' }}</h2>
           <p class="text-gray-600 mt-1">Foreign Fits - Global Fashion Collection</p>
         </div>
 
@@ -257,7 +257,7 @@ import { Product, Location } from '../../core/models';
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h2m0 0h9a2 2 0 002-2v-9a2 2 0 00-2-2h-2m0 0V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0h4"></path>
               </svg>
-              <span>Add Product</span>
+              <span>{{ isEditMode ? 'Update Product' : 'Add Product' }}</span>
             </button>
             <button
               type="button"
@@ -275,7 +275,7 @@ import { Product, Location } from '../../core/models';
     </div>
   `
 })
-export class AddProductComponent {
+export class AddProductComponent implements OnInit {
   appState$: Observable<AppState>;
   
   formData = {
@@ -302,9 +302,45 @@ export class AddProductComponent {
   isCheckingSku = false;
   isCheckingBarcode = false;
   creationSuccess = false;
+  isEditMode = false;
+  editingProductId: string | null = null;
 
-  constructor(private appService: AppService, private router: Router) {
+  constructor(private appService: AppService, private router: Router, private route: ActivatedRoute) {
     this.appState$ = this.appService.appState$;
+  }
+
+  ngOnInit(): void {
+    this.route.queryParamMap.subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.isEditMode = true;
+        this.editingProductId = id;
+        const state = this.appService.appStateBehaviorSubject.value;
+        const prod = state.products.find(p => p.id === id);
+        if (prod) {
+          this.formData = {
+            name: prod.name,
+            category: prod.category,
+            size: prod.size,
+            color: prod.color,
+            price: prod.price,
+            cost: prod.cost,
+            wholesalePrice: prod.wholesalePrice,
+            wholesaleMinQuantity: prod.wholesaleMinQuantity,
+            stock: prod.stock,
+            minStock: prod.minStock,
+            sku: prod.sku,
+            description: prod.description || '',
+            barcode: prod.barcode || '',
+            imageUrls: prod.imageUrls || [],
+            locationId: prod.locationId,
+          };
+        }
+      } else {
+        this.isEditMode = false;
+        this.editingProductId = null;
+      }
+    });
   }
 
   onSubmit(): void {
@@ -315,6 +351,26 @@ export class AddProductComponent {
       alert('Please select a location for the product');
       return;
     }
+    if (this.isEditMode && this.editingProductId) {
+      const product = {
+        ...this.formData,
+        location: selectedLocation,
+        barcode: this.formData.barcode || this.generateBarcode(),
+      };
+
+      this.appService.updateProduct(this.editingProductId, product).subscribe({
+        next: () => {
+          alert('Product updated successfully!');
+          this.router.navigate(['/inventory']);
+        },
+        error: (err) => {
+          console.error('Update product failed', err);
+          alert('Failed to update product. Please try again.');
+        }
+      });
+      return;
+    }
+
     // Run duplicate checks before creating
     const skuCheck$ = this.appService.productExistsBySku(this.formData.sku);
     const barcodeCheck$ = this.formData.barcode ? this.appService.productExistsByBarcode(this.formData.barcode) : of(false);

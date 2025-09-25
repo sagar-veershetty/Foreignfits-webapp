@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -14,7 +14,7 @@ import { DashboardStats } from '../../core/models';
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   appState$: Observable<AppState>;
 
   constructor(
@@ -34,6 +34,13 @@ export class DashboardComponent implements OnInit {
         });
       }
     });
+
+    // Start live auto-refresh (sales) for live stats
+    this.appService.startAutoRefresh(10000);
+  }
+
+  ngOnDestroy(): void {
+    this.appService.stopAutoRefresh();
   }
 
   getDashboardTitle(): string {

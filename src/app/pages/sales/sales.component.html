@@ -17,10 +17,10 @@
       </div>
 
       <div class="max-h-96 overflow-y-auto">
-        <div class="divide-y divide-gray-200">
+        <div class="space-y-3">
           <div
             *ngFor="let product of getFilteredProducts(appState)"
-            class="w-full flex items-center gap-4 p-3 hover:bg-gray-50 transition-colors"
+            class="w-full flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-xl hover:shadow-md hover:border-blue-200 transition-all"
             (click)="addToSale(product)"
             role="button"
             tabindex="0"
@@ -46,13 +46,13 @@
             </div>
             <button
               (click)="$event.stopPropagation(); addToSale(product)"
-              class="inline-flex items-center px-2.5 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
               title="Add to sale"
+              aria-label="Add to sale"
             >
-              <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
               </svg>
-              Add
             </button>
           </div>
         </div>
@@ -63,7 +63,7 @@
   <!-- Current Sale -->
   <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
     <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-      <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="height: 100px; width:auto">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"></path>
       </svg>
       Current Sale
