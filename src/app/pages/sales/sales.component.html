@@ -137,4 +137,9 @@
   </div>
 </div>
 
-<app-receipt-printer *ngIf="completedSale" [sale]="completedSale" (close)="completedSale = null"></app-receipt-printer>
+<app-print-receipt
+  *ngIf="showReceiptModal && receiptData"
+  [receipt]="receiptData"
+  [show]="showReceiptModal"
+  (close)="showReceiptModal = false">
+</app-print-receipt>

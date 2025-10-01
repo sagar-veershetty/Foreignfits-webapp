@@ -115,10 +115,25 @@
       <option value="all">All Locations</option>
       <option *ngFor="let location of appState.locations" [value]="location.id">{{ location.name }} ({{ location.type }})</option>
     </select>
-    <span class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hidden sm:inline">Barcodes</span>
-    <button (click)="printFilteredBarcodes()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+  <span class="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hidden sm:inline cursor-pointer" (click)="toggleShowBarcodes()">Barcodes</span>
+    <ng-container *ngIf="barcodeModalOpen">
+      <div class="fixed inset-0 bg-black/30 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-lg p-6 min-w-[320px] relative">
+          <button (click)="closeBarcodeModal()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700">&times;</button>
+          <div *ngIf="barcodeProduct">
+            <div class="font-semibold mb-2">{{ barcodeProduct.name }}</div>
+            <div class="mb-2 text-xs text-gray-500">SKU: {{ barcodeProduct.sku }}</div>
+            <div class="flex justify-center items-center">
+              <span [innerHTML]="renderBarcodeSvg(barcodeProduct)"></span>
+            </div>
+          </div>
+          <div *ngIf="!barcodeProduct" class="text-gray-500">No product found.</div>
+        </div>
+      </div>
+    </ng-container>
+    <button (click)="navigateToPrintBarcode()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
       <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H5a2 2 0 01-2-2v-5a2 2 0 012-2h14a2 2 0 012 2v5a2 2 0 01-2 2h-1M9 14h6m-9 4h12v4H6v-4z"/></svg>
-      <span>Print</span>
+      <span>Print Barcodes</span>
     </button>
   </div>
 
@@ -141,7 +156,7 @@
         </div>
         <div class="absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full bg-black/60 text-white" *ngIf="hasAnyImages(product)">{{ currentImageNo(product) }} / {{ imageCount(product) }}</div>
         <div class="absolute top-2 right-2 flex gap-1" *ngIf="canEdit()">
-          <button (click)="printBarcode(product)" title="Print" class="p-2 bg-white/90 rounded-lg hover:bg-white shadow">
+          <button (click)="onBarcodeClick(product)" title="Add to Barcode Print" class="p-2 bg-white/90 rounded-lg hover:bg-white shadow">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 9V2h12v7M6 18H5a2 2 0 01-2-2v-5a2 2 0 012-2h14a2 2 0 012 2v5a2 2 0 01-2 2h-1M9 14h6m-9 4h12v4H6v-4z"/></svg>
           </button>
           <button (click)="onEdit(product)" title="Edit" class="p-2 bg-white/90 rounded-lg hover:bg-white shadow">
@@ -168,6 +183,9 @@
           <div><span class="text-gray-500">Wholesale (100+):</span> <span class="font-semibold text-green-600">₹{{ product.wholesalePrice.toFixed(2) }}</span></div>
         </div>
 
+        <div *ngIf="showBarcodes" class="mt-3 flex justify-center">
+          <span [innerHTML]="renderBarcodeSvg(product)"></span>
+        </div>
         <div class="mt-3" [class]="getStockStatusClass(product)">
           <span class="text-sm font-medium text-gray-700">Stock:</span>
           <div class="text-right">

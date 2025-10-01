@@ -1,0 +1,92 @@
+/* Styles for the Print Barcode component. Adjust as per the UI mock. */
+
+:host {
+  display: block;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  max-width: 80rem;
+  margin: 2rem auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+@media (max-width: 700px) {
+  :host {
+    padding: 1rem;
+    max-width: 98vw;
+    margin: 1rem auto;
+  }
+  .options {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.2s;
+}
+.close-btn:hover {
+  color: #e53e3e;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.preview {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 120px;
+  min-width: 220px;
+  box-sizing: border-box;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+input[type="number"] {
+  width: 60px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 1rem;
+}
+
+label {
+  font-size: 1rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+  display: inline-block;
+}

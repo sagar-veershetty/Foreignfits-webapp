@@ -1,0 +1,50 @@
+<div *ngIf="show" class="receipt-modal-overlay">
+  <div class="receipt-modal">
+    <div class="receipt-modal-header">
+      <div class="receipt-modal-title">Print Receipt</div>
+      <button class="receipt-modal-close" (click)="close()">&times;</button>
+    </div>
+    <div class="receipt-modal-subtitle">Receipt #{{ receipt?.number }}</div>
+  <div class="receipt-paper" #receiptPaper>
+      <div class="receipt-title">FOREIGN FITS</div>
+      <div class="receipt-subtitle">Global Fashion Collection</div>
+      <div class="receipt-address">123 Fashion Street, Style City<br>Phone: (555) 123-4567</div>
+      <div class="receipt-info">
+        <div>Receipt #: <b>{{ receipt?.number }}</b></div>
+        <div>Date: <b>{{ receipt?.date }}</b></div>
+        <div>Time: <b>{{ receipt?.time }}</b></div>
+        <div>Customer: <b>{{ receipt?.customer }}</b></div>
+      </div>
+      <hr>
+      <div class="receipt-section-title">ITEMS PURCHASED</div>
+      <div class="receipt-items">
+        <div *ngFor="let item of receipt?.items" class="receipt-item">
+          <div class="receipt-item-name">{{ item.name }}</div>
+          <div class="receipt-item-details">{{ item.details }}</div>
+          <div class="receipt-item-qty">{{ item.qty }} x ₹{{ item.price.toFixed(2) }}</div>
+          <div class="receipt-item-total">₹{{ (item.qty * item.price).toFixed(2) }}</div>
+        </div>
+      </div>
+      <hr>
+      <div class="receipt-summary">
+        <div>Subtotal: <span>₹{{ receipt?.subtotal.toFixed(2) }}</span></div>
+        <div>Tax ({{ receipt?.taxLabel }}): <span>₹{{ receipt?.tax.toFixed(2) }}</span></div>
+        <div class="receipt-total">TOTAL: <span>₹{{ receipt?.total.toFixed(2) }}</span></div>
+      </div>
+      <hr>
+      <div class="receipt-payment">
+        <div>PAYMENT METHOD</div>
+        <div>{{ receipt?.paymentMethod }}</div>
+      </div>
+      <div class="receipt-thankyou">
+        <div>THANK YOU!</div>
+        <div>Visit us again for latest fashion</div>
+        <div>Returns within 30 days with receipt</div>
+      </div>
+    </div>
+    <div class="receipt-modal-actions">
+      <button class="btn-primary" (click)="print()">Print Receipt</button>
+      <button class="btn-secondary" (click)="close()">Close</button>
+    </div>
+  </div>
+</div>

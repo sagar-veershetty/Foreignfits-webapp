@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -15,6 +16,13 @@ import * as JsBarcode from 'jsbarcode';
   templateUrl: './inventory.component.html'
 })
 export class InventoryComponent {
+  showBarcodes = false;
+  toggleShowBarcodes() {
+    this.showBarcodes = !this.showBarcodes;
+  }
+
+  barcodeModalOpen = false;
+  barcodeProduct: Product | null = null;
   appState$: Observable<AppState>;
   searchTerm = '';
   categoryFilter = 'all';
@@ -26,7 +34,8 @@ export class InventoryComponent {
   constructor(
     private appService: AppService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private sanitizer: DomSanitizer
   ) {
     this.appState$ = this.appService.appState$;
   }
@@ -64,6 +73,8 @@ export class InventoryComponent {
   getFilteredLowStockCount(appState: AppState): number {
     return this.getFilteredProducts(appState).filter(p => p.stock <= p.minStock).length;
   }
+
+  
 
   // Barcode/Label printing
   printBarcode(product: Product): void {
@@ -122,6 +133,36 @@ export class InventoryComponent {
       </html>
     `);
     win.document.close();
+  }
+
+  // Add product to barcode print selection and navigate to print-barcode
+  onBarcodeClick(product: Product): void {
+    sessionStorage.setItem('barcodePrintSelection', JSON.stringify([{ ...product, quantity: 1 }]));
+    this.router.navigate(['/print-barcode']);
+  }
+
+  showBarcodeModal() {
+    // Show barcode for the first filtered product
+    const appState = (this.appState$ as any).source?._value || null;
+    const filtered = appState ? this.getFilteredProducts(appState) : [];
+    this.barcodeProduct = filtered.length > 0 ? filtered[0] : null;
+    this.barcodeModalOpen = true;
+  }
+
+  closeBarcodeModal() {
+    this.barcodeModalOpen = false;
+  }
+
+  renderBarcodeSvg(product: Product): SafeHtml {
+    const code = product.barcode || product.sku || product.id;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    try {
+      JsBarcode(svg, code, { format: 'CODE128', width: 2, height: 48, displayValue: true, margin: 0 });
+    } catch (e) {
+      try { JsBarcode(svg, code, { format: 'CODE39', width: 2, height: 48, displayValue: true, margin: 0 }); } catch {}
+    }
+    const raw = new XMLSerializer().serializeToString(svg);
+    return this.sanitizer.bypassSecurityTrustHtml(raw);
   }
 
   private escapeHtml(text: string): string {
@@ -187,9 +228,11 @@ export class InventoryComponent {
 
   // Print all filtered products barcodes (first image index not relevant)
   printFilteredBarcodes(): void {
-    const state = this.appService.appStateBehaviorSubject.value;
-    const products = this.getFilteredProducts(state);
-    products.forEach(p => this.printBarcode(p));
+    // Deprecated: replaced by navigation to print-barcode screen
+  }
+
+  navigateToPrintBarcode(): void {
+    this.router.navigate(['/print-barcode']);
   }
 
   // image helpers for card (optional nav)

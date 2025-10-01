@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ReceiptData, ReceiptItem } from './receipt.model';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -7,14 +8,18 @@ import { AuthService } from '../../core/services/auth.service';
 import { Product, SaleItem, Sale } from '../../core/models';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { ReceiptPrinterComponent } from '../../components/sales/receipt-printer.component';
+import { PrintReceiptComponent } from './print-receipt.component';
+
 
 @Component({
   selector: 'app-sales',
   standalone: true,
-  imports: [CommonModule, FormsModule, BarcodeInputComponent, ReceiptPrinterComponent],
+  imports: [CommonModule, FormsModule, BarcodeInputComponent, ReceiptPrinterComponent, PrintReceiptComponent],
   templateUrl: './sales.component.html'
 })
 export class SalesComponent {
+  showReceiptModal = false;
+  receiptData: ReceiptData | null = null;
   appState$: Observable<AppState>;
   searchTerm = '';
   customerName = '';
@@ -108,7 +113,30 @@ export class SalesComponent {
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
-        this.completedSale = sale as unknown as Sale;
+        // Build receipt data
+        const now = new Date();
+        const receiptItems: ReceiptItem[] = appState.currentSale.map(item => ({
+          name: item.product.name,
+          details: `${item.product.size} – ${item.product.color}`,
+          qty: item.quantity,
+          price: item.price
+        }));
+        const subtotal = this.getSubtotal(appState);
+        const tax = this.getTax(appState);
+        const total = this.getTotal(appState);
+        this.receiptData = {
+          number: sale.id || 'N/A',
+          date: now.toLocaleDateString('en-GB'),
+          time: now.toLocaleTimeString('en-GB'),
+          customer: this.customerName || 'Walk-in Customer',
+          items: receiptItems,
+          subtotal,
+          taxLabel: '18% GST',
+          tax,
+          total,
+          paymentMethod: this.paymentMethod.toUpperCase()
+        };
+        this.showReceiptModal = true;
         this.customerName = '';
         this.searchTerm = '';
       },

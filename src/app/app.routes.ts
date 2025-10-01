@@ -24,6 +24,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/inventory/inventory.component').then(m => m.InventoryComponent),
     canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
   },
+  {
+    path: 'print-barcode',
+    loadComponent: () => import('./pages/inventory/print-barcode.component').then(m => m.PrintBarcodeComponent),
+    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+  },
   { 
     path: 'sales', 
     loadComponent: () => import('./pages/sales/sales.component').then(m => m.SalesComponent),
