@@ -10,12 +10,11 @@
             <path stroke-linecap="round" stroke-width="1.6" d="M20 20l-3.5-3.5"></path>
           </svg>
         </div>
-        <input
-          type="text"
-          [(ngModel)]="searchTerm"
+        <app-barcode-input
+          [(value)]="searchTerm"
           placeholder="Search products by name, SKU, or barcode..."
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+          (scan)="searchTerm = $event"
+        ></app-barcode-input>
       </div>
       
       <!-- Filters -->
