@@ -1,0 +1,207 @@
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+  <!-- Hero Section -->
+  <div class="relative overflow-hidden">
+    <!-- Navigation Bar - Only show for non-authenticated users, authenticated users see app navbar -->
+    <nav *ngIf="!(isAuthenticated$ | async)" class="absolute top-0 left-0 right-0 z-10 px-6 py-4">
+      <div class="max-w-7xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="/logo.jpeg" alt="Foreign Fits" class="h-10 w-10 rounded-lg shadow-md" />
+          <div class="leading-tight">
+            <div class="text-2xl font-bold text-gray-900">Foreign Fits</div>
+            <div class="text-sm text-gray-600">Global Fashion Inventory</div>
+          </div>
+        </div>
+
+        <!-- Show login/signup buttons for non-authenticated users -->
+        <div class="flex items-center gap-3">
+          <button (click)="navigateToLogin()"
+                  class="px-6 py-2 text-blue-600 font-semibold hover:bg-blue-50 rounded-lg transition-colors">
+            Log In
+          </button>
+          <button (click)="navigateToSignup()"
+                  class="px-6 py-2 bg-blue-600 text-white font-semibold hover:bg-blue-700 rounded-lg shadow-md transition-colors">
+            Sign Up
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Add top padding when authenticated to account for app navbar -->
+    <div [class.pt-14]="isAuthenticated$ | async">
+      <!-- Hero Content -->
+      <div class="max-w-7xl mx-auto px-6 pt-32 pb-20">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+          <!-- Left Column - Text Content -->
+          <div class="space-y-8">
+            <div class="inline-block px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+              🌍 Global Fashion Management
+            </div>
+
+            <h1 class="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+              Manage Your Fashion
+              <span class="text-blue-600"> Inventory</span> Effortlessly
+            </h1>
+
+            <p class="text-xl text-gray-600 leading-relaxed">
+              Complete inventory management system for fashion retailers. Track products, manage sales,
+              monitor stock movements, and grow your business with real-time analytics.
+            </p>
+
+            <!-- CTA Buttons for non-authenticated users -->
+            <div *ngIf="!(isAuthenticated$ | async)" class="flex flex-wrap gap-4">
+              <button (click)="navigateToSignup()"
+                      class="px-8 py-4 bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 rounded-lg shadow-lg hover:shadow-xl transition-all">
+                Get Started Free
+              </button>
+              <button (click)="navigateToLogin()"
+                      class="px-8 py-4 bg-white text-gray-700 font-semibold text-lg hover:bg-gray-50 rounded-lg shadow-md border-2 border-gray-200 transition-all">
+                Sign In
+              </button>
+            </div>
+
+            <!-- CTA for authenticated users -->
+            <div *ngIf="isAuthenticated$ | async" class="flex flex-wrap gap-4">
+              <button (click)="navigateToDashboard()"
+                      class="px-8 py-4 bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center gap-2">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+                Continue to Dashboard
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Column - Feature Image/Illustration -->
+          <div class="relative">
+            <div class="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-2xl p-8 transform hover:scale-105 transition-transform">
+              <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 space-y-4">
+                <div class="flex items-center gap-3 text-white">
+                  <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                  </svg>
+                  <span class="text-2xl font-bold">Dashboard Preview</span>
+                </div>
+                <div class="space-y-3">
+                  <div class="bg-white/20 rounded-lg p-4">
+                    <div class="flex items-center justify-between text-white">
+                      <span class="font-semibold">Total Products</span>
+                      <span class="text-3xl font-bold">1,247</span>
+                    </div>
+                  </div>
+                  <div class="bg-white/20 rounded-lg p-4">
+                    <div class="flex items-center justify-between text-white">
+                      <span class="font-semibold">Sales Today</span>
+                      <span class="text-3xl font-bold">$12,450</span>
+                    </div>
+                  </div>
+                  <div class="bg-white/20 rounded-lg p-4">
+                    <div class="flex items-center justify-between text-white">
+                      <span class="font-semibold">Low Stock Items</span>
+                      <span class="text-3xl font-bold text-yellow-300">23</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features Section -->
+  <div class="bg-white py-20">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-bold text-gray-900 mb-4">Everything You Need</h2>
+        <p class="text-xl text-gray-600">Powerful features to manage your fashion inventory</p>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Feature 1 -->
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 hover:shadow-lg transition-shadow">
+          <div class="bg-blue-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Inventory Management</h3>
+          <p class="text-gray-600">Track all your products, sizes, colors, and stock levels in real-time.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 hover:shadow-lg transition-shadow">
+          <div class="bg-purple-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Sales Management</h3>
+          <p class="text-gray-600">Process sales, manage customers, and track revenue with ease.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 hover:shadow-lg transition-shadow">
+          <div class="bg-green-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Analytics & Reports</h3>
+          <p class="text-gray-600">Get insights with real-time analytics and comprehensive reports.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 hover:shadow-lg transition-shadow">
+          <div class="bg-yellow-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Stock Movements</h3>
+          <p class="text-gray-600">Track transfers, returns, damages, and stock adjustments.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6 hover:shadow-lg transition-shadow">
+          <div class="bg-red-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Role-Based Access</h3>
+          <p class="text-gray-600">Admin, Sales, and Warehouse roles with custom permissions.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-6 hover:shadow-lg transition-shadow">
+          <div class="bg-indigo-600 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+            <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Barcode Support</h3>
+          <p class="text-gray-600">Generate and scan barcodes for quick product management.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="bg-gray-900 text-white py-12">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="flex flex-col md:flex-row items-center justify-between">
+        <div class="flex items-center gap-3 mb-4 md:mb-0">
+          <img src="/logo.jpeg" alt="Foreign Fits" class="h-10 w-10 rounded-lg" />
+          <div>
+            <div class="text-xl font-bold">Foreign Fits</div>
+            <div class="text-sm text-gray-400">Global Fashion Inventory</div>
+          </div>
+        </div>
+        <div class="text-gray-400 text-sm">
+          © 2025 Foreign Fits. All rights reserved.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -3,16 +3,21 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   { 
     path: '', 
-    redirectTo: '/login', 
-    pathMatch: 'full' 
+    loadComponent: () => import('./pages/home/home.component').then(m => m.HomeComponent)
   },
-  { 
+  {
+    path: 'unauthorized',
+    loadComponent: () => import('./pages/unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent)
+  },
+  {
     path: 'login', 
-    loadComponent: () => import('./components/auth/login.component').then(m => m.LoginComponent)
+    loadComponent: () => import('./components/auth/login.component').then(m => m.LoginComponent),
+    canActivate: [() => import('./core/guards/login.guard').then(m => m.loginGuard)]
   },
   { 
     path: 'signup', 
-    loadComponent: () => import('./components/auth/signup.component').then(m => m.SignupComponent)
+    loadComponent: () => import('./components/auth/signup.component').then(m => m.SignupComponent),
+    canActivate: [() => import('./core/guards/login.guard').then(m => m.loginGuard)]
   },
   { 
     path: 'dashboard', 

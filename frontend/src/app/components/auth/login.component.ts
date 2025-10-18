@@ -24,7 +24,7 @@ export class LoginComponent {
   onSubmit(): void {
     this.authService.clearError();
     this.authService.login(this.credentials).subscribe({
-      next: () => this.router.navigate(['/dashboard']), // redirect on success
+      next: () => this.router.navigate(['/dashboard'], { replaceUrl: true }), // replace login page in history
       error: (err) => console.error('Login failed:', err)
     });
   }

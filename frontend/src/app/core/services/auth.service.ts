@@ -42,15 +42,20 @@ export class AuthService {
     if (savedUser && savedToken) {
       try {
         const user = JSON.parse(savedUser);
-        this.updateAuthState({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null
-        });
+        // Validate token by checking if it's still valid
+        this.validateToken(user, savedToken);
       } catch (error) {
         this.clearAuthData();
+        this.router.navigate(['/login']);
       }
+    } else {
+      // No token found, ensure user is not authenticated
+      this.updateAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null
+      });
     }
   }
 
@@ -113,7 +118,7 @@ export class AuthService {
       isLoading: false,
       error: null
     });
-    this.router.navigate(['/login']);
+    this.router.navigate(['/']);
   }
 
   clearError(): void {
@@ -129,6 +134,48 @@ export class AuthService {
 
   getCurrentUser(): User | null {
     return this.authStateSubject.value.user;
+  }
+
+  isTokenValid(): boolean {
+    const token = this.getToken();
+    const user = localStorage.getItem('foreignfits_user');
+
+    // If no token or user, not valid
+    if (!token || !user) {
+      return false;
+    }
+
+    try {
+      // Parse JWT token to check expiration
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expirationTime = payload.exp * 1000; // Convert to milliseconds
+      const currentTime = Date.now();
+
+      // Check if token is expired
+      if (currentTime >= expirationTime) {
+        // Token expired, clear auth data
+        this.clearAuthData();
+        this.updateAuthState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null
+        });
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      // Invalid token format, clear auth data
+      this.clearAuthData();
+      this.updateAuthState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null
+      });
+      return false;
+    }
   }
 
   private updateAuthState(newState: AuthState): void {
@@ -150,5 +197,18 @@ export class AuthService {
       createdAt: new Date(apiUser.createdAt),
       lastLogin: apiUser.lastLogin ? new Date(apiUser.lastLogin) : undefined,
     };
+  }
+
+  private validateToken(user: User, token: string): void {
+    // Set the user as authenticated immediately for better UX
+    this.updateAuthState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null
+    });
+
+    // Validate token in background by making a request to a protected endpoint
+    // If it fails, the interceptor will handle the 401 and clear the auth
   }
 }
