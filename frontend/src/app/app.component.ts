@@ -51,8 +51,8 @@ export class AppComponent implements OnInit {
       if (!isLoginPage) {
         // For protected pages, validate token
         if (!isValid) {
-          // Token is invalid, redirect to unauthorized page
-          this.router.navigate(['/unauthorized']);
+          // Token is invalid, redirect to unauthorized page and replace current page
+          this.router.navigate(['/unauthorized'], { replaceUrl: true });
         }
       } else {
         // For login/signup pages, redirect to dashboard if already authenticated
@@ -79,7 +79,7 @@ export class AppComponent implements OnInit {
 
         if (!isLoginPage) {
           if (!isValid) {
-            this.router.navigate(['/unauthorized']);
+            this.router.navigate(['/unauthorized'], { replaceUrl: true });
           }
         } else {
           // For login/signup pages, redirect to dashboard if already authenticated

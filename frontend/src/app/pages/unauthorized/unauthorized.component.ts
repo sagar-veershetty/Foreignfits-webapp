@@ -51,11 +51,10 @@ export class UnauthorizedComponent {
   constructor(private router: Router) {}
 
   goToLogin(): void {
-    this.router.navigate(['/login']);
+    this.router.navigate(['/login'], { replaceUrl: true });
   }
 
   goToHome(): void {
-    this.router.navigate(['/']);
+    this.router.navigate(['/'], { replaceUrl: true });
   }
 }
-

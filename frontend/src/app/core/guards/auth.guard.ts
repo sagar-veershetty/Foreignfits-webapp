@@ -11,8 +11,8 @@ export const authGuard = (): Observable<boolean> => {
   const isValid = authService.isTokenValid();
 
   if (!isValid) {
-    // Token is invalid or expired, redirect to unauthorized page
-    router.navigate(['/unauthorized']);
+    // Token is invalid or expired, redirect to unauthorized page and replace current page in history
+    router.navigate(['/unauthorized'], { replaceUrl: true });
     return of(false);
   }
 
