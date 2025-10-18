@@ -3,8 +3,7 @@ package com.foreignfits.service;
 import com.foreignfits.dto.UserDto;
 import com.foreignfits.entity.User;
 import com.foreignfits.repository.UserRepository;
-import com.foreignfits.dto.LocationDto;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,13 +15,11 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class UserService {
     
-    @Autowired
-    private UserRepository userRepository;
-    
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
     
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()

@@ -12,7 +12,7 @@ import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.repository.SaleRepository;
 import com.foreignfits.repository.StockMovementRepository;
 import com.foreignfits.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,25 +25,13 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class SaleService {
     
-    @Autowired
-    private SaleRepository saleRepository;
-    
-    @Autowired
-    private ProductRepository productRepository;
-    
-    @Autowired
-    private UserRepository userRepository;
-    
-    @Autowired
-    private StockMovementRepository stockMovementRepository;
-    
-    @Autowired
-    private ProductService productService;
-    
-    @Autowired
-    private UserService userService;
+    private final SaleRepository saleRepository;
+    private final ProductRepository productRepository;
+    private final UserRepository userRepository;
+    private final StockMovementRepository stockMovementRepository;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.18"); // 18% GST
     

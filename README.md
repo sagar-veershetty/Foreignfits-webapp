@@ -1,290 +1,171 @@
 # Foreign Fits - Global Fashion Inventory Management
 
-A comprehensive inventory management system for fashion retail with React frontend and Spring Boot backend.
+A comprehensive inventory management system for fashion retail with **Angular** frontend and **Spring Boot** backend.
 
-## 🚀 Quick Start Guide
+## 📁 Project Structure
+
+```
+Foreignfits-webapp/
+├── backend/          # Spring Boot API (Java 17, H2 Database)
+├── frontend/         # Angular App (Angular 17, TypeScript)
+├── docker-compose.yml
+└── start scripts (.bat & .sh)
+```
+
+> 📖 **Detailed Documentation:**
+> - [Backend Documentation](backend/README.md) - API endpoints, database setup, configuration
+> - [Frontend Documentation](frontend/README.md) - Angular app structure, development guide
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-Before running the application, ensure you have the following installed:
+**Option 1: Local Development**
+- Node.js 16+ and Java 17+
+- Maven (included via wrapper)
 
-- **Node.js** (v16 or higher) - [Download here](https://nodejs.org/)
-- **Java 17** - [Download here](https://adoptium.net/)
-- **Maven** (v3.6 or higher) - [Download here](https://maven.apache.org/download.cgi)
+**Option 2: Docker (Recommended)**
+- Docker Desktop only
 
+### ⚡ Fastest Way - Using Start Scripts
 
-## 🏃‍♂️ Running the Application
-
-### Method 1: Run Both Services Simultaneously
-
-**Terminal 1 - Start Backend:**
+**Windows:**
 ```bash
-# Navigate to backend directory
-cd backend
-
-# Install dependencies and run
-./mvnw spring-boot:run
-
-# Or if you have Maven installed globally
-mvn spring-boot:run
+start-backend.bat   # Terminal 1
+start-frontend.bat  # Terminal 2
 ```
 
-**Terminal 2 - Start Frontend:**
+**Linux/Mac:**
 ```bash
-# Navigate to project root (where package.json is)
-cd ..
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
+./start-backend.sh   # Terminal 1
+./start-frontend.sh  # Terminal 2
 ```
 
-### Method 2: Using Scripts (Recommended)
+## 🐳 Docker Deployment
 
-Create these helper scripts in your project root:
+### Start Everything with One Command
 
-**start-backend.sh** (macOS/Linux):
 ```bash
-#!/bin/bash
-echo "🚀 Starting Spring Boot Backend..."
-cd backend
-./mvnw spring-boot:run
+docker-compose up -d
 ```
 
-**start-frontend.sh** (macOS/Linux):
-```bash
-#!/bin/bash
-echo "🚀 Starting React Frontend..."
-npm install
-npm run dev
-```
-
-**start-backend.bat** (Windows):
-```batch
-@echo off
-echo 🚀 Starting Spring Boot Backend...
-cd backend
-mvnw.cmd spring-boot:run
-```
-
-**start-frontend.bat** (Windows):
-```batch
-@echo off
-echo 🚀 Starting React Frontend...
-npm install
-npm run dev
-```
-
-## 🔧 Development Workflow
-
-### 1. First Time Setup
-```bash
-# Clone/download the project
-# Navigate to project directory
-
-# Install frontend dependencies
-npm install
-
-# Start MySQL service
-# Update database credentials in application.yml if needed
-
-# Start backend (Terminal 1)
-cd backend
-./mvnw spring-boot:run
-
-# Start frontend (Terminal 2)
-cd ..
-npm run dev
-```
-
-### 2. Daily Development
-```bash
-# Terminal 1 - Backend
-cd backend && ./mvnw spring-boot:run
-
-# Terminal 2 - Frontend  
-npm run dev
-```
-
-## 🌐 Access URLs
-
-- **Frontend (React):** http://localhost:5173
+### Access the Application
+- **Frontend:** http://localhost
 - **Backend API:** http://localhost:8080/api
-- **API Documentation:** http://localhost:8080/api/actuator/health
+- **H2 Console:** http://localhost:8080/api/h2-console
 
-## 👥 Demo Accounts
+### Docker Management
 
-The application comes with pre-configured demo accounts:
-
-### Staff Accounts (Management Portal)
-- **Admin:** admin@foreignfits.com / admin123
-- **Sales:** sales@foreignfits.com / sales123  
-- **Warehouse:** warehouse@foreignfits.com / warehouse123
-
-### Customer Account (Shopping Portal)
-- **Customer:** customer@example.com / customer123
-- **Access:** Add `?mode=customer` to URL
-
-## 🏪 Application Modes
-
-### Management Portal (Default)
-- **URL:** http://localhost:5173
-- **Features:** Inventory, Sales, Stock Management
-- **Users:** Admin, Sales, Warehouse staff
-
-### Customer Shopping Portal
-- **URL:** http://localhost:5173?mode=customer
-- **Features:** Product catalog, Shopping cart, Orders
-- **Users:** Customers
-
-## 🛠️ Troubleshooting
-
-### Backend Issues
-
-**Port 8080 already in use:**
 ```bash
-# Find and kill process using port 8080
-lsof -ti:8080 | xargs kill -9
+# View logs
+docker-compose logs -f
 
-# Or change port in application.yml
-server:
-  port: 8081
+# Stop containers
+docker-compose down
+
+# Rebuild after code changes
+docker-compose build
+docker-compose up -d
 ```
 
-**Database Connection Failed:**
-```bash
-# Check MySQL is running
-brew services list | grep mysql  # macOS
-sudo systemctl status mysql     # Linux
-
-# Verify credentials in application.yml
-# Check database exists: SHOW DATABASES;
-```
-
-**Maven Build Failed:**
-```bash
-# Clean and rebuild
-cd backend
-./mvnw clean install
-./mvnw spring-boot:run
-```
-
-### Frontend Issues
-
-**Port 5173 already in use:**
-```bash
-# Kill process on port 5173
-lsof -ti:5173 | xargs kill -9
-
-# Or Vite will automatically use next available port
-```
-
-**API Connection Failed:**
-- Ensure backend is running on port 8080
-- Check CORS configuration in SecurityConfig.java
-- Verify API_BASE_URL in src/services/api.ts
-
-**Dependencies Issues:**
-```bash
-# Clear node modules and reinstall
-rm -rf node_modules package-lock.json
-npm install
-```
-
-## 📊 Database Schema
-
-The application automatically creates these tables:
-- `users` - Authentication and user management
-- `locations` - Warehouses and stores
-- `products` - Product catalog
-- `sales` - Sales transactions
-- `sale_items` - Individual sale items
-- `stock_movements` - Inventory tracking
-- `stock_transfers` - Inter-location transfers
-- `product_images` - Product image URLs
-
-## 🔄 Development Tips
-
-### Hot Reload
-- **Frontend:** Automatic reload on file changes
-- **Backend:** Use Spring Boot DevTools for auto-restart
-
-### API Testing
-```bash
-# Test backend health
-curl http://localhost:8080/api/actuator/health
-
-# Test login
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@foreignfits.com","password":"admin123"}'
-```
-
-### Database Management
-```bash
-# Connect to MySQL
-mysql -u root -p
-
-# Use the database
-USE foreign_fits_db;
-
-# View tables
-SHOW TABLES;
-
-# Check sample data
-SELECT * FROM products LIMIT 5;
-```
-
-## 🚀 Production Deployment
+## 🏃‍♂️ Manual Local Development
 
 ### Backend
 ```bash
-# Build JAR file
 cd backend
-./mvnw clean package
-
-# Run production JAR
-java -jar target/inventory-management-0.0.1-SNAPSHOT.jar
+./mvnw spring-boot:run
+# Runs on: http://localhost:8080
 ```
 
 ### Frontend
 ```bash
-# Build for production
-npm run build
-
-# Serve static files (dist folder)
+cd frontend
+npm install
+npm start
+# Runs on: http://localhost:4200
 ```
 
-## 📝 Environment Variables
+## 👥 Demo Accounts
 
-Create `.env` file in project root for custom configuration:
-```env
-# Database
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=foreign_fits_db
-DB_USERNAME=root
-DB_PASSWORD=your_password
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@foreignfits.com | admin123 |
+| Sales | sales@foreignfits.com | sales123 |
+| Warehouse | warehouse@foreignfits.com | warehouse123 |
+| Customer | customer@example.com | customer123 |
 
-# JWT
-JWT_SECRET=your_jwt_secret_key
-JWT_EXPIRATION=86400000
+## 📡 Application URLs
 
-# API
-VITE_API_BASE_URL=http://localhost:8080/api
+| Environment | Frontend | Backend API | H2 Console |
+|-------------|----------|-------------|------------|
+| **Local Dev** | http://localhost:4200 | http://localhost:8080/api | http://localhost:8080/api/h2-console |
+| **Docker** | http://localhost | http://localhost:8080/api | http://localhost:8080/api/h2-console |
+
+## 🗄️ Database
+
+- **H2 In-Memory Database** - No external database setup needed
+- Automatically created on startup with sample data
+- Database resets on application restart
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Angular 17, TypeScript, Tailwind CSS |
+| **Backend** | Spring Boot 3.5, Spring Security (JWT) |
+| **Database** | H2 In-Memory Database |
+| **DevOps** | Docker, Docker Compose, Nginx |
+
+## ✨ Features
+
+- 🔐 JWT Authentication & Role-based Access
+- 📦 Inventory Management with Barcode Support
+- 💰 Point of Sale (POS) System
+- 🧾 Receipt Printing
+- 📊 Sales Analytics & Reports
+- 📱 Barcode Scanning (Camera & Manual)
+- 🏪 Multi-location Stock Management
+- 👥 User & Role Management
+
+## 🔍 Troubleshooting
+
+**Port conflicts:**
+```bash
+# Backend (8080) or Frontend (4200) already in use
+# Windows: taskkill /F /IM java.exe
+# Linux/Mac: lsof -ti:8080 | xargs kill -9
 ```
 
-## 🎯 Next Steps
+**Docker issues:**
+```bash
+# Clean restart
+docker-compose down
+docker-compose up -d --build
+```
 
-1. **Start MySQL** service
-2. **Run Backend** in Terminal 1
-3. **Run Frontend** in Terminal 2
-4. **Access Application** at http://localhost:5173
-5. **Login** with demo accounts
-6. **Start Managing** your fashion inventory!
+**Dependencies issues:**
+```bash
+# Frontend
+cd frontend && rm -rf node_modules && npm install
+
+# Backend
+cd backend && ./mvnw clean install
+```
+
+## 📚 Additional Resources
+
+- [Backend API Documentation](backend/README.md) - Detailed API endpoints and configuration
+- [Frontend Development Guide](frontend/README.md) - Component structure and development tips
+- [Docker Architecture](#-docker-deployment) - Container orchestration details
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test locally
+5. Submit a pull request
 
 ---
 
-**Need Help?** Check the troubleshooting section or ensure all prerequisites are installed correctly.
+**Made with ❤️ for Fashion Retail Management**

@@ -4,36 +4,7 @@
 
 ### Prerequisites
 - Java 17 or higher
-- MySQL 8.0 or higher
-- Maven 3.6+ (or use included wrapper)
-
-### 🗄️ Database Setup
-
-1. **Start MySQL:**
-```bash
-# macOS with Homebrew
-brew services start mysql
-
-# Linux
-sudo systemctl start mysql
-
-# Windows - Start MySQL service
-```
-
-2. **Create Database (Optional - Auto-created):**
-```sql
--- The application will create this automatically
-CREATE DATABASE foreign_fits_db;
-```
-
-3. **Update Configuration (if needed):**
-Edit `src/main/resources/application.yml`:
-```yaml
-spring:
-  datasource:
-    username: root  # Your MySQL username
-    password: password  # Your MySQL password
-```
+- Maven (included via wrapper)
 
 ### 🏃‍♂️ Running the Backend
 
@@ -42,140 +13,94 @@ spring:
 ./mvnw spring-boot:run
 ```
 
-**Option 2: Using System Maven**
+**Option 2: From Project Root**
 ```bash
-mvn spring-boot:run
-```
+# Windows
+start-backend.bat
 
-**Option 3: Using Helper Script**
-```bash
-# From project root
+# Linux/Mac
 ./start-backend.sh
 ```
 
-### 🌐 API Endpoints
+The backend will start on **http://localhost:8080**
+
+## 🗄️ Database
+
+This application uses **H2 in-memory database** - no external database setup required!
+
+- Database is automatically created on startup
+- Sample data is loaded from `data.sql`
+- H2 Console: http://localhost:8080/api/h2-console
+
+**H2 Console Login:**
+- JDBC URL: `jdbc:h2:mem:foreignfits`
+- Username: `sa`
+- Password: (leave empty)
+
+## 🌐 API Endpoints
 
 **Base URL:** `http://localhost:8080/api`
 
-#### Authentication
+### Authentication
 - `POST /auth/login` - User login
 - `POST /auth/register` - User registration
-- `GET /auth/me` - Get current user
+- `GET /auth/me` - Get current user info
 
-#### Products
+### Products
 - `GET /products` - Get all products
-- `POST /products` - Create product (Admin/Warehouse)
-- `PUT /products/{id}` - Update product (Admin/Warehouse)
-- `DELETE /products/{id}` - Delete product (Admin only)
+- `POST /products` - Create product
+- `PUT /products/{id}` - Update product
+- `DELETE /products/{id}` - Delete product
 - `GET /products/sku/{sku}` - Get by SKU
 - `GET /products/barcode/{barcode}` - Get by barcode
 - `GET /products/low-stock` - Get low stock items
 
-#### Sales
-- `GET /sales` - Get all sales (Admin/Sales)
-- `POST /sales` - Create sale (Admin/Sales)
+### Sales
+- `GET /sales` - Get all sales
+- `POST /sales` - Create sale
 - `GET /sales/today` - Today's sales
 - `GET /sales/revenue/today` - Today's revenue
 
-#### Stock Management
+### Stock Management
 - `GET /stock/movements` - Get stock movements
 - `POST /stock/adjust` - Adjust stock levels
-- `GET /stock/movements/product/{id}` - Product movements
+- `GET /stock/movements/product/{id}` - Get product movements
 
-### 👥 Demo Accounts
+## 👥 Demo Accounts
 
-The application comes with pre-configured demo accounts:
+Pre-configured test accounts:
 
-```
-Admin: admin@foreignfits.com / admin123
-Sales: sales@foreignfits.com / sales123
-Warehouse: warehouse@foreignfits.com / warehouse123
-```
+- **Admin:** admin@foreignfits.com / admin123
+- **Sales:** sales@foreignfits.com / sales123
+- **Warehouse:** warehouse@foreignfits.com / warehouse123
+- **Customer:** customer@example.com / customer123
 
-### 🔧 Configuration
+## 🔧 Configuration
 
-**Database Configuration:**
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/foreign_fits_db?createDatabaseIfNotExist=true
-    username: root
-    password: password
-```
+Configuration file: `src/main/resources/application.yml`
 
-**JWT Configuration:**
-```yaml
-jwt:
-  secret: foreignFitsSecretKeyForJWTTokenGeneration2024
-  expiration: 86400000 # 24 hours
-```
+**Key Settings:**
+- Port: `8080`
+- Context Path: `/api`
+- Database: H2 in-memory
+- JWT Secret: Configured for authentication
+- JWT Expiration: 24 hours
 
-### 📊 Database Schema
+## 🔍 Health Check
 
-The application automatically creates these tables:
-- `users` - User authentication and roles
-- `locations` - Warehouses and stores
-- `products` - Product catalog with images
-- `sales` - Sales transactions
-- `sale_items` - Individual sale line items
-- `stock_movements` - Inventory change tracking
-- `stock_transfers` - Inter-location transfers
-- `product_images` - Product image URLs
-
-### 🛠️ Development
-
-**Hot Reload:**
-The application uses Spring Boot DevTools for automatic restart on code changes.
-
-**Database Reset:**
-```bash
-# Drop and recreate database
-mysql -u root -p -e "DROP DATABASE IF EXISTS foreign_fits_db; CREATE DATABASE foreign_fits_db;"
-./mvnw spring-boot:run
-```
-
-**Logs:**
-```bash
-# View application logs
-tail -f logs/application.log
-
-# Or check console output
-```
-
-### 🔍 Health Check
-
-**Check if backend is running:**
+Check if backend is running:
 ```bash
 curl http://localhost:8080/api/actuator/health
 ```
 
-**Test login:**
+Test login:
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@foreignfits.com","password":"admin123"}'
 ```
 
-### 🚨 Troubleshooting
-
-**Port 8080 in use:**
-```bash
-# Kill process on port 8080
-lsof -ti:8080 | xargs kill -9
-```
-
-**Database connection failed:**
-- Ensure MySQL is running
-- Check credentials in application.yml
-- Verify database exists
-
-**Compilation errors:**
-```bash
-./mvnw clean compile
-./mvnw spring-boot:run
-```
-
-### 🏗️ Project Structure
+## 🏗️ Project Structure
 
 ```
 backend/
@@ -183,14 +108,35 @@ backend/
 │   ├── entity/          # JPA entities
 │   ├── repository/      # Data access layer
 │   ├── service/         # Business logic
-│   ├── controller/      # REST controllers
+│   ├── controller/      # REST API endpoints
 │   ├── dto/            # Data transfer objects
-│   ├── security/       # JWT & security config
-│   └── config/         # Spring configuration
+│   ├── security/       # JWT & Spring Security
+│   └── config/         # Configuration classes
 ├── src/main/resources/
-│   ├── application.yml # Configuration
+│   ├── application.yml # App configuration
 │   └── data.sql       # Sample data
 └── pom.xml            # Maven dependencies
 ```
 
-The backend is production-ready with proper security, validation, and error handling!
+## 🚨 Troubleshooting
+
+**Port 8080 already in use:**
+```bash
+# Windows
+netstat -ano | findstr :8080
+taskkill /PID <PID> /F
+
+# Linux/Mac
+lsof -ti:8080 | xargs kill -9
+```
+
+**Compilation errors:**
+```bash
+./mvnw clean compile
+./mvnw spring-boot:run
+```
+
+**Data not loading:**
+- Check `data.sql` file exists
+- Review application logs for SQL errors
+- Database is recreated on each restart (in-memory)

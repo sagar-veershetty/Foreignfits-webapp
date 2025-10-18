@@ -1,0 +1,43 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Angular build output
+dist
+.angular
+
+# IDE files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Backend files (for frontend build)
+backend
+
+# Test files
+*.spec.ts
+e2e
+coverage
+
+# Logs
+logs
+*.log
+
+# Documentation
+README.md
+*.md
+

@@ -5,7 +5,7 @@ import com.foreignfits.dto.request.StockAdjustmentRequest;
 import com.foreignfits.service.StockService;
 import com.foreignfits.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -15,13 +15,11 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/stock")
+@RequiredArgsConstructor
 public class StockController {
     
-    @Autowired
-    private StockService stockService;
-    
-    @Autowired
-    private UserService userService;
+    private final StockService stockService;
+    private final UserService userService;
     
     @GetMapping("/movements")
     @PreAuthorize("hasRole('ADMIN') or hasRole('WAREHOUSE')")

@@ -1,10 +1,13 @@
 #!/bin/bash
 
-echo "🚀 Starting Foreign Fits Frontend (React + Vite)..."
-echo "📍 Frontend will run on: http://localhost:5173"
+echo "🚀 Starting Foreign Fits Frontend (Angular)..."
+echo "📍 Frontend will run on: http://localhost:4200"
 echo "🔗 Backend API: http://localhost:8080/api"
 echo "🗄️  Database: H2 Console at http://localhost:8080/api/h2-console"
 echo ""
+
+# Navigate to frontend directory
+cd frontend
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
@@ -45,18 +48,18 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
-# Start the development server
-echo "🌐 Starting Vite development server..."
+# Start the Angular development server
+echo "🌐 Starting Angular development server..."
 echo ""
 echo "🎯 Application Modes:"
-echo "   Management Portal: http://localhost:5173"
-echo "   Customer Store: http://localhost:5173?mode=customer"
+echo "   Management Portal: http://localhost:4200"
 echo ""
-echo "👥 Demo Accounts:"
-echo "   Admin: admin@foreignfits.com / admin123"
-echo "   Sales: sales@foreignfits.com / sales123"
-echo "   Warehouse: warehouse@foreignfits.com / warehouse123"
-echo "   Customer: customer@example.com / customer123"
+echo "👥 Demo Accounts (All use password: admin):"
+echo "   Admin: admin@foreignfits.com / admin"
+echo "   Sales: sales@foreignfits.com / admin"
+echo "   Warehouse: warehouse@foreignfits.com / admin"
+echo ""
+echo "⚠️  NOTE: Login simplified for testing - all accounts use password \"admin\""
 echo ""
 
-npm run dev
+npm start

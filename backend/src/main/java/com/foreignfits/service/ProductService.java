@@ -1,6 +1,5 @@
 package com.foreignfits.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import com.foreignfits.dto.LocationDto;
 import com.foreignfits.dto.ProductDto;
 import com.foreignfits.dto.request.CreateProductRequest;
@@ -18,13 +17,11 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class ProductService {
     
-    @Autowired
-    private ProductRepository productRepository;
-    
-    @Autowired
-    private LocationRepository locationRepository;
+    private final ProductRepository productRepository;
+    private final LocationRepository locationRepository;
     
     public List<ProductDto> getAllProducts() {
         return productRepository.findAll().stream()

@@ -5,7 +5,7 @@ import com.foreignfits.dto.request.CreateSaleRequest;
 import com.foreignfits.service.SaleService;
 import com.foreignfits.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,13 +18,11 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/sales")
+@RequiredArgsConstructor
 public class SaleController {
     
-    @Autowired
-    private SaleService saleService;
-    
-    @Autowired
-    private UserService userService;
+    private final SaleService saleService;
+    private final UserService userService;
     
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")

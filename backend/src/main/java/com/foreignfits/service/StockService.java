@@ -8,7 +8,7 @@ import com.foreignfits.entity.Product;
 import com.foreignfits.entity.StockMovement;
 import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.repository.StockMovementRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,16 +17,11 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class StockService {
     
-    @Autowired
-    private ProductRepository productRepository;
-    
-    @Autowired
-    private StockMovementRepository stockMovementRepository;
-    
-    @Autowired
-    private ProductService productService;
+    private final ProductRepository productRepository;
+    private final StockMovementRepository stockMovementRepository;
     
     public StockMovementDto adjustStock(StockAdjustmentRequest request, String createdBy) {
         Product product = productRepository.findById(request.getProductId())

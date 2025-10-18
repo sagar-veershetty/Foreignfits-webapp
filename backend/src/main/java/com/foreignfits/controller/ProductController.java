@@ -5,7 +5,7 @@ import com.foreignfits.dto.request.CreateProductRequest;
 import com.foreignfits.entity.Product;
 import com.foreignfits.service.ProductService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -14,10 +14,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/products")
+@RequiredArgsConstructor
 public class ProductController {
     
-    @Autowired
-    private ProductService productService;
+    private final ProductService productService;
     
     @GetMapping
     public ResponseEntity<List<ProductDto>> getAllProducts() {

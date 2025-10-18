@@ -1,0 +1,30 @@
+# Maven build output
+target/
+!target/*.jar
+
+# IDE files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Maven wrapper jar (keep mvnw scripts)
+.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+logs
+*.log
+
+# Documentation
+README.md
+*.md
+
