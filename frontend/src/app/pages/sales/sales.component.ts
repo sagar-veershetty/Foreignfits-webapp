@@ -7,14 +7,13 @@ import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product, SaleItem, Sale } from '../../core/models';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
-import { ReceiptPrinterComponent } from '../../components/sales/receipt-printer.component';
 import { PrintReceiptComponent } from './print-receipt.component';
 
 
 @Component({
   selector: 'app-sales',
   standalone: true,
-  imports: [CommonModule, FormsModule, BarcodeInputComponent, ReceiptPrinterComponent, PrintReceiptComponent],
+  imports: [CommonModule, FormsModule, BarcodeInputComponent, PrintReceiptComponent],
   templateUrl: './sales.component.html'
 })
 export class SalesComponent {

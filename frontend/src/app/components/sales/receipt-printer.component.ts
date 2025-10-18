@@ -1,11 +1,11 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { CommonModule, DatePipe, CurrencyPipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { Sale } from '../../core/models';
 
 @Component({
   selector: 'app-receipt-printer',
   standalone: true,
-  imports: [CommonModule, DatePipe, CurrencyPipe],
+  imports: [CommonModule, DatePipe],
   template: `
     <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div class="bg-white w-[520px] max-w-full rounded-xl shadow-lg overflow-hidden">
@@ -60,4 +60,3 @@ export class ReceiptPrinterComponent {
     window.print();
   }
 }
-

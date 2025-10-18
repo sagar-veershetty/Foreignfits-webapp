@@ -38,6 +38,9 @@
               "src/styles.scss"
             ],
             "scripts": [],
+            "allowedCommonJsDependencies": [
+              "jsbarcode"
+            ],
             "optimization": true,
             "sourceMap": false,
             "namedChunks": false,
