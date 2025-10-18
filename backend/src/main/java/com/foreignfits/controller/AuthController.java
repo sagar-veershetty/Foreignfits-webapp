@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -23,25 +24,25 @@ public class AuthController {
     
     private final JwtTokenProvider tokenProvider;
     private final UserService userService;
-    
+    private final PasswordEncoder passwordEncoder;
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest loginRequest) {
         log.info("Login attempt for email={}", loginRequest.getEmail());
         try {
-            // Temporary simplified login - check user exists first
-            UserDto user = userService.getUserByEmail(loginRequest.getEmail())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            // Get user by email
+            UserDto userDto = userService.getUserByEmail(loginRequest.getEmail())
+                    .orElseThrow(() -> new RuntimeException("Invalid email or password"));
 
-            // For now, accept "admin" as password for all users (TEMPORARY - for testing only)
-            if (!"admin".equals(loginRequest.getPassword())) {
+            // Verify password using PasswordEncoder
+            if (!userService.verifyPassword(loginRequest.getEmail(), loginRequest.getPassword())) {
                 Map<String, String> error = new HashMap<>();
                 error.put("error", "Invalid email or password");
-                error.put("debug", "Password must be: admin");
                 log.info("Login failed for email={} reason=invalid-password", loginRequest.getEmail());
                 return ResponseEntity.badRequest().body(error);
             }
 
-            // Generate token directly from email (simplified)
+            // Generate token
             String token = tokenProvider.generateTokenFromEmail(loginRequest.getEmail());
 
             // Update last login
@@ -50,7 +51,7 @@ public class AuthController {
 
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);
-            response.put("user", user);
+            response.put("user", userDto);
             response.put("message", "Login successful");
             
             return ResponseEntity.ok(response);
@@ -58,7 +59,6 @@ public class AuthController {
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", "Invalid email or password");
-            error.put("debug", e.getMessage());
             log.error("Login error for email={}: {}", loginRequest.getEmail(), e.getMessage());
             return ResponseEntity.badRequest().body(error);
         }

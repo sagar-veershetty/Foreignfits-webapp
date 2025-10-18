@@ -39,10 +39,10 @@ export class LoginComponent {
 
   handleDemoLogin(role: 'admin' | 'sales' | 'warehouse'): void {
     const demoCredentials: Record<typeof role, LoginCredentials> = {
-      // Backend currently accepts the temporary password 'admin' for all users (dev only)
-      admin: { email: 'admin@foreignfits.com', password: 'admin' },
-      sales: { email: 'sales@foreignfits.com', password: 'admin' },
-      warehouse: { email: 'warehouse@foreignfits.com', password: 'admin' },
+      // Backend currently accepts the temporary password 'admin123' for all users (dev only)
+      admin: { email: 'admin@foreignfits.com', password: 'admin123' },
+      sales: { email: 'sales@foreignfits.com', password: 'admin123' },
+      warehouse: { email: 'warehouse@foreignfits.com', password: 'admin123' },
     };
     this.credentials = demoCredentials[role];
     this.clearError();

@@ -72,6 +72,16 @@ public class UserService {
         });
     }
     
+    public boolean verifyPassword(String email, String rawPassword) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return false;
+        }
+
+        User user = userOpt.get();
+        return passwordEncoder.matches(rawPassword, user.getPassword());
+    }
+
     public List<UserDto> getUsersByRole(User.UserRole role) {
         return userRepository.findByRole(role).stream()
                 .map(this::convertToDto)
