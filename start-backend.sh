@@ -29,6 +29,12 @@ fi
 echo "☕ Java version: $(java -version 2>&1 | head -n 1)"
 echo "🗄️  Database: H2 In-Memory (foreign_fits_db)"
 echo "🔐 Demo Accounts:"
+echo "   Admin: admin@foreignfits.com / admin123"
+echo "   Sales: sales@foreignfits.com / admin123"
+echo "   Warehouse: warehouse@foreignfits.com / admin123"
+echo ""
+echo "🔄 Starting backend server..."
+echo ""
 # Navigate to backend directory and start
 cd backend
 
