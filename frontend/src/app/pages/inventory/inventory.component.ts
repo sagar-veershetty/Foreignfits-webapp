@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { Observable } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -12,7 +13,7 @@ import * as JsBarcode from 'jsbarcode';
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BarcodeInputComponent],
   templateUrl: './inventory.component.html'
 })
 export class InventoryComponent {
