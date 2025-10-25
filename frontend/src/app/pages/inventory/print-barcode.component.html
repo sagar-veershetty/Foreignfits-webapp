@@ -35,13 +35,18 @@
 	</div>
 	<div>
 		<div class="font-semibold mb-2">Print Settings</div>
-		<label>Sticker Size</label><br>
-		<select class="mt-1 mb-2 rounded border border-gray-300 px-2 py-1" [(ngModel)]="stickerSize">
-			<option value="medium">Medium (3" × 2")</option>
-			<option value="small">Small (2" × 1")</option>
-			<option value="large">Large (4" × 3")</option>
-		</select>
-		<div class="text-xs text-gray-500 bg-gray-100 rounded p-2 mt-2">Use the quantity controls on each product card to set how many stickers to print</div>
+    <label>Sticker Size</label><br>
+    <select class="mt-1 mb-2 rounded border border-gray-300 px-2 py-1" [(ngModel)]="stickerSize">
+  <option value="tag2x1" selected>Clothing Tag (2" × 1")</option>
+  <option value="custom">Custom Size</option>
+    </select>
+    <div *ngIf="stickerSize === 'custom'" class="flex gap-2 items-center mt-2">
+      <label class="text-xs">Width (mm):</label>
+      <input type="number" min="30" max="110" [(ngModel)]="customWidth" class="w-16 px-2 py-1 border border-gray-300 rounded text-center" />
+      <label class="text-xs">Height (mm):</label>
+      <input type="number" min="10" max="200" [(ngModel)]="customHeight" class="w-16 px-2 py-1 border border-gray-300 rounded text-center" />
+    </div>
+    <div class="text-xs text-gray-500 bg-gray-100 rounded p-2 mt-2">EXEO printer supports 4x6", 3x5" and custom labels from 30mm to 110mm width. Use the quantity controls on each product card to set how many stickers to print.</div>
 	</div>
 </div>
 
@@ -55,27 +60,32 @@
     <span class="inline-flex items-center"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>Sticker Preview ({{ getStickerSizeLabel() }})</span>
   </div>
   <div class="border border-dashed border-gray-300 rounded p-4 bg-white">
-    <div class="sticker-preview-grid" [ngClass]="getStickerSizeClass()">
+    <!-- Removed Print Stickers button from preview section -->
+<!-- Main Print Barcode Stickers button at the bottom -->
+  <div class="sticker-preview-grid responsive-sticker-grid" [ngClass]="getStickerSizeClass()">
       <ng-container *ngFor="let product of selectedProducts">
-        <div class="sticker-card-mock">
-          <div class="sticker-title-mock">{{ product.name }}</div>
-          <div class="sticker-meta-mock">
-            <span *ngIf="showSize && product.size">{{ product.size }}</span>
-            <span *ngIf="showColor && product.color">- {{ product.color }}</span>
-          </div>
-          <div class="sticker-sku-mock" *ngIf="showSKU">{{ product.sku }}</div>
-          <div class="sticker-category-mock" *ngIf="showCategory || showLocation">
-            <span *ngIf="showCategory">{{ product.category }}</span>
-            <span *ngIf="showLocation && product.location?.name">- {{ product.location?.name }}</span>
-          </div>
-          <div class="sticker-price-mock" *ngIf="showPrice">₹{{ product.price.toFixed(2) }}</div>
-          <div class="sticker-barcode-mock">
-            <div class="barcode-bg">
-              <span [innerHTML]="renderBarcodeSvg(product)"></span>
+        <ng-container *ngFor="let i of [].constructor(productQuantities[product.id] || 1)">
+          <div class="sticker-card-mock responsive-sticker-item"
+            [ngStyle]="getStickerPreviewStyle()">
+            <div class="sticker-title-mock" [ngStyle]="getFontStyle('title')">{{ product.name }}</div>
+            <div class="sticker-meta-mock" [ngStyle]="getFontStyle('meta')">
+              <span *ngIf="showSize && product.size">{{ product.size }}</span>
+              <span *ngIf="showColor && product.color">- {{ product.color }}</span>
             </div>
-            <div class="barcode-value">{{ product.barcode || product.sku || product.id }}</div>
+            <div class="sticker-sku-mock" *ngIf="showSKU" [ngStyle]="getFontStyle('sku')">{{ product.sku }}</div>
+            <div class="sticker-category-mock" *ngIf="showCategory || showLocation" [ngStyle]="getFontStyle('category')">
+              <span *ngIf="showCategory">{{ product.category }}</span>
+              <span *ngIf="showLocation && product.location?.name">- {{ product.location?.name }}</span>
+            </div>
+            <div class="sticker-price-mock" *ngIf="showPrice" [ngStyle]="getFontStyle('price')">₹{{ product.price.toFixed(2) }}</div>
+            <div class="sticker-barcode-mock">
+              <div class="barcode-bg">
+                <span [innerHTML]="renderBarcodeSvg(product)"></span>
+              </div>
+              <div class="barcode-value" [ngStyle]="getFontStyle('barcode')">{{ product.barcode || product.sku || product.id }}</div>
+            </div>
           </div>
-        </div>
+        </ng-container>
       </ng-container>
     </div>
   </div>
@@ -108,8 +118,8 @@
 <div *ngIf="selectedProducts.length === 0" class="text-gray-400 text-center mb-6">No products selected.</div>
 
 <div class="actions flex gap-2">
-	<button type="button" (click)="print()" [disabled]="selectedProducts.length === 0" class="flex-1 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">Print {{ selectedProducts.length }} Barcode Stickers</button>
-	<button type="button" (click)="close()" class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">Cancel</button>
+  <button type="button" (click)="print()" [disabled]="selectedProducts.length === 0" class="flex-1 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700">Print Barcode Stickers</button>
+  <button type="button" (click)="close()" class="px-4 py-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300">Cancel</button>
 </div>
 
 <style>

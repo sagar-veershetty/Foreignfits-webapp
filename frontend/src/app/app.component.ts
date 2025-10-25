@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { BarcodeScannerDirective } from './core/directives/barcode-scanner.directive';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { NavbarComponent } from './components/layout/navbar.component';
@@ -9,9 +10,9 @@ import { map, filter } from 'rxjs/operators';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, NavbarComponent],
+  imports: [CommonModule, RouterOutlet, NavbarComponent, BarcodeScannerDirective],
   template: `
-    <div class="min-h-screen bg-gray-50">
+    <div class="min-h-screen bg-gray-50" barcodeScanner (barcodeScanned)="onBarcodeScanned($event)">
       <app-navbar *ngIf="isAuthenticated$ | async"></app-navbar>
       <router-outlet></router-outlet>
     </div>
@@ -19,6 +20,12 @@ import { map, filter } from 'rxjs/operators';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
+  onBarcodeScanned(barcode: string) {
+    // TODO: Implement global barcode handling logic here
+    // For now, just log it
+    console.log('Barcode scanned:', barcode);
+    // You can route, search, or dispatch actions as needed
+  }
   isAuthenticated$: Observable<boolean>;
 
   constructor(

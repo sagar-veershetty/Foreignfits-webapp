@@ -1,6 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: '/api',
-  appName: 'Foreign Fits',
+  apiUrl: 'http://localhost:8080/api',
   version: '1.0.0'
 };
