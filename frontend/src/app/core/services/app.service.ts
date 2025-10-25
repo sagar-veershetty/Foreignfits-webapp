@@ -41,45 +41,7 @@ export class AppService {
   }
 
   constructor(private http: HttpClient) {
-    this.initializeLocations();
-  }
-
-  private initializeLocations(): void {
-    const mockLocations: Location[] = [
-      {
-        id: '1',
-        name: 'Main Warehouse',
-        type: 'warehouse',
-        address: '1234 Industrial Blvd',
-        city: 'Fashion City',
-        state: 'CA',
-        zipCode: '90210',
-        phone: '(555) 123-4567',
-        manager: 'John Warehouse',
-        capacity: 10000,
-        isActive: true,
-        createdAt: new Date('2024-01-01'),
-      },
-      {
-        id: '2',
-        name: 'Downtown Store',
-        type: 'store',
-        address: '456 Fashion Ave',
-        city: 'Fashion City',
-        state: 'CA',
-        zipCode: '90211',
-        phone: '(555) 234-5678',
-        manager: 'Sarah Store',
-        capacity: 500,
-        isActive: true,
-        createdAt: new Date('2024-01-01'),
-      }
-    ];
-
-    this.updateAppState({
-      ...this._appStateSubject.value,
-      locations: mockLocations
-    });
+    // Locations will be loaded from API in loadInitialData
   }
 
   loadInitialData(): Observable<any> {
@@ -92,7 +54,8 @@ export class AppService {
     return forkJoin({
       products: this.loadProducts(),
       sales: this.loadSales(),
-      stockMovements: this.loadStockMovements()
+      stockMovements: this.loadStockMovements(),
+      locations: this.loadLocations()
     }).pipe(
       tap(() => {
         this.updateAppState({
@@ -188,6 +151,41 @@ export class AppService {
             stockMovements: []
           });
           return new Observable<StockMovement[]>(observer => observer.next([]));
+        })
+      );
+  }
+
+  private loadLocations(): Observable<Location[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/locations`)
+      .pipe(
+        tap(apiLocations => {
+          const locations: Location[] = apiLocations.map(loc => ({
+            id: loc.id?.toString() || '',
+            name: loc.name || '',
+            type: loc.type?.toLowerCase() || 'store',
+            address: loc.address || '',
+            city: loc.city || '',
+            state: loc.state || '',
+            zipCode: loc.zipCode || '',
+            phone: loc.phone || '',
+            manager: loc.manager || '',
+            capacity: loc.capacity || 0,
+            isActive: loc.isActive !== false,
+            createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
+          }));
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            locations
+          });
+        }),
+        catchError(error => {
+          console.error('Failed to load locations from API:', error);
+          // Use empty array as fallback to make the issue obvious
+          this.updateAppState({
+            ...this._appStateSubject.value,
+            locations: []
+          });
+          return new Observable<Location[]>(observer => observer.next([]));
         })
       );
   }
@@ -336,6 +334,64 @@ export class AppService {
     }
   }
 
+  // Stock Transfer API
+  createStockTransfer(transferRequest: {
+    productId: string;
+    fromLocationId: string;
+    toLocationId: string;
+    quantity: number;
+    reason: string;
+    reference?: string;
+    notes?: string;
+  }): Observable<any> {
+    const request = {
+      productId: parseInt(transferRequest.productId),
+      fromLocationId: parseInt(transferRequest.fromLocationId),
+      toLocationId: parseInt(transferRequest.toLocationId),
+      quantity: transferRequest.quantity,
+      reason: transferRequest.reason,
+      reference: transferRequest.reference || '',
+      notes: transferRequest.notes || ''
+    };
+
+    return this.http.post<any>(`${this.API_BASE_URL}/stock-transfers`, request)
+      .pipe(
+        tap(() => {
+          // Refresh products and stock movements after transfer
+          this.loadProducts().subscribe();
+          this.loadStockMovements().subscribe();
+        }),
+        catchError(error => {
+          console.error('Stock transfer failed:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  // Stock Adjustment API
+  adjustStock(adjustment: StockAdjustment): Observable<any> {
+    const request = {
+      productId: parseInt(adjustment.productId),
+      adjustmentType: adjustment.adjustmentType,
+      quantity: adjustment.quantity,
+      reason: adjustment.reason,
+      reference: adjustment.reference || ''
+    };
+
+    return this.http.post<any>(`${this.API_BASE_URL}/stock/adjustments`, request)
+      .pipe(
+        tap(() => {
+          // Refresh products and stock movements after adjustment
+          this.loadProducts().subscribe();
+          this.loadStockMovements().subscribe();
+        }),
+        catchError(error => {
+          console.error('Stock adjustment failed:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
   private updateAppState(newState: AppState): void {
     this._appStateSubject.next(newState);
   }
@@ -357,8 +413,8 @@ export class AppService {
       description: apiProduct.description,
       barcode: apiProduct.barcode,
       imageUrls: apiProduct.imageUrls || [],
-      locationId: apiProduct.location.id.toString(),
-      location: {
+      locationId: apiProduct.location?.id.toString() || '',
+      location: apiProduct.location ? {
         id: apiProduct.location.id.toString(),
         name: apiProduct.location.name,
         type: apiProduct.location.type.toLowerCase(),
@@ -371,7 +427,7 @@ export class AppService {
         capacity: apiProduct.location.capacity,
         isActive: apiProduct.location.isActive,
         createdAt: new Date(apiProduct.location.createdAt),
-      },
+      } : undefined,
       createdAt: new Date(apiProduct.createdAt),
       updatedAt: new Date(apiProduct.updatedAt),
     };

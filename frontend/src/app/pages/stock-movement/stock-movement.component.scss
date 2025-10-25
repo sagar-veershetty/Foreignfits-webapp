@@ -1,0 +1,46 @@
+// Stock Movement Component Styles
+
+// Animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:host {
+  display: block;
+  animation: fadeIn 0.3s ease-out;
+}
+
+// Table improvements
+table {
+  tbody tr {
+    transition: background-color 0.2s ease;
+  }
+}
+
+// Form improvements
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+// Responsive table
+@media (max-width: 768px) {
+  .overflow-x-auto {
+    border-radius: 0.5rem;
+  }
+  
+  table {
+    font-size: 0.875rem;
+    
+    th, td {
+      padding: 0.75rem 1rem;
+    }
+  }
+}

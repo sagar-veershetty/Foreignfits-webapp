@@ -113,7 +113,7 @@
 
         <div class="border-t border-gray-200 pt-3 space-y-2">
           <div class="flex justify-between text-sm"><span>Subtotal:</span><span>₹{{ getSubtotal(appState) | number:'1.2-2' }}</span></div>
-          <div class="flex justify-between text-sm"><span>Tax (18% GST):</span><span>₹{{ getTax(appState) | number:'1.2-2' }}</span></div>
+          <div class="flex justify-between text-sm"><span>Tax (5% GST - included):</span><span>₹{{ getTax(appState) | number:'1.2-2' }}</span></div>
           <div class="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
             <span>Total:</span>
             <span class="text-green-600">₹{{ getTotal(appState) | number:'1.2-2' }}</span>

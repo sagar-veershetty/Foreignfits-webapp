@@ -33,7 +33,7 @@ public class SaleService {
     private final UserRepository userRepository;
     private final StockMovementRepository stockMovementRepository;
     
-    private static final BigDecimal GST_RATE = new BigDecimal("0.18"); // 18% GST
+    private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST (inclusive)
     
     public List<SaleDto> getAllSales() {
         return saleRepository.findAll().stream()
@@ -76,9 +76,11 @@ public class SaleService {
             subtotal = subtotal.add(itemTotal);
         }
         
-        // Calculate tax and total
-        BigDecimal tax = subtotal.multiply(GST_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal total = subtotal.add(tax);
+        // Calculate tax and total (GST is inclusive - already in product prices)
+        // Total = Subtotal (customer doesn't pay extra for GST)
+        // But we show the GST amount separately for record-keeping
+        BigDecimal total = subtotal; // Customer pays only the product prices
+        BigDecimal tax = subtotal.multiply(GST_RATE).divide(BigDecimal.ONE.add(GST_RATE), 2, RoundingMode.HALF_UP);
         
         // Create sale
         Sale sale = new Sale();

@@ -1,5 +1,6 @@
 package com.foreignfits.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -67,6 +68,7 @@ public class Location {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
     
+    @JsonIgnore
     @OneToMany(mappedBy = "location", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Product> products;
     

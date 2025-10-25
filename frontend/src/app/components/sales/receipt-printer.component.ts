@@ -40,7 +40,7 @@ import { Sale } from '../../core/models';
           </div>
           <div class="pt-2 space-y-1">
             <div class="flex justify-between text-sm"><span>Subtotal</span><span>₹{{ sale?.subtotal | number:'1.2-2' }}</span></div>
-            <div class="flex justify-between text-sm"><span>Tax (18% GST)</span><span>₹{{ sale?.tax | number:'1.2-2' }}</span></div>
+            <div class="flex justify-between text-sm"><span>Tax (5% GST - included)</span><span>₹{{ sale?.tax | number:'1.2-2' }}</span></div>
             <div class="flex justify-between text-lg font-bold border-t pt-2"><span>Total</span><span class="text-green-600">₹{{ sale?.total | number:'1.2-2' }}</span></div>
           </div>
         </div>

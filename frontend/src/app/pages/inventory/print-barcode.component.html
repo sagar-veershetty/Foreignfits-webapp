@@ -67,6 +67,7 @@
         <ng-container *ngFor="let i of [].constructor(productQuantities[product.id] || 1)">
           <div class="sticker-card-mock responsive-sticker-item"
             [ngStyle]="getStickerPreviewStyle()">
+            <div class="sticker-brand-header" [ngStyle]="getFontStyle('brand')">FOREIGN FITS</div>
             <div class="sticker-title-mock" [ngStyle]="getFontStyle('title')">{{ product.name }}</div>
             <div class="sticker-meta-mock" [ngStyle]="getFontStyle('meta')">
               <span *ngIf="showSize && product.size">{{ product.size }}</span>
@@ -152,6 +153,15 @@
   .sticker-card-mock:hover {
     box-shadow: 0 4px 16px 0 rgba(0,0,0,0.10);
   }
+  .sticker-brand-header {
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+    color: #059669;
+    text-align: center;
+    text-transform: uppercase;
+  }
   .sticker-title-mock {
     font-weight: 700;
     font-size: 1.45rem;
@@ -228,10 +238,6 @@
     text-overflow: ellipsis;
   }
   /* Sticker size classes */
-  .sticker-preview-grid.sticker-medium .sticker-card-mock {
-    /* min-width: 480px;
-    min-height: 220px; */
-  }
   .sticker-preview-grid.sticker-small .sticker-card-mock {
     min-width: 320px;
     min-height: 140px;

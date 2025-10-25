@@ -42,6 +42,18 @@ export class PrintBarcodeComponent implements OnInit {
   getFontStyle(type: string) {
     const dims = this.getStickerDimensions();
     switch (type) {
+      case 'brand':
+        return {
+          fontWeight: 800,
+          fontSize: `calc(0.06 * ${dims.height}mm)`,
+          letterSpacing: '0.12em',
+          marginBottom: '3px',
+          color: '#059669',
+          textAlign: 'center',
+          textTransform: 'uppercase',
+          width: '100%',
+          lineHeight: 1.3,
+        };
       case 'title':
         return {
           fontWeight: 700,
@@ -126,7 +138,7 @@ export class PrintBarcodeComponent implements OnInit {
   customWidth = 30;
   customHeight = 50;
   Math = Math;
-  stickerSize: string = 'medium';
+  stickerSize: string = 'tag2x1'; // Default: Clothing Tag (2" × 1")
 
   getStickerSizeClass(): string {
     switch (this.stickerSize) {
@@ -291,6 +303,7 @@ export class PrintBarcodeComponent implements OnInit {
       // Compose label HTML (match preview card)
       let labelHtml = ''
         + '<div class="sticker-card-mock">'
+        + '<div class="sticker-brand-header">FOREIGN FITS</div>'
         + '<div class="sticker-title-mock">' + this.escapeHtml(name) + '</div>'
         + '<div class="sticker-meta-mock">'
         + (this.showSize && size ? this.escapeHtml(size) : '')
@@ -351,6 +364,17 @@ export class PrintBarcodeComponent implements OnInit {
               min-height: ${dims.height}mm;
               max-width: ${dims.width}mm;
               max-height: ${dims.height}mm;
+            }
+            .sticker-brand-header {
+              font-weight: 800;
+              font-size: calc(0.08 * ${dims.height}mm);
+              letter-spacing: 0.12em;
+              margin-bottom: 3px;
+              color: #059669;
+              text-align: center;
+              text-transform: uppercase;
+              width: 100%;
+              line-height: 1.3;
             }
             .sticker-title-mock {
               font-weight: 700;

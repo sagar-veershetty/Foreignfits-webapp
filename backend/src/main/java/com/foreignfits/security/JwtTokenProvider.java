@@ -1,7 +1,9 @@
 package com.foreignfits.security;
 
+import com.foreignfits.repository.UserRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -15,7 +17,10 @@ import java.util.Date;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
+    
+    private final UserRepository userRepository;
     
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -61,6 +66,13 @@ public class JwtTokenProvider {
                 .getBody();
         
         return claims.getSubject();
+    }
+    
+    public Long getUserIdFromToken(String token) {
+        String email = getUsernameFromToken(token);
+        return userRepository.findByEmail(email)
+                .map(user -> user.getId())
+                .orElseThrow(() -> new RuntimeException("User not found for token"));
     }
     
     public boolean validateToken(String authToken) {

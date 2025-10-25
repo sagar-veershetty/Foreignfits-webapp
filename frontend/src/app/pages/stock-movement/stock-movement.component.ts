@@ -1,40 +1,295 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AppService } from '../../core/services/app.service';
+import { AuthService } from '../../core/services/auth.service';
+import { StockMovement, Product, Location, User } from '../../core/models';
 
 @Component({
   selector: 'app-stock-movement',
   standalone: true,
-  imports: [CommonModule],
-  template: `
-    <div class="space-y-6">
-      <!-- Header -->
-      <div class="bg-gradient-to-r from-indigo-600 to-purple-700 text-white p-8 rounded-xl shadow-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold mb-2">Stock Management</h1>
-            <p class="text-indigo-100 text-lg">Foreign Fits - Global Fashion</p>
-            <p class="text-indigo-200 text-sm mt-1">Manage inventory levels and track movements</p>
-          </div>
-          <div class="text-right">
-            <div class="p-3 bg-indigo-500 rounded-full">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Coming Soon -->
-      <div class="bg-white p-8 rounded-xl shadow-md border border-gray-100 text-center">
-        <svg class="h-16 w-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-        </svg>
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Stock Movement</h2>
-        <p class="text-gray-600">Stock adjustment and transfer functionality coming soon!</p>
-      </div>
-    </div>
-  `
+  imports: [CommonModule, FormsModule],
+  templateUrl: './stock-movement.component.html',
+  styleUrls: ['./stock-movement.component.scss']
 })
-export class StockMovementComponent {}
+export class StockMovementComponent implements OnInit {
+  activeTab = signal<'movements' | 'adjustment' | 'transfer'>('movements');
+  
+  stockMovements = signal<StockMovement[]>([]);
+  products = signal<Product[]>([]);
+  locations = signal<Location[]>([]);
+  currentUser = signal<User | null>(null);
+  
+  // Filters
+  filterType = signal<string>('all');
+  filterDateRange = signal<string>('all');
+  searchQuery = signal<string>('');
+  
+  // Adjustment Form
+  adjustmentForm = {
+    productId: '',
+    adjustmentType: 'increase' as 'increase' | 'decrease' | 'set',
+    quantity: 0,
+    reason: '',
+    reference: ''
+  };
+  
+  // Transfer Form
+  transferForm = {
+    productId: '',
+    fromLocationId: '',
+    toLocationId: '',
+    quantity: 0,
+    reason: '',
+    reference: '',
+    notes: ''
+  };
+  
+  isLoading = signal<boolean>(false);
+  successMessage = signal<string>('');
+  errorMessage = signal<string>('');
+
+  constructor(
+    private appService: AppService,
+    private authService: AuthService
+  ) {}
+
+  ngOnInit() {
+    this.loadData();
+    this.loadCurrentUser();
+  }
+
+  loadData() {
+    this.isLoading.set(true);
+    this.appService.appState$.subscribe(state => {
+      this.stockMovements.set(state.stockMovements || []);
+      this.products.set(state.products || []);
+      this.locations.set(state.locations || []);
+      this.isLoading.set(state.isLoading);
+    });
+  }
+
+  loadCurrentUser() {
+    this.authService.authState$.subscribe(state => {
+      this.currentUser.set(state.user);
+    });
+  }
+
+  isAdmin(): boolean {
+    return this.currentUser()?.role === 'admin';
+  }
+
+  isWarehouseOrAdmin(): boolean {
+    const role = this.currentUser()?.role;
+    return role === 'admin' || role === 'warehouse';
+  }
+
+  get filteredMovements(): StockMovement[] {
+    let movements = this.stockMovements();
+    
+    // Filter by type
+    if (this.filterType() !== 'all') {
+      movements = movements.filter(m => m.type === this.filterType());
+    }
+    
+    // Filter by date range
+    if (this.filterDateRange() !== 'all') {
+      const now = new Date();
+      const cutoffDate = new Date();
+      
+      switch (this.filterDateRange()) {
+        case 'today':
+          cutoffDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          cutoffDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          cutoffDate.setMonth(now.getMonth() - 1);
+          break;
+      }
+      
+      movements = movements.filter(m => new Date(m.createdAt) >= cutoffDate);
+    }
+    
+    // Filter by search query
+    if (this.searchQuery()) {
+      const query = this.searchQuery().toLowerCase();
+      movements = movements.filter(m => 
+        m.product?.name.toLowerCase().includes(query) ||
+        m.product?.sku.toLowerCase().includes(query) ||
+        m.reason?.toLowerCase().includes(query)
+      );
+    }
+    
+    return movements.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  setActiveTab(tab: 'movements' | 'adjustment' | 'transfer') {
+    this.activeTab.set(tab);
+    this.clearMessages();
+  }
+
+  getSelectedProduct(): Product | undefined {
+    const productId = this.activeTab() === 'adjustment' 
+      ? this.adjustmentForm.productId 
+      : this.transferForm.productId;
+    return this.products().find(p => p.id === productId);
+  }
+
+  submitAdjustment() {
+    this.clearMessages();
+    
+    if (!this.adjustmentForm.productId || !this.adjustmentForm.quantity || !this.adjustmentForm.reason) {
+      this.errorMessage.set('Please fill in all required fields');
+      return;
+    }
+
+    if (!this.isAdmin()) {
+      this.errorMessage.set('Access denied. Only admins can make stock adjustments.');
+      return;
+    }
+    
+    this.isLoading.set(true);
+    
+    this.appService.adjustStock({
+      productId: this.adjustmentForm.productId,
+      adjustmentType: this.adjustmentForm.adjustmentType,
+      quantity: this.adjustmentForm.quantity,
+      reason: this.adjustmentForm.reason,
+      reference: this.adjustmentForm.reference
+    }).subscribe({
+      next: () => {
+        this.successMessage.set('Stock adjustment recorded successfully!');
+        this.resetAdjustmentForm();
+        this.isLoading.set(false);
+        
+        setTimeout(() => {
+          this.clearMessages();
+          this.setActiveTab('movements');
+        }, 2000);
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Failed to record stock adjustment. Please try again.');
+        console.error('Stock adjustment error:', error);
+      }
+    });
+  }
+
+  submitTransfer() {
+    this.clearMessages();
+    
+    if (!this.transferForm.productId || 
+        !this.transferForm.fromLocationId || 
+        !this.transferForm.toLocationId || 
+        !this.transferForm.quantity || 
+        !this.transferForm.reason) {
+      this.errorMessage.set('Please fill in all required fields');
+      return;
+    }
+    
+    if (this.transferForm.fromLocationId === this.transferForm.toLocationId) {
+      this.errorMessage.set('Source and destination locations must be different');
+      return;
+    }
+
+    if (!this.isWarehouseOrAdmin()) {
+      this.errorMessage.set('Access denied. Only warehouse and admin users can create stock transfers.');
+      return;
+    }
+
+    const selectedProduct = this.getSelectedProduct();
+    if (selectedProduct && this.transferForm.quantity > selectedProduct.stock) {
+      this.errorMessage.set(`Insufficient stock. Available: ${selectedProduct.stock}`);
+      return;
+    }
+    
+    this.isLoading.set(true);
+    
+    this.appService.createStockTransfer({
+      productId: this.transferForm.productId,
+      fromLocationId: this.transferForm.fromLocationId,
+      toLocationId: this.transferForm.toLocationId,
+      quantity: this.transferForm.quantity,
+      reason: this.transferForm.reason,
+      reference: this.transferForm.reference,
+      notes: this.transferForm.notes
+    }).subscribe({
+      next: () => {
+        this.successMessage.set('Stock transfer request created successfully!');
+        this.resetTransferForm();
+        this.isLoading.set(false);
+        
+        setTimeout(() => {
+          this.clearMessages();
+          this.setActiveTab('movements');
+        }, 2000);
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Failed to create stock transfer. Please try again.');
+        console.error('Stock transfer error:', error);
+      }
+    });
+  }
+
+  resetAdjustmentForm() {
+    this.adjustmentForm = {
+      productId: '',
+      adjustmentType: 'increase',
+      quantity: 0,
+      reason: '',
+      reference: ''
+    };
+  }
+
+  resetTransferForm() {
+    this.transferForm = {
+      productId: '',
+      fromLocationId: '',
+      toLocationId: '',
+      quantity: 0,
+      reason: '',
+      reference: '',
+      notes: ''
+    };
+  }
+
+  clearMessages() {
+    this.successMessage.set('');
+    this.errorMessage.set('');
+  }
+
+  getMovementTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'adjustment': 'Adjustment',
+      'sale': 'Sale',
+      'return': 'Return',
+      'damage': 'Damage',
+      'transfer_out': 'Transfer Out',
+      'transfer_in': 'Transfer In',
+      'restock': 'Restock'
+    };
+    return labels[type] || type;
+  }
+
+  getMovementTypeClass(type: string): string {
+    const classes: { [key: string]: string } = {
+      'adjustment': 'bg-blue-100 text-blue-800',
+      'sale': 'bg-green-100 text-green-800',
+      'return': 'bg-yellow-100 text-yellow-800',
+      'damage': 'bg-red-100 text-red-800',
+      'transfer_out': 'bg-purple-100 text-purple-800',
+      'transfer_in': 'bg-indigo-100 text-indigo-800',
+      'restock': 'bg-teal-100 text-teal-800'
+    };
+    return classes[type] || 'bg-gray-100 text-gray-800';
+  }
+
+  formatDate(date: Date): string {
+    return new Date(date).toLocaleString();
+  }
+}

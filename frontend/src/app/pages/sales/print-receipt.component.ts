@@ -16,8 +16,8 @@ export class PrintReceiptComponent {
   router = inject(Router);
 
   print() {
-    // Open the print window synchronously and write a minimal HTML immediately
-    const printWindow = window.open('', '_blank', 'width=480,height=700');
+    // Optimize for thermal printer (80mm width)
+    const printWindow = window.open('', '_blank', 'width=302,height=600');
     if (!printWindow) {
       alert('Popup blocked! Please allow popups for this site to print receipts.');
       console.error('Print window was blocked by the browser.');
@@ -58,11 +58,30 @@ export class PrintReceiptComponent {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Print Receipt</title>
+            <meta charset="UTF-8">
+            <title>Print Receipt - Foreign Fits</title>
             ${styleSheets}
             <style>
-              body { background: #fff; margin: 0; padding: 0; }
-              .receipt-paper { box-shadow: none !important; border: none !important; margin: 0 auto; }
+              /* Thermal printer optimized styles */
+              @page {
+                size: 80mm auto;
+                margin: 0;
+              }
+              body { 
+                background: #fff; 
+                margin: 0; 
+                padding: 0;
+                width: 80mm;
+                font-family: 'Courier New', Courier, monospace;
+              }
+              .receipt-paper { 
+                box-shadow: none !important; 
+                border: none !important; 
+                margin: 0;
+                padding: 8px 12px;
+                width: 100%;
+                max-width: 80mm;
+              }
             </style>
           </head>
           <body onload="window.print(); window.close();">
@@ -71,7 +90,7 @@ export class PrintReceiptComponent {
         </html>
       `);
       printWindow.document.close();
-      console.log('Print window opened and content written.');
+      console.log('Print window opened and content written for thermal printer.');
     }, 150);
   }
 

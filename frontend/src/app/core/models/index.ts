@@ -17,7 +17,7 @@ export interface Product {
   barcode?: string;
   imageUrls?: string[];
   locationId: string;
-  location: Location;
+  location?: Location;
 }
 
 export interface Location {

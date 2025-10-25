@@ -24,6 +24,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     List<Product> findByLocationId(Long locationId);
     
+    @Query("SELECT p FROM Product p WHERE p.location.id = :locationId AND p.sku = :sku")
+    Optional<Product> findByLocationIdAndSku(@Param("locationId") Long locationId, @Param("sku") String sku);
+    
     @Query("SELECT p FROM Product p WHERE p.stock <= p.minStock")
     List<Product> findLowStockProducts();
     

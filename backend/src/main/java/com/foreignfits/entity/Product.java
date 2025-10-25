@@ -79,7 +79,7 @@ public class Product {
     
     @NotBlank(message = "SKU is required")
     @Size(max = 50, message = "SKU cannot exceed 50 characters")
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String sku;
     
     @Column(columnDefinition = "TEXT")

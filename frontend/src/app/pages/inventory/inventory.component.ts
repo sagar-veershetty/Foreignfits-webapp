@@ -29,6 +29,7 @@ export class InventoryComponent {
   categoryFilter = 'all';
   locationFilter = 'all';
   lowStockOnly = false;
+  groupBySku = false; // Toggle to show products grouped by SKU
   // simple per-card image index (not persisted)
   private imageIndex: Record<string, number> = {};
 
@@ -75,7 +76,33 @@ export class InventoryComponent {
     return this.getFilteredProducts(appState).filter(p => p.stock <= p.minStock).length;
   }
 
-  
+  // Group products by SKU to show multi-location inventory
+  getGroupedProducts(appState: AppState): Map<string, Product[]> {
+    const filtered = this.getFilteredProducts(appState);
+    const grouped = new Map<string, Product[]>();
+    
+    filtered.forEach(product => {
+      const key = product.sku;
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(product);
+    });
+    
+    return grouped;
+  }
+
+  // Get total stock across all locations for a SKU group
+  getGroupTotalStock(products: Product[]): number {
+    return products.reduce((sum, p) => sum + (p.stock || 0), 0);
+  }
+
+  // Get locations for a SKU group
+  getGroupLocations(products: Product[]): string {
+    return products
+      .map(p => `${p.location?.name || 'Unknown'} (${p.stock})`)
+      .join(', ');
+  }
 
   // Barcode/Label printing
   printBarcode(product: Product): void {

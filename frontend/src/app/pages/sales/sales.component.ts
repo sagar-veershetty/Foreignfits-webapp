@@ -89,11 +89,15 @@ export class SalesComponent {
   }
 
   getTax(appState: AppState): number {
-    return this.getSubtotal(appState) * 0.18;
+    // GST is inclusive - calculate the tax portion from subtotal
+    // Tax = Subtotal × (GST_RATE / (1 + GST_RATE))
+    const subtotal = this.getSubtotal(appState);
+    return subtotal * (0.05 / 1.05);
   }
 
   getTotal(appState: AppState): number {
-    return this.getSubtotal(appState) + this.getTax(appState);
+    // Total equals subtotal since GST is inclusive (customer doesn't pay extra)
+    return this.getSubtotal(appState);
   }
 
   completeSale(appState: AppState): void {
@@ -130,7 +134,7 @@ export class SalesComponent {
           customer: this.customerName || 'Walk-in Customer',
           items: receiptItems,
           subtotal,
-          taxLabel: '18% GST',
+          taxLabel: '5% GST (included)',
           tax,
           total,
           paymentMethod: this.paymentMethod.toUpperCase()
