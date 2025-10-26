@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Sale } from '../../core/models';
@@ -14,7 +15,7 @@ import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
   imports: [CommonModule, FormsModule, PrintReceiptComponent],
   templateUrl: './sales-history.component.html'
 })
-export class SalesHistoryComponent {
+export class SalesHistoryComponent implements OnInit {
   appState$: Observable<AppState>;
 
   // Filters
@@ -39,9 +40,24 @@ export class SalesHistoryComponent {
     this.appState$ = this.appService.appState$;
   }
 
+  ngOnInit(): void {
+    // Ensure initial data is loaded (especially important after page refresh)
+    this.appService.appState$.pipe(take(1)).subscribe(state => {
+      if (!state.dataLoaded) {
+        this.appService.loadInitialData().subscribe({
+          error: (e) => console.error('Sales History: initial data load failed', e)
+        });
+      }
+    });
+  }
+
   isAdmin(): boolean {
-    const user = this.authService.getCurrentUser();
-    return user?.role === 'admin';
+    return this.authService.hasCrossLocationAccess();
+  }
+
+  // Get only store locations (exclude warehouses) for admin dropdown
+  getStoreLocations(appState: AppState) {
+    return appState.locations.filter(loc => loc.type === 'store');
   }
 
   getPaymentMethodClass(method: string): string {

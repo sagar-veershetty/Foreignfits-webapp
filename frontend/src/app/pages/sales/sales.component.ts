@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { ReceiptData, ReceiptItem } from './receipt.model';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LoyaltyService } from '../../core/services/loyalty.service';
@@ -17,7 +18,7 @@ import { PrintReceiptComponent } from './print-receipt.component';
   imports: [CommonModule, FormsModule, BarcodeInputComponent, PrintReceiptComponent],
   templateUrl: './sales.component.html'
 })
-export class SalesComponent {
+export class SalesComponent implements OnInit {
   showReceiptModal = false;
   receiptData: ReceiptData | null = null;
   appState$: Observable<AppState>;
@@ -44,6 +45,17 @@ export class SalesComponent {
     public loyaltyService: LoyaltyService
   ) {
     this.appState$ = this.appService.appState$;
+  }
+
+  ngOnInit(): void {
+    // Ensure initial data is loaded (especially important after page refresh)
+    this.appService.appState$.pipe(take(1)).subscribe(state => {
+      if (!state.dataLoaded) {
+        this.appService.loadInitialData().subscribe({
+          error: (e) => console.error('Sales: initial data load failed', e)
+        });
+      }
+    });
   }
 
   // Template helpers for strict mode

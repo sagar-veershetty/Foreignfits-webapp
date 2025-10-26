@@ -1,9 +1,10 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { Observable } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product } from '../../core/models';
@@ -16,7 +17,7 @@ import * as JsBarcode from 'jsbarcode';
   imports: [CommonModule, FormsModule, BarcodeInputComponent],
   templateUrl: './inventory.component.html'
 })
-export class InventoryComponent {
+export class InventoryComponent implements OnInit {
   showBarcodes = false;
   toggleShowBarcodes() {
     this.showBarcodes = !this.showBarcodes;
@@ -42,6 +43,17 @@ export class InventoryComponent {
     this.appState$ = this.appService.appState$;
   }
 
+  ngOnInit(): void {
+    // Ensure initial data is loaded (especially important after page refresh)
+    this.appService.appState$.pipe(take(1)).subscribe(state => {
+      if (!state.dataLoaded) {
+        this.appService.loadInitialData().subscribe({
+          error: (e) => console.error('Inventory: initial data load failed', e)
+        });
+      }
+    });
+  }
+
 
   getFilteredProducts(appState: AppState): Product[] {
     const user = this.authService.getCurrentUser();
@@ -52,14 +64,14 @@ export class InventoryComponent {
                            (product.barcode && product.barcode.includes(this.searchTerm));
       const matchesCategory = this.categoryFilter === 'all' || product.category === this.categoryFilter;
       
-      // Location filtering logic based on user role
+      // Location filtering logic based on cross-location access
       let matchesLocation = true;
       
-      if (user?.role === 'sales' || user?.role === 'warehouse') {
-        // SALES and WAREHOUSE users: only see products from their assigned location
-        matchesLocation = product.locationId === user.locationId;
-      } else if (user?.role === 'admin') {
-        // ADMIN users: can filter by location dropdown or see all
+      if (!this.authService.hasCrossLocationAccess()) {
+        // Users WITHOUT cross-location access: only see products from their assigned location
+        matchesLocation = product.locationId === user?.locationId;
+      } else {
+        // Users WITH cross-location access (admin): can filter by location dropdown or see all
         matchesLocation = this.locationFilter === 'all' || product.locationId === this.locationFilter;
       }
       
@@ -250,13 +262,11 @@ export class InventoryComponent {
   }
 
   canEdit(): boolean {
-    const user = this.authService.getCurrentUser();
-    return user?.role === 'admin' || user?.role === 'warehouse';
+    return this.authService.canEditProduct();
   }
 
   isAdmin(): boolean {
-    const user = this.authService.getCurrentUser();
-    return user?.role === 'admin';
+    return this.authService.hasCrossLocationAccess();
   }
 
   onEdit(product: Product): void {

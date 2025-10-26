@@ -5,6 +5,7 @@ import com.foreignfits.entity.Location;
 import com.foreignfits.entity.User;
 import com.foreignfits.repository.LocationRepository;
 import com.foreignfits.repository.UserRepository;
+import com.foreignfits.security.RolePermissionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final LocationRepository locationRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RolePermissionMapper rolePermissionMapper;
     
     public List<UserDto> getAllUsers() {
         return userRepository.findAll().stream()
@@ -140,6 +142,11 @@ public class UserService {
         dto.setLastLogin(user.getLastLogin());
         dto.setCreatedAt(user.getCreatedAt());
         dto.setUpdatedAt(user.getUpdatedAt());
+        
+        // Add permissions based on role
+        dto.setPermissions(rolePermissionMapper.getPermissionsForRole(user.getRole()));
+        dto.setCrossLocationAccess(rolePermissionMapper.hasCrossLocationAccess(user.getRole()));
+        
         return dto;
     }
 }

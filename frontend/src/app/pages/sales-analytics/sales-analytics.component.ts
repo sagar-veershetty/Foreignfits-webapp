@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { take } from 'rxjs/operators';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Sale, SaleItem } from '../../core/models';
@@ -150,7 +151,7 @@ type Period = 'today' | 'week' | 'month' | 'custom';
     </div>
   `
 })
-export class SalesAnalyticsComponent {
+export class SalesAnalyticsComponent implements OnInit {
   state: AppState | null = null;
   period: Period = 'today';
   from = '';
@@ -167,9 +168,18 @@ export class SalesAnalyticsComponent {
     this.app.appState$.subscribe(s => { this.state = s; });
   }
 
+  ngOnInit(): void {
+    this.app.appState$.pipe(take(1)).subscribe(state => {
+      if (!state.dataLoaded) {
+        this.app.loadInitialData().subscribe({
+          error: (e) => console.error('SalesAnalytics: initial data load failed', e)
+        });
+      }
+    });
+  }
+
   isAdmin(): boolean {
-    const user = this.authService.getCurrentUser();
-    return user?.role === 'admin';
+    return this.authService.hasCrossLocationAccess();
   }
 
   get periodLabel(): string {

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -22,6 +23,8 @@ public class UserDto {
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Set<String> permissions; // User's permissions based on role
+    private Boolean crossLocationAccess; // Admin can access all locations
     
     // Manual getters and setters to ensure compatibility
     public Long getId() { return id; }
@@ -56,4 +59,10 @@ public class UserDto {
     
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    
+    public Set<String> getPermissions() { return permissions; }
+    public void setPermissions(Set<String> permissions) { this.permissions = permissions; }
+    
+    public Boolean getCrossLocationAccess() { return crossLocationAccess; }
+    public void setCrossLocationAccess(Boolean crossLocationAccess) { this.crossLocationAccess = crossLocationAccess; }
 }

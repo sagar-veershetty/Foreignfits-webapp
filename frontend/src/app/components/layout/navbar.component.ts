@@ -75,16 +75,48 @@ export class NavbarComponent {
 
   getFilteredTabs(): NavigationTab[] {
     const user = this.authService.getCurrentUser();
-    switch (user?.role) {
-      case 'sales':
-        return this.tabs.filter(tab => ['dashboard', 'inventory', 'sales', 'sales-history'].includes(tab.id));
-      case 'warehouse':
-        return this.tabs.filter(tab => ['dashboard', 'inventory', 'stock-movement'].includes(tab.id));
-      case 'admin':
-        return this.tabs; // Admin sees all tabs including approvals
-      default:
-        return this.tabs.filter(tab => tab.id !== 'approvals'); // Others don't see approvals
+    
+    // If user not loaded yet, return all tabs temporarily (will update reactively)
+    if (!user || !user.permissions) {
+      return this.tabs;
     }
+    
+    const tabs: NavigationTab[] = [];
+    
+    // Dashboard - available to all authenticated users
+    tabs.push(this.tabs.find(t => t.id === 'dashboard')!);
+    
+    // Inventory - available to users with view products permission
+    if (this.authService.canViewProducts()) {
+      tabs.push(this.tabs.find(t => t.id === 'inventory')!);
+    }
+    
+    // Sales (POS) - ONLY available to users who can CREATE sales (sales staff only)
+    if (this.authService.canCreateSale()) {
+      tabs.push(this.tabs.find(t => t.id === 'sales')!);
+    }
+    
+    // Sales History - available to users with view sales history permission
+    if (this.authService.canViewSalesHistory()) {
+      tabs.push(this.tabs.find(t => t.id === 'sales-history')!);
+    }
+    
+    // Add Product - available to users with add product permission (admin only)
+    if (this.authService.canAddProduct()) {
+      tabs.push(this.tabs.find(t => t.id === 'add-product')!);
+    }
+    
+    // Stock Movement - available to users with view stock movements permission
+    if (this.authService.canViewStockMovements()) {
+      tabs.push(this.tabs.find(t => t.id === 'stock-movement')!);
+    }
+    
+    // Approvals - admin only (for user approval management)
+    if (user.role === 'admin') {
+      tabs.push(this.tabs.find(t => t.id === 'approvals')!);
+    }
+    
+    return tabs.filter(t => t !== undefined);
   }
 
   getTabClasses(route: string): string {

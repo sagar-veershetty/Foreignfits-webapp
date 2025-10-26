@@ -1,6 +1,7 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { take } from 'rxjs/operators';
 import { AppService } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { StockMovement, Product, Location, User } from '../../core/models';
@@ -58,6 +59,15 @@ export class StockMovementComponent implements OnInit {
     this.loadData();
     this.loadCurrentUser();
     
+    // Ensure initial data is loaded (especially important after page refresh)
+    this.appService.appState$.pipe(take(1)).subscribe(state => {
+      if (!state.dataLoaded) {
+        this.appService.loadInitialData().subscribe({
+          error: (e) => console.error('Stock Movement: initial data load failed', e)
+        });
+      }
+    });
+    
     // Auto-set FROM location for warehouse users
     setTimeout(() => {
       if (this.isWarehouseUser() && this.getUserLocationId()) {
@@ -83,12 +93,11 @@ export class StockMovementComponent implements OnInit {
   }
 
   isAdmin(): boolean {
-    return this.currentUser()?.role === 'admin';
+    return this.authService.hasCrossLocationAccess();
   }
 
   isWarehouseOrAdmin(): boolean {
-    const role = this.currentUser()?.role;
-    return role === 'admin' || role === 'warehouse';
+    return this.authService.canCreateStockMovement();
   }
 
   isWarehouseUser(): boolean {
@@ -107,14 +116,30 @@ export class StockMovementComponent implements OnInit {
     let movements = this.stockMovements();
     const user = this.currentUser();
     
-    // Filter by user's location for WAREHOUSE users (they can only see their location's movements)
-    if (user?.role === 'warehouse' && user?.locationId) {
-      movements = movements.filter(m => {
-        // Check if movement's locationId matches user's location
-        // OR if product's locationId matches user's location
-        return m.locationId === user.locationId || 
-               m.product?.locationId === user.locationId;
-      });
+    // Filter by user's location based on role
+    if (user?.locationId && !this.isAdmin()) {
+      if (user.role === 'warehouse') {
+        // WAREHOUSE users: See movements that came TO or went OUT FROM their warehouse
+        // This includes: transfer_in, transfer_out, adjustments, restocks at their location
+        movements = movements.filter(m => {
+          // Check if movement's locationId matches user's warehouse
+          return m.locationId === user.locationId || 
+                 m.product?.locationId === user.locationId;
+        });
+      } else if (user.role === 'sales') {
+        // SALES users: Only see movements that came TO their store (transfer_in)
+        // They can also see sales from their store
+        movements = movements.filter(m => {
+          // Only show transfer_in movements to their store, or sales from their store
+          if (m.type === 'transfer_in') {
+            return m.locationId === user.locationId;
+          } else if (m.type === 'sale') {
+            return m.locationId === user.locationId;
+          }
+          // Don't show other movement types (transfer_out, adjustments, etc.)
+          return false;
+        });
+      }
     }
     
     // Filter by type
@@ -160,6 +185,23 @@ export class StockMovementComponent implements OnInit {
   setActiveTab(tab: 'movements' | 'adjustment' | 'transfer') {
     this.activeTab.set(tab);
     this.clearMessages();
+  }
+
+  // Get available destination locations (excluding the source location)
+  getAvailableDestinationLocations = computed(() => {
+    const fromLocationId = this.transferForm.fromLocationId;
+    if (!fromLocationId) {
+      return this.locations();
+    }
+    // Filter out the source location from available destinations
+    return this.locations().filter(loc => loc.id !== fromLocationId);
+  });
+
+  // Handle from location change - clear to location if it's the same
+  onFromLocationChange() {
+    if (this.transferForm.fromLocationId === this.transferForm.toLocationId) {
+      this.transferForm.toLocationId = '';
+    }
   }
 
   getSelectedProduct(): Product | undefined {

@@ -51,9 +51,11 @@ export class SignupComponent implements OnInit {
     if (role === 'admin') {
       return []; // ADMIN doesn't need location
     } else if (role === 'sales') {
-      return locations.filter(loc => loc.type === 'store');
+      // Show only stores for sales users
+      return locations.filter(loc => loc.type.toLowerCase() === 'store');
     } else if (role === 'warehouse') {
-      return locations.filter(loc => loc.type === 'warehouse');
+      // Show only warehouses for warehouse users
+      return locations.filter(loc => loc.type.toLowerCase() === 'warehouse');
     }
     return [];
   });

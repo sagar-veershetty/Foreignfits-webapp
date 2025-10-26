@@ -73,6 +73,8 @@ export interface User {
   isActive: boolean;
   createdAt: Date;
   lastLogin?: Date;
+  permissions?: string[]; // Array of permission strings from backend
+  crossLocationAccess?: boolean; // True for admin, false for others
 }
 
 export interface StockMovement {

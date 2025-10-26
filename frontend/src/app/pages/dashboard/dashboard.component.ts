@@ -107,8 +107,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   isAdmin(): boolean {
-    const user = this.authService.getCurrentUser();
-    return user?.role === 'admin';
+    return this.authService.hasCrossLocationAccess();
   }
 
   getTopCategories(appState: AppState): Array<{ name: string; count: number; color: string }> {

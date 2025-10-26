@@ -37,16 +37,18 @@ export class LoginComponent {
     this.router.navigate(['/signup']);
   }
 
-  handleDemoLogin(role: 'admin' | 'sales' | 'warehouse'): void {
+  handleDemoLogin(role: 'admin' | 'warehouse1' | 'warehouse2' | 'sales-wholesale' | 'sales-retail'): void {
     const demoCredentials: Record<typeof role, LoginCredentials> = {
-      // Backend currently accepts the temporary password 'admin123' for all users (dev only)
+      // All demo accounts use password 'admin123'
       admin: { email: 'admin@foreignfits.com', password: 'admin123' },
-      sales: { email: 'sales@foreignfits.com', password: 'admin123' },
-      warehouse: { email: 'warehouse@foreignfits.com', password: 'admin123' },
+      warehouse1: { email: 'warehouse1@foreignfits.com', password: 'admin123' },
+      warehouse2: { email: 'warehouse2@foreignfits.com', password: 'admin123' },
+      'sales-wholesale': { email: 'sales.wholesale@foreignfits.com', password: 'admin123' },
+      'sales-retail': { email: 'sales.retail@foreignfits.com', password: 'admin123' },
     };
     this.credentials = demoCredentials[role];
     this.clearError();
-    // optional: auto-submit
-    // this.onSubmit();
+    // Auto-submit the demo login
+    this.onSubmit();
   }
 }

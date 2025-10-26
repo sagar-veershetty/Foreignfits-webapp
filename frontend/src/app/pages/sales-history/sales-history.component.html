@@ -48,9 +48,9 @@
         [(ngModel)]="locationFilter"
         class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
       >
-        <option value="all">All Locations</option>
-        <option *ngFor="let location of appState.locations" [value]="location.id">
-          {{ location.name }} ({{ location.type }})
+        <option value="all">All Stores</option>
+        <option *ngFor="let location of getStoreLocations(appState)" [value]="location.id">
+          {{ location.name }}
         </option>
       </select>
       

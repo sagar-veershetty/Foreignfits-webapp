@@ -1,5 +1,6 @@
 package com.foreignfits.security;
 
+import com.foreignfits.entity.User;
 import com.foreignfits.repository.UserRepository;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -14,6 +15,9 @@ import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -21,6 +25,7 @@ import java.util.Date;
 public class JwtTokenProvider {
     
     private final UserRepository userRepository;
+    private final RolePermissionMapper rolePermissionMapper;
     
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -50,7 +55,23 @@ public class JwtTokenProvider {
         Instant now = Instant.now();
         Instant expiryDate = now.plus(jwtExpirationInMs, ChronoUnit.MILLIS);
 
+        // Get user details to add to token
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Get permissions for the user's role
+        Set<String> permissions = rolePermissionMapper.getPermissionsForRole(user.getRole());
+        
+        // Create claims with user information
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId());
+        claims.put("role", user.getRole().name());
+        claims.put("permissions", permissions);
+        claims.put("locationId", user.getLocation() != null ? user.getLocation().getId() : null);
+        claims.put("crossLocationAccess", rolePermissionMapper.hasCrossLocationAccess(user.getRole()));
+
         return Jwts.builder()
+                .setClaims(claims)
                 .setSubject(email)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(expiryDate))

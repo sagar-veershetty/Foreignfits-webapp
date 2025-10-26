@@ -363,10 +363,13 @@
             <select [(ngModel)]="transferForm.toLocationId" name="toLocationId" required
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
               <option value="">Select destination location</option>
-              <option *ngFor="let location of locations()" [value]="location.id">
+              <option *ngFor="let location of getAvailableDestinationLocations()" [value]="location.id">
                 {{ location.name }} ({{ location.type }})
               </option>
             </select>
+            <p class="mt-1 text-xs text-gray-500">
+              Source location is automatically excluded from destinations
+            </p>
           </div>
         </div>
 

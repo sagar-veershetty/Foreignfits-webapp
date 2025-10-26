@@ -41,7 +41,21 @@ export class AuthService {
     
     if (savedUser && savedToken) {
       try {
-        const user = JSON.parse(savedUser);
+        let user = JSON.parse(savedUser);
+        
+        // If user doesn't have permissions (old login), extract from token
+        if (!user.permissions || user.permissions.length === 0) {
+          try {
+            const tokenPayload = JSON.parse(atob(savedToken.split('.')[1]));
+            user.permissions = tokenPayload.permissions || [];
+            user.crossLocationAccess = tokenPayload.crossLocationAccess || false;
+            // Update localStorage with permissions
+            localStorage.setItem('foreignfits_user', JSON.stringify(user));
+          } catch (e) {
+            console.warn('Could not extract permissions from token', e);
+          }
+        }
+        
         // Validate token by checking if it's still valid
         this.validateToken(user, savedToken);
       } catch (error) {
@@ -141,6 +155,112 @@ export class AuthService {
     return this.authStateSubject.value.user;
   }
 
+  /**
+   * Check if current user has a specific permission
+   */
+  hasPermission(permission: string): boolean {
+    const user = this.getCurrentUser();
+    if (!user || !user.permissions) {
+      return false;
+    }
+    return user.permissions.includes(permission);
+  }
+
+  /**
+   * Check if user has any of the specified permissions
+   */
+  hasAnyPermission(permissions: string[]): boolean {
+    const user = this.getCurrentUser();
+    if (!user || !user.permissions) {
+      return false;
+    }
+    return permissions.some(p => user.permissions!.includes(p));
+  }
+
+  /**
+   * Check if user has all of the specified permissions
+   */
+  hasAllPermissions(permissions: string[]): boolean {
+    const user = this.getCurrentUser();
+    if (!user || !user.permissions) {
+      return false;
+    }
+    return permissions.every(p => user.permissions!.includes(p));
+  }
+
+  /**
+   * Check if user has cross-location access (admin only)
+   */
+  hasCrossLocationAccess(): boolean {
+    const user = this.getCurrentUser();
+    return user?.crossLocationAccess === true;
+  }
+
+  // Convenience permission check methods for common operations
+  canViewProducts(): boolean {
+    return this.hasPermission('view:products');
+  }
+
+  canAddProduct(): boolean {
+    return this.hasPermission('add:product');
+  }
+
+  canEditProduct(): boolean {
+    return this.hasPermission('edit:product');
+  }
+
+  canDeleteProduct(): boolean {
+    return this.hasPermission('delete:product');
+  }
+
+  canManageInventory(): boolean {
+    return this.hasPermission('manage:inventory');
+  }
+
+  canViewSales(): boolean {
+    return this.hasPermission('view:sales');
+  }
+
+  canCreateSale(): boolean {
+    return this.hasPermission('create:sale');
+  }
+
+  canViewSalesHistory(): boolean {
+    return this.hasPermission('view:sales_history');
+  }
+
+  canViewSalesAnalytics(): boolean {
+    return this.hasPermission('view:sales_analytics');
+  }
+
+  canViewStockMovements(): boolean {
+    return this.hasPermission('view:stock_movements');
+  }
+
+  canCreateStockMovement(): boolean {
+    return this.hasPermission('create:stock_movement');
+  }
+
+  canRequestStockTransfer(): boolean {
+    return this.hasPermission('request:stock_transfer');
+  }
+
+  canApproveStockTransfer(): boolean {
+    return this.hasPermission('approve:stock_transfer');
+  }
+
+  canCompleteStockTransfer(): boolean {
+    return this.hasPermission('complete:stock_transfer');
+  }
+
+  canManageUsers(): boolean {
+    return this.hasPermission('create:user');
+  }
+
+  canManageSettings(): boolean {
+    return this.hasPermission('manage:settings');
+  }
+
   isTokenValid(): boolean {
     const token = this.getToken();
     const user = localStorage.getItem('foreignfits_user');
@@ -204,6 +324,8 @@ export class AuthService {
       isActive: apiUser.isActive !== false, // Default to true if not specified
       createdAt: new Date(apiUser.createdAt),
       lastLogin: apiUser.lastLogin ? new Date(apiUser.lastLogin) : undefined,
+      permissions: apiUser.permissions || [],
+      crossLocationAccess: apiUser.crossLocationAccess || false,
     };
   }
 
