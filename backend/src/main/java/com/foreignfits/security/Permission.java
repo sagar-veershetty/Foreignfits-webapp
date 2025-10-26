@@ -9,7 +9,9 @@ public enum Permission {
     ADD_PRODUCT("add:product"),
     EDIT_PRODUCT("edit:product"),
     DELETE_PRODUCT("delete:product"),
+    APPROVE_PRODUCT("approve:product"), // Approve/reject pending products
     MANAGE_INVENTORY("manage:inventory"),
+    VIEW_INVENTORY("view:inventory"), // View location-based inventory
     
     // Sales Management
     VIEW_SALES("view:sales"),
@@ -20,15 +22,19 @@ public enum Permission {
     // Stock Movement & Transfer
     VIEW_STOCK_MOVEMENTS("view:stock_movements"),
     CREATE_STOCK_MOVEMENT("create:stock_movement"),
+    APPROVE_STOCK_MOVEMENT("approve:stock_movement"), // Approve/reject stock movements
     REQUEST_STOCK_TRANSFER("request:stock_transfer"),
     APPROVE_STOCK_TRANSFER("approve:stock_transfer"),
     COMPLETE_STOCK_TRANSFER("complete:stock_transfer"),
+    CANCEL_STOCK_TRANSFER("cancel:stock_transfer"),
+    VIEW_STOCK_TRANSFERS("view:stock_transfers"),
     
     // User Management
     VIEW_USERS("view:users"),
     CREATE_USER("create:user"),
     EDIT_USER("edit:user"),
     DELETE_USER("delete:user"),
+    APPROVE_USERS("approve:users"), // Admin-only: approve/reject pending user registrations
     
     // Location Management
     VIEW_LOCATIONS("view:locations"),

@@ -65,7 +65,7 @@
           </div>
         </button>
         <button 
-          *ngIf="isWarehouseOrAdmin()"
+          *ngIf="authService.canCreateStockMovement()"
           (click)="setActiveTab('transfer')"
           [class.border-indigo-600]="activeTab() === 'transfer'"
           [class.text-indigo-600]="activeTab() === 'transfer'"
@@ -76,7 +76,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
             </svg>
             Stock Transfer
-            <span class="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">Warehouse</span>
           </div>
         </button>
       </nav>
@@ -127,10 +126,12 @@
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Change</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
@@ -145,6 +146,11 @@
               <td class="px-6 py-4 whitespace-nowrap">
                 <span [class]="getMovementTypeClass(movement.type)" class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full">
                   {{ getMovementTypeLabel(movement.type) }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span [class]="getApprovalStatusBadge(movement)" class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full">
+                  {{ getApprovalStatusLabel(movement) }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -164,11 +170,16 @@
                 <div *ngIf="movement.reference" class="text-xs text-gray-500">Ref: {{ movement.reference }}</div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                {{ movement.location?.name || '-' }}
+                <div *ngIf="movement.fromLocation">From: {{ movement.fromLocation.name }}</div>
+                <div *ngIf="movement.toLocation">To: {{ movement.toLocation.name }}</div>
+                <span *ngIf="!movement.fromLocation && !movement.toLocation">-</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                {{ movement.createdBy || '-' }}
               </td>
             </tr>
             <tr *ngIf="filteredMovements().length === 0">
-              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+              <td colspan="9" class="px-6 py-12 text-center text-gray-500">
                 <svg class="h-12 w-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
                 </svg>
@@ -290,26 +301,26 @@
 
     <!-- Stock Transfer Tab -->
     <div *ngIf="activeTab() === 'transfer'" class="p-6">
-      <!-- Warehouse/Admin Check -->
-      <div *ngIf="!isWarehouseOrAdmin()" class="max-w-2xl mx-auto">
+      <!-- Permission Check -->
+      <div *ngIf="!authService.canCreateStockMovement()" class="max-w-2xl mx-auto">
         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
           <svg class="h-16 w-16 text-yellow-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
           <h3 class="text-xl font-bold text-yellow-900 mb-2">Access Restricted</h3>
-          <p class="text-yellow-700">Stock transfers are only accessible to Warehouse and Admin users.</p>
-          <p class="text-yellow-600 text-sm mt-2">Please contact a warehouse manager if you need to transfer stock between locations.</p>
+          <p class="text-yellow-700">You don't have permission to create stock transfers.</p>
+          <p class="text-yellow-600 text-sm mt-2">Please contact your administrator if you need access.</p>
         </div>
       </div>
 
-      <!-- Warehouse/Admin Form -->
-      <form *ngIf="isWarehouseOrAdmin()" (ngSubmit)="submitTransfer()" class="max-w-2xl mx-auto space-y-6">
+      <!-- Transfer Form -->
+      <form *ngIf="authService.canCreateStockMovement()" (ngSubmit)="submitTransfer()" class="max-w-2xl mx-auto space-y-6">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Product *</label>
           <select [(ngModel)]="transferForm.productId" name="productId" required
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
             <option value="">Select a product</option>
-            <option *ngFor="let product of products()" [value]="product.id">
+            <option *ngFor="let product of getTransferableProducts()" [value]="product.id">
               {{ product.name }} ({{ product.sku }}) - Stock: {{ product.stock }}
             </option>
           </select>
@@ -330,16 +341,20 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- FROM Location - Hidden for WAREHOUSE users, shown for ADMIN -->
+          <!-- FROM Location - Read-only for ADMIN (auto-set to SUPPLIER) -->
           <div *ngIf="isAdmin()">
-            <label class="block text-sm font-medium text-gray-700 mb-2">From Location *</label>
-            <select [(ngModel)]="transferForm.fromLocationId" name="fromLocationId" required
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-              <option value="">Select source location</option>
-              <option *ngFor="let location of locations()" [value]="location.id">
-                {{ location.name }} ({{ location.type }})
-              </option>
-            </select>
+            <label class="block text-sm font-medium text-gray-700 mb-2">From Location</label>
+            <input 
+              type="text" 
+              value="Supplier" 
+              readonly 
+              disabled
+              class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
+              placeholder="Supplier location"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              Products are transferred FROM Supplier location
+            </p>
           </div>
           
           <!-- FROM Location - Read-only for WAREHOUSE users (auto-set to their warehouse) -->
@@ -367,7 +382,10 @@
                 {{ location.name }} ({{ location.type }})
               </option>
             </select>
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="mt-1 text-xs text-gray-500" *ngIf="isAdmin()">
+              Transfer to warehouses only (Main Warehouse, Branch Warehouse)
+            </p>
+            <p class="mt-1 text-xs text-gray-500" *ngIf="!isAdmin()">
               Source location is automatically excluded from destinations
             </p>
           </div>

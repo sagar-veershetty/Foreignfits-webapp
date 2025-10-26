@@ -33,7 +33,7 @@ public class StockTransferController {
      * Accessible by: Admin, Warehouse
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAuthority('request:stock_transfer')")
     public ResponseEntity<?> createTransfer(
             @Valid @RequestBody CreateStockTransferRequest request,
             @RequestHeader("Authorization") String token,
@@ -56,49 +56,9 @@ public class StockTransferController {
                 }
             }
             
-            // For immediate transfer, use createAndCompleteTransfer which auto-approves and completes
-            StockTransferDto transfer = stockTransferService.createAndCompleteTransfer(request, userId);
+            // Create PENDING transfer with TRANSFER movement (requires destination approval)
+            StockTransferDto transfer = stockTransferService.createTransfer(request, userId);
             return ResponseEntity.status(HttpStatus.CREATED).body(transfer);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-    
-    /**
-     * Approve a pending transfer
-     * Accessible by: Admin, Warehouse
-     */
-    @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
-    public ResponseEntity<?> approveTransfer(
-            @PathVariable Long id,
-            @RequestHeader("Authorization") String token) {
-        try {
-            String jwt = token.substring(7);
-            Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
-            
-            StockTransferDto transfer = stockTransferService.approveTransfer(id, userId);
-            return ResponseEntity.ok(transfer);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-    
-    /**
-     * Complete a transfer (move stock)
-     * Accessible by: Admin, Warehouse
-     */
-    @PutMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
-    public ResponseEntity<?> completeTransfer(
-            @PathVariable Long id,
-            @RequestHeader("Authorization") String token) {
-        try {
-            String jwt = token.substring(7);
-            Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
-            
-            StockTransferDto transfer = stockTransferService.completeTransfer(id, userId);
-            return ResponseEntity.ok(transfer);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -109,7 +69,7 @@ public class StockTransferController {
      * Accessible by: Admin, Warehouse
      */
     @PutMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAuthority('cancel:stock_transfer')")
     public ResponseEntity<?> cancelTransfer(
             @PathVariable Long id,
             @RequestHeader("Authorization") String token) {
@@ -129,7 +89,7 @@ public class StockTransferController {
      * Accessible by: Admin, Warehouse
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAuthority('view:stock_transfers')")
     public ResponseEntity<List<StockTransferDto>> getAllTransfers(Authentication authentication) {
         String email = authentication.getName();
         UserDto currentUser = userService.getUserByEmail(email)
@@ -153,7 +113,7 @@ public class StockTransferController {
      * Accessible by: Admin, Warehouse
      */
     @GetMapping("/pending")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAuthority('view:stock_transfers')")
     public ResponseEntity<List<StockTransferDto>> getPendingTransfers() {
         List<StockTransferDto> transfers = stockTransferService.getPendingTransfers();
         return ResponseEntity.ok(transfers);
@@ -164,7 +124,7 @@ public class StockTransferController {
      * Accessible by: Admin only (WAREHOUSE users should use getAllTransfers which filters automatically)
      */
     @GetMapping("/location/{locationId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('cross:location_access')")
     public ResponseEntity<List<StockTransferDto>> getTransfersByLocation(@PathVariable Long locationId, Authentication authentication) {
         // Only ADMIN can query transfers by specific location
         // WAREHOUSE users should use getAllTransfers() which filters automatically
@@ -177,7 +137,7 @@ public class StockTransferController {
      * Accessible by: Admin, Warehouse
      */
     @GetMapping("/status/{status}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
+    @PreAuthorize("hasAuthority('view:stock_transfers')")
     public ResponseEntity<List<StockTransferDto>> getTransfersByStatus(@PathVariable String status) {
         try {
             StockTransfer.TransferStatus transferStatus = StockTransfer.TransferStatus.valueOf(status.toUpperCase());

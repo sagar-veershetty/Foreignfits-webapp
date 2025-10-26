@@ -8,9 +8,12 @@ import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateSaleRequest;
 import com.foreignfits.dto.request.SaleItemRequest;
 import com.foreignfits.entity.*;
+import com.foreignfits.repository.LocationInventoryRepository;
+import com.foreignfits.repository.LocationRepository;
 import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.repository.SaleRepository;
 import com.foreignfits.repository.StockMovementRepository;
+import com.foreignfits.repository.StockTransferRepository;
 import com.foreignfits.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,9 @@ public class SaleService {
     private final UserRepository userRepository;
     private final StockMovementRepository stockMovementRepository;
     private final LoyaltyService loyaltyService;
+    private final LocationInventoryRepository locationInventoryRepository;
+    private final LocationRepository locationRepository;
+    private final StockTransferRepository stockTransferRepository;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST (inclusive)
     
@@ -68,10 +74,15 @@ public class SaleService {
                 }
             }
             
+            // Check inventory at product location
+            LocationInventory inventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Product not found in inventory"));
+            
             // Check stock availability
-            if (product.getStock() < itemRequest.getQuantity()) {
+            if (inventory.getQuantity() < itemRequest.getQuantity()) {
                 throw new RuntimeException("Insufficient stock for product: " + product.getName() + 
-                    ". Available: " + product.getStock() + ", Requested: " + itemRequest.getQuantity());
+                    ". Available: " + inventory.getQuantity() + ", Requested: " + itemRequest.getQuantity());
             }
             
             // Determine price (wholesale vs retail)
@@ -118,14 +129,43 @@ public class SaleService {
         savedSale.setItems(saleItems);
         savedSale = saleRepository.save(savedSale);
         
-        // Update product stock and create stock movements
+        // Update inventory and create stock movements
         for (SaleItem item : saleItems) {
             Product product = item.getProduct();
-            int previousStock = product.getStock();
+            
+            // Get inventory
+            LocationInventory inventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Product not found in inventory"));
+            
+            int previousStock = inventory.getQuantity();
             int newStock = previousStock - item.getQuantity();
             
-            product.setStock(newStock);
-            productRepository.save(product);
+            // Update inventory
+            inventory.setQuantity(newStock);
+            inventory.setLastSaleDate(LocalDateTime.now());
+            locationInventoryRepository.save(inventory);
+            
+            // Get INITIAL location for sale movements (stock goes "out" to customer)
+            Location initialLocation = locationRepository.findById(0L)
+                    .orElseThrow(() -> new RuntimeException("INITIAL location not found"));
+            
+            // Create StockTransfer for the sale (stock leaves to customer/INITIAL)
+            StockTransfer transfer = new StockTransfer();
+            transfer.setProduct(product);
+            transfer.setFromLocation(product.getLocation()); // From store/warehouse
+            transfer.setToLocation(initialLocation); // To customer (represented by INITIAL)
+            transfer.setQuantity(item.getQuantity());
+            transfer.setReason("Sale #" + savedSale.getId());
+            transfer.setReference(savedSale.getId().toString());
+            transfer.setStatus(StockTransfer.TransferStatus.COMPLETED); // Auto-completed for sales
+            transfer.setRequestedAt(savedSale.getCreatedAt());
+            transfer.setRequestedBy(soldBy); // Set the user making the sale
+            transfer.setApprovedBy(soldBy); // Auto-approved for sales
+            transfer.setApprovedAt(savedSale.getCreatedAt());
+            transfer.setCompletedBy(soldBy); // Auto-completed for sales
+            transfer.setCompletedAt(savedSale.getCreatedAt());
+            StockTransfer savedTransfer = stockTransferRepository.save(transfer);
             
             // Create stock movement
             StockMovement movement = new StockMovement();
@@ -136,8 +176,11 @@ public class SaleService {
             movement.setNewStock(newStock);
             movement.setReason("Sale #" + savedSale.getId());
             movement.setReference(savedSale.getId().toString());
-            movement.setLocation(product.getLocation());
+            movement.setTransfer(savedTransfer); // Link to transfer for from/to locations
             movement.setCreatedBy(soldBy.getName());
+            movement.setStatus(StockMovement.MovementStatus.APPROVED); // Sales are auto-approved
+            movement.setApprovedBy(soldBy.getEmail());
+            movement.setApprovedAt(savedSale.getCreatedAt());
             
             stockMovementRepository.save(movement);
         }
@@ -282,7 +325,17 @@ public class SaleService {
             productDto.setCost(product.getCost());
             productDto.setWholesalePrice(product.getWholesalePrice());
             productDto.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
-            productDto.setStock(product.getStock());
+            
+            // Get stock from inventory
+            if (product.getLocation() != null) {
+                LocationInventory inventory = locationInventoryRepository
+                        .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
+                        .orElse(null);
+                productDto.setStock(inventory != null ? inventory.getQuantity() : 0);
+            } else {
+                productDto.setStock(0);
+            }
+            
             productDto.setMinStock(product.getMinStock());
             productDto.setSku(product.getSku());
             productDto.setDescription(product.getDescription());

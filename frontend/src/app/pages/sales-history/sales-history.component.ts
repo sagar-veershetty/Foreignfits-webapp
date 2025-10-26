@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Observable, Subscription } from 'rxjs';
+import { take, filter } from 'rxjs/operators';
+import { Router, NavigationEnd } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Sale } from '../../core/models';
@@ -15,7 +16,8 @@ import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
   imports: [CommonModule, FormsModule, PrintReceiptComponent],
   templateUrl: './sales-history.component.html'
 })
-export class SalesHistoryComponent implements OnInit {
+export class SalesHistoryComponent implements OnInit, OnDestroy {
+  private routerSubscription?: Subscription;
   appState$: Observable<AppState>;
 
   // Filters
@@ -35,7 +37,8 @@ export class SalesHistoryComponent implements OnInit {
 
   constructor(
     private appService: AppService,
-    private authService: AuthService
+    private authService: AuthService,
+    private router: Router
   ) {
     this.appState$ = this.appService.appState$;
   }
@@ -49,6 +52,24 @@ export class SalesHistoryComponent implements OnInit {
         });
       }
     });
+    
+    // Listen to navigation events and reload data when returning to this component
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        if (event.url.includes('/sales-history')) {
+          console.log('Sales History: Refreshing data on navigation');
+          this.appService.loadInitialData().subscribe({
+            error: (e) => console.error('Sales History: data refresh failed', e)
+          });
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   isAdmin(): boolean {

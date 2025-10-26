@@ -45,10 +45,16 @@ export class AppService {
   }
 
   loadInitialData(): Observable<any> {
-    if (this._appStateSubject.value.dataLoaded) {
-      return new Observable(observer => observer.next(true));
+    // If already loaded AND locations exist, skip reload
+    if (this._appStateSubject.value.dataLoaded && this._appStateSubject.value.locations.length > 0) {
+      console.log('Data already loaded, skipping reload');
+      return new Observable(observer => {
+        observer.next(true);
+        observer.complete();
+      });
     }
 
+    console.log('Loading initial data...');
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
     return forkJoin({
@@ -57,7 +63,8 @@ export class AppService {
       stockMovements: this.loadStockMovements(),
       locations: this.loadLocations()
     }).pipe(
-      tap(() => {
+      tap((data) => {
+        console.log('Initial data loaded:', data);
         this.updateAppState({
           ...this._appStateSubject.value,
           dataLoaded: true,
@@ -65,6 +72,7 @@ export class AppService {
         });
       }),
       catchError(error => {
+        console.error('Failed to load initial data:', error);
         this.updateAppState({
           ...this._appStateSubject.value,
           isLoading: false,
@@ -149,6 +157,7 @@ export class AppService {
           if (error.status !== 403) {
             console.warn('Failed to load stock movements from API:', error);
           }
+
           this.updateAppState({
             ...this._appStateSubject.value,
             stockMovements: []
@@ -159,6 +168,7 @@ export class AppService {
   }
 
   private loadLocations(): Observable<Location[]> {
+    // Use /locations endpoint to get ALL locations (including SUPPLIER)
     return this.http.get<any[]>(`${this.API_BASE_URL}/locations`)
       .pipe(
         tap(apiLocations => {
@@ -176,19 +186,72 @@ export class AppService {
             isActive: loc.isActive !== false,
             createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
           }));
+          console.log('Locations loaded:', locations);
           this.updateAppState({
             ...this._appStateSubject.value,
             locations
           });
         }),
         catchError(error => {
-          console.error('Failed to load locations from API:', error);
-          // Use empty array as fallback to make the issue obvious
-          this.updateAppState({
-            ...this._appStateSubject.value,
-            locations: []
-          });
-          return new Observable<Location[]>(observer => observer.next([]));
+          console.error('Failed to load all locations, trying transfer-destinations:', error);
+          // Fallback to transfer-destinations if /locations fails (permission issue)
+          return this.http.get<any[]>(`${this.API_BASE_URL}/locations/transfer-destinations`)
+            .pipe(
+              tap(apiLocations => {
+                const locations: Location[] = apiLocations.map(loc => ({
+                  id: loc.id?.toString() || '',
+                  name: loc.name || '',
+                  type: loc.type?.toLowerCase() || 'store',
+                  address: loc.address || '',
+                  city: loc.city || '',
+                  state: loc.state || '',
+                  zipCode: loc.zipCode || '',
+                  phone: loc.phone || '',
+                  manager: loc.manager || '',
+                  capacity: loc.capacity || 0,
+                  isActive: loc.isActive !== false,
+                  createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
+                }));
+                console.warn('Using transfer-destinations (SUPPLIER may be missing)');
+                this.updateAppState({
+                  ...this._appStateSubject.value,
+                  locations
+                });
+              }),
+              catchError(innerError => {
+                console.error('Failed to load from both endpoints:', innerError);
+                this.updateAppState({
+                  ...this._appStateSubject.value,
+                  locations: []
+                });
+                return new Observable<Location[]>(observer => observer.next([]));
+              })
+            );
+        })
+      );
+  }
+
+  // Load transfer destination locations (all except user's own) - public method
+  loadTransferDestinations(): Observable<Location[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/locations/transfer-destinations`)
+      .pipe(
+        map(apiLocations => apiLocations.map(loc => ({
+          id: loc.id?.toString() || '',
+          name: loc.name || '',
+          type: loc.type?.toLowerCase() || 'store',
+          address: loc.address || '',
+          city: loc.city || '',
+          state: loc.state || '',
+          zipCode: loc.zipCode || '',
+          phone: loc.phone || '',
+          manager: loc.manager || '',
+          capacity: loc.capacity || 0,
+          isActive: loc.isActive !== false,
+          createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
+        }))),
+        catchError(error => {
+          console.error('Failed to load transfer destinations:', error);
+          return of([]);
         })
       );
   }
@@ -471,20 +534,36 @@ export class AppService {
       newStock: apiMovement.newStock,
       reason: apiMovement.reason,
       reference: apiMovement.reference,
-      locationId: apiMovement.location?.id.toString(),
-      location: apiMovement.location ? {
-        id: apiMovement.location.id.toString(),
-        name: apiMovement.location.name,
-        type: apiMovement.location.type.toLowerCase(),
-        address: apiMovement.location.address,
-        city: apiMovement.location.city,
-        state: apiMovement.location.state,
-        zipCode: apiMovement.location.zipCode,
-        isActive: apiMovement.location.isActive,
-        createdAt: new Date(apiMovement.location.createdAt),
+      // location and locationId fields removed - use fromLocation and toLocation
+      transferId: apiMovement.transfer?.id?.toString(),
+      fromLocation: apiMovement.fromLocation ? {
+        id: apiMovement.fromLocation.id.toString(),
+        name: apiMovement.fromLocation.name,
+        type: apiMovement.fromLocation.type.toLowerCase(),
+        address: apiMovement.fromLocation.address,
+        city: apiMovement.fromLocation.city,
+        state: apiMovement.fromLocation.state,
+        zipCode: apiMovement.fromLocation.zipCode,
+        isActive: apiMovement.fromLocation.isActive,
+        createdAt: new Date(apiMovement.fromLocation.createdAt),
+      } : undefined,
+      toLocation: apiMovement.toLocation ? {
+        id: apiMovement.toLocation.id.toString(),
+        name: apiMovement.toLocation.name,
+        type: apiMovement.toLocation.type.toLowerCase(),
+        address: apiMovement.toLocation.address,
+        city: apiMovement.toLocation.city,
+        state: apiMovement.toLocation.state,
+        zipCode: apiMovement.toLocation.zipCode,
+        isActive: apiMovement.toLocation.isActive,
+        createdAt: new Date(apiMovement.toLocation.createdAt),
       } : undefined,
       createdBy: apiMovement.createdBy,
       createdAt: new Date(apiMovement.createdAt),
+      status: apiMovement.status || 'PENDING', // Map status field
+      approvedBy: apiMovement.approvedBy,
+      approvedAt: apiMovement.approvedAt ? new Date(apiMovement.approvedAt) : undefined,
+      rejectionReason: apiMovement.rejectionReason,
     };
   }
 
@@ -552,4 +631,86 @@ export class AppService {
       }
     ];
   }
+
+  // Stock Movement Approval Methods
+  getPendingStockMovements(): Observable<StockMovement[]> {
+    return this.http.get<StockMovement[]>(`${this.API_BASE_URL}/stock/movements/pending`)
+      .pipe(
+        map(apiMovements => apiMovements.map(m => this.convertApiStockMovementToStockMovement(m))),
+        catchError(error => {
+          console.error('Failed to load pending stock movements:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  approveStockMovement(movementId: string): Observable<void> {
+    return this.http.post<void>(`${this.API_BASE_URL}/stock/movements/${movementId}/approve`, {})
+      .pipe(
+        tap(() => {
+          // Refresh stock movements and products after approval
+          this.loadStockMovements().subscribe();
+          this.loadProducts().subscribe();
+        }),
+        catchError(error => {
+          console.error('Failed to approve stock movement:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  rejectStockMovement(movementId: string, reason: string): Observable<void> {
+    return this.http.post<void>(`${this.API_BASE_URL}/stock/movements/${movementId}/reject`, { reason })
+      .pipe(
+        tap(() => {
+          // Refresh stock movements after rejection
+          this.loadStockMovements().subscribe();
+        }),
+        catchError(error => {
+          console.error('Failed to reject stock movement:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  // Product Approval Methods
+  getPendingProducts(): Observable<Product[]> {
+    return this.http.get<Product[]>(`${this.API_BASE_URL}/products/pending`)
+      .pipe(
+        map(apiProducts => apiProducts.map(p => this.convertApiProductToProduct(p))),
+        catchError(error => {
+          console.error('Failed to load pending products:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  approveProduct(productId: string): Observable<void> {
+    return this.http.post<void>(`${this.API_BASE_URL}/products/${productId}/approve`, {})
+      .pipe(
+        tap(() => {
+          // Refresh products after approval
+          this.loadProducts().subscribe();
+        }),
+        catchError(error => {
+          console.error('Failed to approve product:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  rejectProduct(productId: string, reason: string): Observable<void> {
+    return this.http.post<void>(`${this.API_BASE_URL}/products/${productId}/reject`, { reason })
+      .pipe(
+        tap(() => {
+          // Refresh products after rejection
+          this.loadProducts().subscribe();
+        }),
+        catchError(error => {
+          console.error('Failed to reject product:', error);
+          return throwError(() => error);
+        })
+      );
+  }
 }
+

@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +21,7 @@ public class StockTransferService {
     private final LocationRepository locationRepository;
     private final UserRepository userRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final LocationInventoryRepository locationInventoryRepository;
     
     /**
      * Create a new stock transfer request
@@ -53,8 +52,13 @@ public class StockTransferService {
             throw new RuntimeException("Product does not belong to the source location");
         }
         
-        if (product.getStock() < request.getQuantity()) {
-            throw new RuntimeException("Insufficient stock at source location. Available: " + product.getStock());
+        // Check inventory at source location
+        LocationInventory sourceInventory = locationInventoryRepository
+                .findByLocationIdAndProductSku(fromLocation.getId(), product.getSku())
+                .orElseThrow(() -> new RuntimeException("Product not found in source location inventory"));
+        
+        if (sourceInventory.getQuantity() < request.getQuantity()) {
+            throw new RuntimeException("Insufficient stock at source location. Available: " + sourceInventory.getQuantity());
         }
         
         // Create transfer
@@ -71,37 +75,25 @@ public class StockTransferService {
         
         StockTransfer savedTransfer = stockTransferRepository.save(transfer);
         
-        // Eagerly initialize all lazy relationships before converting to DTO
-        savedTransfer.getProduct().getLocation().getName();
-        if (savedTransfer.getProduct().getImageUrls() != null) {
-            savedTransfer.getProduct().getImageUrls().size();
-        }
-        savedTransfer.getFromLocation().getName();
-        savedTransfer.getToLocation().getName();
-        savedTransfer.getRequestedBy().getName();
+        // Create a SINGLE TRANSFER movement (simplified approach)
+        // This one movement will update both locations when approved
         
-        return convertToDto(savedTransfer);
-    }
-    
-    /**
-     * Approve a pending transfer (changes status to IN_TRANSIT)
-     */
-    public StockTransferDto approveTransfer(Long transferId, Long approvedById) {
-        User approvedBy = userRepository.findById(approvedById)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        // Create TRANSFER movement (PENDING) - will be visible to destination only
+        StockMovement transferMovement = new StockMovement();
+        transferMovement.setProduct(product);
+        transferMovement.setType(StockMovement.MovementType.TRANSFER);
+        transferMovement.setQuantity(request.getQuantity());
+        transferMovement.setPreviousStock(sourceInventory.getQuantity());
+        transferMovement.setNewStock(sourceInventory.getQuantity() - request.getQuantity());
+        transferMovement.setReason("Transfer from " + fromLocation.getName() + " to " + toLocation.getName() + ": " + request.getReason());
+        transferMovement.setReference("TRANSFER-" + savedTransfer.getId());
+        transferMovement.setTransfer(savedTransfer); // Links to transfer with from/to locations
+        transferMovement.setCreatedBy(requestedBy.getEmail());
+        transferMovement.setStatus(StockMovement.MovementStatus.PENDING); // Requires approval from destination
+        stockMovementRepository.save(transferMovement);
         
-        StockTransfer transfer = stockTransferRepository.findById(transferId)
-                .orElseThrow(() -> new RuntimeException("Transfer not found"));
-        
-        if (transfer.getStatus() != StockTransfer.TransferStatus.PENDING) {
-            throw new RuntimeException("Only pending transfers can be approved");
-        }
-        
-        transfer.setStatus(StockTransfer.TransferStatus.IN_TRANSIT);
-        transfer.setApprovedBy(approvedBy);
-        transfer.setApprovedAt(LocalDateTime.now());
-        
-        StockTransfer savedTransfer = stockTransferRepository.save(transfer);
+        // NOTE: Product and inventory at destination will be created ONLY when transfer is approved
+        // This prevents showing products with 0 stock at warehouse before approval
         
         // Eagerly initialize all lazy relationships before converting to DTO
         savedTransfer.getProduct().getLocation().getName();
@@ -111,142 +103,6 @@ public class StockTransferService {
         savedTransfer.getFromLocation().getName();
         savedTransfer.getToLocation().getName();
         savedTransfer.getRequestedBy().getName();
-        if (savedTransfer.getApprovedBy() != null) {
-            savedTransfer.getApprovedBy().getName();
-        }
-        
-        return convertToDto(savedTransfer);
-    }
-    
-    /**
-     * Complete a transfer (moves stock and creates stock movements)
-     */
-    public StockTransferDto completeTransfer(Long transferId, Long completedById) {
-        User completedBy = userRepository.findById(completedById)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        StockTransfer transfer = stockTransferRepository.findById(transferId)
-                .orElseThrow(() -> new RuntimeException("Transfer not found"));
-        
-        if (transfer.getStatus() == StockTransfer.TransferStatus.COMPLETED) {
-            throw new RuntimeException("Transfer is already completed");
-        }
-        
-        if (transfer.getStatus() == StockTransfer.TransferStatus.CANCELLED) {
-            throw new RuntimeException("Cannot complete a cancelled transfer");
-        }
-        
-        Product product = transfer.getProduct();
-        
-        // Check if product still has sufficient stock at source
-        if (product.getStock() < transfer.getQuantity()) {
-            throw new RuntimeException("Insufficient stock at source location. Available: " + product.getStock());
-        }
-        
-        // Deduct stock from source location
-        int previousStock = product.getStock();
-        int newStock = previousStock - transfer.getQuantity();
-        product.setStock(newStock);
-        productRepository.save(product);
-        
-        // Create stock movement for source (deduction)
-        StockMovement outMovement = new StockMovement();
-        outMovement.setProduct(product);
-        outMovement.setType(StockMovement.MovementType.TRANSFER_OUT);
-        outMovement.setQuantity(-transfer.getQuantity());
-        outMovement.setPreviousStock(previousStock);
-        outMovement.setNewStock(newStock);
-        outMovement.setReason("Transfer to " + transfer.getToLocation().getName() + ": " + transfer.getReason());
-        outMovement.setReference("TRANSFER-" + transfer.getId());
-        outMovement.setLocation(transfer.getFromLocation());
-        outMovement.setCreatedBy(completedBy.getName());
-        stockMovementRepository.save(outMovement);
-        
-        // Check if product exists at destination location
-        Product destinationProduct = productRepository.findByLocationIdAndSku(
-                transfer.getToLocation().getId(), 
-                product.getSku()
-        ).orElse(null);
-        
-        if (destinationProduct == null) {
-            // Create new product entry at destination location
-            destinationProduct = new Product();
-            destinationProduct.setName(product.getName());
-            destinationProduct.setSku(product.getSku());
-            // Note: Barcode is set to NULL to avoid unique constraint violation
-            // Each location maintains separate product records with unique barcodes
-            destinationProduct.setBarcode(null);
-            destinationProduct.setCategory(product.getCategory());
-            destinationProduct.setSize(product.getSize());
-            destinationProduct.setColor(product.getColor());
-            destinationProduct.setPrice(product.getPrice());
-            destinationProduct.setCost(product.getCost());
-            destinationProduct.setWholesalePrice(product.getWholesalePrice());
-            destinationProduct.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
-            destinationProduct.setStock(transfer.getQuantity());
-            destinationProduct.setMinStock(product.getMinStock());
-            destinationProduct.setDescription(product.getDescription());
-            // Create a new copy of imageUrls to avoid shared collection references
-            if (product.getImageUrls() != null) {
-                destinationProduct.setImageUrls(new ArrayList<>(product.getImageUrls()));
-            }
-            destinationProduct.setLocation(transfer.getToLocation());
-            destinationProduct = productRepository.save(destinationProduct);
-            
-            // Create stock movement for new product at destination
-            StockMovement inMovement = new StockMovement();
-            inMovement.setProduct(destinationProduct);
-            inMovement.setType(StockMovement.MovementType.TRANSFER_IN);
-            inMovement.setQuantity(transfer.getQuantity());
-            inMovement.setPreviousStock(0);
-            inMovement.setNewStock(transfer.getQuantity());
-            inMovement.setReason("Transfer from " + transfer.getFromLocation().getName() + ": " + transfer.getReason());
-            inMovement.setReference("TRANSFER-" + transfer.getId());
-            inMovement.setLocation(transfer.getToLocation());
-            inMovement.setCreatedBy(completedBy.getName());
-            stockMovementRepository.save(inMovement);
-        } else {
-            // Add stock to existing product at destination
-            int destPreviousStock = destinationProduct.getStock();
-            int destNewStock = destPreviousStock + transfer.getQuantity();
-            destinationProduct.setStock(destNewStock);
-            productRepository.save(destinationProduct);
-            
-            // Create stock movement for destination (addition)
-            StockMovement inMovement = new StockMovement();
-            inMovement.setProduct(destinationProduct);
-            inMovement.setType(StockMovement.MovementType.TRANSFER_IN);
-            inMovement.setQuantity(transfer.getQuantity());
-            inMovement.setPreviousStock(destPreviousStock);
-            inMovement.setNewStock(destNewStock);
-            inMovement.setReason("Transfer from " + transfer.getFromLocation().getName() + ": " + transfer.getReason());
-            inMovement.setReference("TRANSFER-" + transfer.getId());
-            inMovement.setLocation(transfer.getToLocation());
-            inMovement.setCreatedBy(completedBy.getName());
-            stockMovementRepository.save(inMovement);
-        }
-        
-        // Update transfer status
-        transfer.setStatus(StockTransfer.TransferStatus.COMPLETED);
-        transfer.setCompletedBy(completedBy);
-        transfer.setCompletedAt(LocalDateTime.now());
-        
-        StockTransfer savedTransfer = stockTransferRepository.save(transfer);
-        
-        // Eagerly initialize all lazy relationships before converting to DTO
-        savedTransfer.getProduct().getLocation().getName(); // Force load
-        if (savedTransfer.getProduct().getImageUrls() != null) {
-            savedTransfer.getProduct().getImageUrls().size(); // Force load
-        }
-        savedTransfer.getFromLocation().getName();
-        savedTransfer.getToLocation().getName();
-        savedTransfer.getRequestedBy().getName();
-        if (savedTransfer.getApprovedBy() != null) {
-            savedTransfer.getApprovedBy().getName();
-        }
-        if (savedTransfer.getCompletedBy() != null) {
-            savedTransfer.getCompletedBy().getName();
-        }
         
         return convertToDto(savedTransfer);
     }
@@ -274,43 +130,6 @@ public class StockTransferService {
         StockTransfer savedTransfer = stockTransferRepository.save(transfer);
         
         return convertToDto(savedTransfer);
-    }
-    
-    /**
-     * Create and immediately complete a transfer (simplified workflow for admin)
-     * This combines create, approve, and complete into one operation
-     */
-    @Transactional
-    public StockTransferDto createAndCompleteTransfer(CreateStockTransferRequest request, Long userId) {
-        // Create the transfer
-        StockTransferDto transferDto = createTransfer(request, userId);
-        
-        // Approve it
-        transferDto = approveTransfer(transferDto.getId(), userId);
-        
-        // Complete it (moves the stock)
-        transferDto = completeTransfer(transferDto.getId(), userId);
-        
-        // Reload the transfer with all relationships to avoid serialization issues
-        StockTransfer reloadedTransfer = stockTransferRepository.findById(transferDto.getId())
-                .orElseThrow(() -> new RuntimeException("Transfer not found"));
-        
-        // Eagerly initialize all lazy relationships
-        reloadedTransfer.getProduct().getLocation().getName();
-        if (reloadedTransfer.getProduct().getImageUrls() != null) {
-            reloadedTransfer.getProduct().getImageUrls().size();
-        }
-        reloadedTransfer.getFromLocation().getName();
-        reloadedTransfer.getToLocation().getName();
-        reloadedTransfer.getRequestedBy().getName();
-        if (reloadedTransfer.getApprovedBy() != null) {
-            reloadedTransfer.getApprovedBy().getName();
-        }
-        if (reloadedTransfer.getCompletedBy() != null) {
-            reloadedTransfer.getCompletedBy().getName();
-        }
-        
-        return convertToDto(reloadedTransfer);
     }
     
     /**
@@ -380,7 +199,17 @@ public class StockTransferService {
             productDto.setCost(product.getCost());
             productDto.setWholesalePrice(product.getWholesalePrice());
             productDto.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
-            productDto.setStock(product.getStock());
+            
+            // Get stock from LocationInventory
+            if (product.getLocation() != null) {
+                LocationInventory inventory = locationInventoryRepository
+                        .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
+                        .orElse(null);
+                productDto.setStock(inventory != null ? inventory.getQuantity() : 0);
+            } else {
+                productDto.setStock(0);
+            }
+            
             productDto.setMinStock(product.getMinStock());
             productDto.setDescription(product.getDescription());
             productDto.setCreatedAt(product.getCreatedAt());

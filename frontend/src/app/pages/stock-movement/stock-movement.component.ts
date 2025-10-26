@@ -1,7 +1,9 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { take } from 'rxjs/operators';
+import { Router, NavigationEnd } from '@angular/router';
+import { take, filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { AppService } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { StockMovement, Product, Location, User } from '../../core/models';
@@ -13,10 +15,12 @@ import { StockMovement, Product, Location, User } from '../../core/models';
   templateUrl: './stock-movement.component.html',
   styleUrls: ['./stock-movement.component.scss']
 })
-export class StockMovementComponent implements OnInit {
+export class StockMovementComponent implements OnInit, OnDestroy {
+  private routerSubscription?: Subscription;
   activeTab = signal<'movements' | 'adjustment' | 'transfer'>('movements');
   
   stockMovements = signal<StockMovement[]>([]);
+  pendingMovements = signal<StockMovement[]>([]);
   products = signal<Product[]>([]);
   locations = signal<Location[]>([]);
   currentUser = signal<User | null>(null);
@@ -46,13 +50,17 @@ export class StockMovementComponent implements OnInit {
     notes: ''
   };
   
+  // Signal to track fromLocationId changes for reactive computed
+  transferFromLocationId = signal<string>('');
+  
   isLoading = signal<boolean>(false);
   successMessage = signal<string>('');
   errorMessage = signal<string>('');
 
   constructor(
     private appService: AppService,
-    private authService: AuthService
+    public authService: AuthService,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -68,12 +76,35 @@ export class StockMovementComponent implements OnInit {
       }
     });
     
+    // Listen to navigation events and reload data when returning to this component
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        if (event.url.includes('/stock-movement')) {
+          console.log('Stock Movement: Refreshing data on navigation');
+          this.loadData();
+        }
+      });
+    
     // Auto-set FROM location for warehouse users
     setTimeout(() => {
       if (this.isWarehouseUser() && this.getUserLocationId()) {
-        this.transferForm.fromLocationId = this.getUserLocationId() || '';
+        const locationId = this.getUserLocationId() || '';
+        this.transferForm.fromLocationId = locationId;
+        this.transferFromLocationId.set(locationId); // Update signal to trigger computed
+      }
+      // Auto-set FROM location to SUPPLIER for admin users
+      if (this.isAdmin()) {
+        this.transferForm.fromLocationId = '1'; // SUPPLIER location ID
+        this.transferFromLocationId.set('1'); // Update signal to trigger computed
       }
     }, 500);
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   loadData() {
@@ -116,28 +147,25 @@ export class StockMovementComponent implements OnInit {
     let movements = this.stockMovements();
     const user = this.currentUser();
     
+    // Show ALL movements (pending, approved, rejected) in Movement History
+    // Status badge will indicate whether it's pending/approved/rejected
+    
     // Filter by user's location based on role
     if (user?.locationId && !this.isAdmin()) {
       if (user.role === 'warehouse') {
         // WAREHOUSE users: See movements that came TO or went OUT FROM their warehouse
-        // This includes: transfer_in, transfer_out, adjustments, restocks at their location
+        // All movements now have fromLocation and toLocation via transfer
         movements = movements.filter(m => {
-          // Check if movement's locationId matches user's warehouse
-          return m.locationId === user.locationId || 
+          return m.fromLocation?.id === user.locationId || 
+                 m.toLocation?.id === user.locationId ||
                  m.product?.locationId === user.locationId;
         });
       } else if (user.role === 'sales') {
-        // SALES users: Only see movements that came TO their store (transfer_in)
-        // They can also see sales from their store
+        // SALES users: See movements related to their store
         movements = movements.filter(m => {
-          // Only show transfer_in movements to their store, or sales from their store
-          if (m.type === 'transfer_in') {
-            return m.locationId === user.locationId;
-          } else if (m.type === 'sale') {
-            return m.locationId === user.locationId;
-          }
-          // Don't show other movement types (transfer_out, adjustments, etc.)
-          return false;
+          // Check fromLocation or toLocation
+          return m.fromLocation?.id === user.locationId || 
+                 m.toLocation?.id === user.locationId;
         });
       }
     }
@@ -187,18 +215,33 @@ export class StockMovementComponent implements OnInit {
     this.clearMessages();
   }
 
-  // Get available destination locations (excluding the source location)
+  // Get available destination locations (excluding only the source location)
   getAvailableDestinationLocations = computed(() => {
-    const fromLocationId = this.transferForm.fromLocationId;
+    const fromLocationId = this.transferFromLocationId(); // Use signal instead of form property
+    const allLocations = this.locations();
+    
     if (!fromLocationId) {
-      return this.locations();
+      return allLocations;
     }
-    // Filter out the source location from available destinations
-    return this.locations().filter(loc => loc.id !== fromLocationId);
+    
+    // For ADMIN: Only show WAREHOUSES (exclude SUPPLIER and stores) as destinations
+    if (this.isAdmin()) {
+      return allLocations.filter(loc => 
+        loc.id.toString() !== fromLocationId && 
+        loc.type.toLowerCase() === 'warehouse' && 
+        loc.name.toLowerCase() !== 'supplier'
+      );
+    }
+    
+    // For WAREHOUSE users: Filter out ONLY the source location (can transfer to Supplier, other warehouses, stores)
+    return allLocations.filter(loc => loc.id.toString() !== fromLocationId);
   });
 
   // Handle from location change - clear to location if it's the same
   onFromLocationChange() {
+    // Update the signal to trigger computed re-evaluation
+    this.transferFromLocationId.set(this.transferForm.fromLocationId);
+    
     if (this.transferForm.fromLocationId === this.transferForm.toLocationId) {
       this.transferForm.toLocationId = '';
     }
@@ -209,6 +252,24 @@ export class StockMovementComponent implements OnInit {
       ? this.adjustmentForm.productId 
       : this.transferForm.productId;
     return this.products().find(p => p.id === productId);
+  }
+
+  // Get products filtered by user's location for stock transfer
+  getTransferableProducts(): Product[] {
+    const user = this.currentUser();
+    const allProducts = this.products();
+    
+    // Admin sees only products from SUPPLIER location (id=1)
+    if (this.isAdmin()) {
+      return allProducts.filter(p => p.locationId === '1');
+    }
+    
+    // Warehouse users only see products from their location
+    if (user?.locationId) {
+      return allProducts.filter(p => p.locationId === user.locationId);
+    }
+    
+    return [];
   }
 
   submitAdjustment() {
@@ -258,7 +319,9 @@ export class StockMovementComponent implements OnInit {
         !this.transferForm.fromLocationId || 
         !this.transferForm.toLocationId || 
         !this.transferForm.quantity || 
-        !this.transferForm.reason) {
+        this.transferForm.quantity <= 0 ||
+        !this.transferForm.reason || 
+        !this.transferForm.reason.trim()) {
       this.errorMessage.set('Please fill in all required fields');
       return;
     }
@@ -319,15 +382,19 @@ export class StockMovementComponent implements OnInit {
   }
 
   resetTransferForm() {
+    const preserveFromLocation = this.isWarehouseUser() ? this.transferForm.fromLocationId : '';
     this.transferForm = {
       productId: '',
-      fromLocationId: '',
+      fromLocationId: preserveFromLocation,
       toLocationId: '',
       quantity: 0,
       reason: '',
       reference: '',
       notes: ''
     };
+    if (preserveFromLocation) {
+      this.transferFromLocationId.set(preserveFromLocation);
+    }
   }
 
   clearMessages() {
@@ -363,5 +430,93 @@ export class StockMovementComponent implements OnInit {
 
   formatDate(date: Date): string {
     return new Date(date).toLocaleString();
+  }
+
+  // Approval Methods
+  loadPendingMovements(): void {
+    this.appService.getPendingStockMovements().subscribe({
+      next: (movements: StockMovement[]) => {
+        this.pendingMovements.set(movements);
+      },
+      error: (err: any) => {
+        console.error('Error loading pending movements:', err);
+        this.errorMessage.set('Failed to load pending movements');
+      }
+    });
+  }
+
+  canApproveMovements(): boolean {
+    return this.authService.canApproveStockMovements();
+  }
+
+  // Filter pending movements based on user role
+  getFilteredPendingMovements(): StockMovement[] {
+    const user = this.currentUser();
+    const allPending = this.pendingMovements();
+    
+    // Admin can see ALL pending movements
+    if (this.isAdmin()) {
+      return allPending;
+    }
+    
+    // Warehouse and Sales users only see pending movements for THEIR location
+    // Important: They should only approve movements ARRIVING AT their location
+    // (not movements being sent FROM their location)
+    if (user?.locationId) {
+      return allPending.filter(movement => {
+        // Only show movements where this location is the DESTINATION (toLocation)
+        // Check both toLocation and fromLocation to show all relevant movements
+        return movement.toLocation?.id === user.locationId || 
+               movement.fromLocation?.id === user.locationId;
+      });
+    }
+    
+    return [];
+  }
+
+  approveMovement(movementId: string): void {
+    if (confirm('Are you sure you want to approve this stock movement?')) {
+      this.appService.approveStockMovement(movementId).subscribe({
+        next: () => {
+          this.successMessage.set('Stock movement approved successfully');
+          this.loadPendingMovements();
+          this.loadData();
+        },
+        error: (err: any) => {
+          console.error('Error approving movement:', err);
+          this.errorMessage.set('Failed to approve stock movement');
+        }
+      });
+    }
+  }
+
+  rejectMovement(movementId: string): void {
+    const reason = prompt('Please enter rejection reason:');
+    if (reason && reason.trim()) {
+      this.appService.rejectStockMovement(movementId, reason.trim()).subscribe({
+        next: () => {
+          this.successMessage.set('Stock movement rejected');
+          this.loadPendingMovements();
+        },
+        error: (err: any) => {
+          console.error('Error rejecting movement:', err);
+          this.errorMessage.set('Failed to reject stock movement');
+        }
+      });
+    }
+  }
+
+  getApprovalStatusBadge(movement: StockMovement): string {
+    if (movement.status === 'PENDING') {
+      return 'bg-yellow-100 text-yellow-800';
+    }
+    return movement.status === 'APPROVED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+  }
+
+  getApprovalStatusLabel(movement: StockMovement): string {
+    if (movement.status === 'PENDING') {
+      return 'Pending';
+    }
+    return movement.status === 'APPROVED' ? 'Approved' : 'Rejected';
   }
 }

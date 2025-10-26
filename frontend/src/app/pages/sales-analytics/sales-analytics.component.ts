@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { take } from 'rxjs/operators';
+import { Router, NavigationEnd } from '@angular/router';
+import { take, filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Sale, SaleItem } from '../../core/models';
@@ -151,7 +152,8 @@ type Period = 'today' | 'week' | 'month' | 'custom';
     </div>
   `
 })
-export class SalesAnalyticsComponent implements OnInit {
+export class SalesAnalyticsComponent implements OnInit, OnDestroy {
+  private routerSubscription?: Subscription;
   state: AppState | null = null;
   period: Period = 'today';
   from = '';
@@ -176,6 +178,24 @@ export class SalesAnalyticsComponent implements OnInit {
         });
       }
     });
+    
+    // Listen to navigation events and reload data when returning to this component
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        if (event.url.includes('/sales-analytics')) {
+          console.log('Sales Analytics: Refreshing data on navigation');
+          this.app.loadInitialData().subscribe({
+            error: (e) => console.error('Sales Analytics: data refresh failed', e)
+          });
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   isAdmin(): boolean {

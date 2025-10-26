@@ -15,8 +15,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     
     List<Sale> findBySoldById(Long soldById);
     
-    List<Sale> findByIsActive(Boolean isActive);
-    
     List<Sale> findByPaymentMethod(Sale.PaymentMethod paymentMethod);
     
     @Query("SELECT s FROM Sale s WHERE s.createdAt BETWEEN :startDate AND :endDate")

@@ -28,7 +28,7 @@ public class SaleController {
     private final UserService userService;
     
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:sales')")
     public ResponseEntity<List<SaleDto>> getAllSales(Authentication authentication) {
         String email = authentication.getName();
         UserDto currentUser = userService.getUserByEmail(email)
@@ -48,7 +48,7 @@ public class SaleController {
     }
     
     @GetMapping("/today")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:sales')")
     public ResponseEntity<List<SaleDto>> getTodaysSales(Authentication authentication) {
         String email = authentication.getName();
         UserDto currentUser = userService.getUserByEmail(email)
@@ -68,7 +68,7 @@ public class SaleController {
     }
     
     @GetMapping("/revenue/today")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:sales')")
     public ResponseEntity<BigDecimal> getTodaysRevenue(Authentication authentication) {
         String email = authentication.getName();
         UserDto currentUser = userService.getUserByEmail(email)
@@ -111,7 +111,7 @@ public class SaleController {
     }
     
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('create:sale')")
     public ResponseEntity<SaleDto> createSale(@Valid @RequestBody CreateSaleRequest request, Authentication authentication) {
         try {
             String email = authentication.getName();

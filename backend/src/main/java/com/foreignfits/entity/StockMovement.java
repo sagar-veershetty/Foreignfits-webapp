@@ -52,9 +52,8 @@ public class StockMovement {
     @Column(length = 100)
     private String reference;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "location_id")
-    private Location location;
+    // Location removed - use transfer.fromLocation and transfer.toLocation instead
+    // For all movement types, a StockTransfer record is created with from/to locations
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "transfer_id")
@@ -65,12 +64,29 @@ public class StockMovement {
     @Column(name = "created_by", nullable = false, length = 100)
     private String createdBy;
     
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MovementStatus status = MovementStatus.PENDING; // Status: PENDING, APPROVED, REJECTED
+    
+    @Column(name = "approved_by", length = 100)
+    private String approvedBy;
+    
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+    
+    @Column(name = "rejection_reason", length = 255)
+    private String rejectionReason;
+    
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
     public enum MovementType {
-        ADJUSTMENT, SALE, RETURN, DAMAGE, TRANSFER_OUT, TRANSFER_IN, RESTOCK
+        ADJUSTMENT, SALE, RETURN, DAMAGE, TRANSFER, RESTOCK
+    }
+    
+    public enum MovementStatus {
+        PENDING, APPROVED, REJECTED
     }
     
     // Manual getters and setters to ensure compatibility
@@ -98,14 +114,23 @@ public class StockMovement {
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
     
-    public Location getLocation() { return location; }
-    public void setLocation(Location location) { this.location = location; }
-    
     public StockTransfer getTransfer() { return transfer; }
     public void setTransfer(StockTransfer transfer) { this.transfer = transfer; }
     
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    
+    public MovementStatus getStatus() { return status; }
+    public void setStatus(MovementStatus status) { this.status = status; }
+    
+    public String getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+    
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

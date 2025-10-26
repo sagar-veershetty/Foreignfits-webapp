@@ -1,14 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
-import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Observable, Subscription } from 'rxjs';
+import { take, filter } from 'rxjs/operators';
+import { Router, NavigationEnd } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product } from '../../core/models';
-import { Router } from '@angular/router';
 import * as JsBarcode from 'jsbarcode';
 
 @Component({
@@ -17,7 +17,8 @@ import * as JsBarcode from 'jsbarcode';
   imports: [CommonModule, FormsModule, BarcodeInputComponent],
   templateUrl: './inventory.component.html'
 })
-export class InventoryComponent implements OnInit {
+export class InventoryComponent implements OnInit, OnDestroy {
+  private routerSubscription?: Subscription;
   showBarcodes = false;
   toggleShowBarcodes() {
     this.showBarcodes = !this.showBarcodes;
@@ -52,6 +53,24 @@ export class InventoryComponent implements OnInit {
         });
       }
     });
+    
+    // Listen to navigation events and reload data when returning to this component
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        if (event.url.includes('/inventory')) {
+          console.log('Inventory: Refreshing data on navigation');
+          this.appService.loadInitialData().subscribe({
+            error: (e) => console.error('Inventory: data refresh failed', e)
+          });
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
 

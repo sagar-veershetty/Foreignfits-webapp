@@ -11,14 +11,16 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
     
     private final UserRepository userRepository;
+    private final RolePermissionMapper rolePermissionMapper;
     
     @Override
     @Transactional
@@ -30,8 +32,16 @@ public class CustomUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("User account is disabled");
         }
         
-        List<GrantedAuthority> authorities = Collections.singletonList(
-            new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
+        // Get all permissions for this user's role
+        Set<String> permissions = rolePermissionMapper.getPermissionsForRole(user.getRole());
+        
+        // Create authorities list with both role and permissions
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        // Add role authority (for backward compatibility if needed)
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        // Add all permission authorities
+        permissions.forEach(permission -> 
+            authorities.add(new SimpleGrantedAuthority(permission))
         );
         
         return org.springframework.security.core.userdetails.User.builder()

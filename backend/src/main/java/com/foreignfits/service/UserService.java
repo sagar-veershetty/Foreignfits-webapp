@@ -42,6 +42,11 @@ public class UserService {
                 .map(this::convertToDto);
     }
     
+    // Get User entity (not DTO) for internal service use
+    public Optional<User> getUserEntityByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+    
     public UserDto createUser(String name, String email, String password, User.UserRole role) {
         return createUser(name, email, password, role, null);
     }

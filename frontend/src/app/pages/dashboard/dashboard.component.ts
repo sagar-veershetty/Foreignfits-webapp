@@ -1,8 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { Observable } from 'rxjs';
-import { take } from 'rxjs/operators';
+import { Router, NavigationEnd } from '@angular/router';
+import { Observable, Subscription } from 'rxjs';
+import { take, filter } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
 import { AppService, AppState } from '../../core/services/app.service';
 import { DashboardStats } from '../../core/models';
@@ -15,6 +15,7 @@ import { DashboardStats } from '../../core/models';
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  private routerSubscription?: Subscription;
   appState$: Observable<AppState>;
 
   constructor(
@@ -37,10 +38,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Start live auto-refresh (sales) for live stats
     this.appService.startAutoRefresh(10000);
+    
+    // Listen to navigation events and reload data when returning to dashboard
+    this.routerSubscription = this.router.events
+      .pipe(filter(event => event instanceof NavigationEnd))
+      .subscribe((event: any) => {
+        if (event.url === '/dashboard' || event.url === '/') {
+          console.log('Dashboard: Refreshing data on navigation');
+          this.appService.loadInitialData().subscribe({
+            error: (e) => console.error('Dashboard: data refresh failed', e)
+          });
+        }
+      });
   }
 
   ngOnDestroy(): void {
     this.appService.stopAutoRefresh();
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
   }
 
   getDashboardTitle(): string {

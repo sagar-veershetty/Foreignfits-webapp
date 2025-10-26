@@ -24,14 +24,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     List<Product> findByLocationId(Long locationId);
     
+    List<Product> findByLocationIdAndIsApprovedTrue(Long locationId);
+    
+    List<Product> findByLocationIdAndIsApprovedFalse(Long locationId);
+    
+    List<Product> findByIsApprovedFalse();
+    
     @Query("SELECT p FROM Product p WHERE p.location.id = :locationId AND p.sku = :sku")
     Optional<Product> findByLocationIdAndSku(@Param("locationId") Long locationId, @Param("sku") String sku);
     
-    @Query("SELECT p FROM Product p WHERE p.stock <= p.minStock")
-    List<Product> findLowStockProducts();
-    
-    @Query("SELECT p FROM Product p WHERE p.stock = 0")
-    List<Product> findOutOfStockProducts();
+    // Low stock and out-of-stock queries moved to LocationInventoryRepository
     
     @Query("SELECT p FROM Product p WHERE p.name LIKE %:searchTerm% OR p.sku LIKE %:searchTerm% OR p.barcode LIKE %:searchTerm%")
     List<Product> findBySearchTerm(@Param("searchTerm") String searchTerm);
@@ -39,12 +41,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.category = :category AND p.location.id = :locationId")
     List<Product> findByCategoryAndLocation(@Param("category") Product.ProductCategory category, @Param("locationId") Long locationId);
     
-    @Query("SELECT p FROM Product p WHERE p.stock > 0")
-    List<Product> findAvailableProducts();
-    
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.stock <= p.minStock")
-    Long countLowStockProducts();
-    
-    @Query("SELECT SUM(p.stock * p.cost) FROM Product p")
-    Double getTotalStockValue();
+    // Following queries removed - stock is now in LocationInventory table
+    // findAvailableProducts() - use LocationInventoryRepository.hasAvailableStock()
+    // countLowStockProducts() - use LocationInventoryRepository.findLowStockByLocation()
+    // getTotalStockValue() - calculate from LocationInventory.quantity * Product.cost
 }

@@ -30,7 +30,7 @@ public class LoyaltyController {
      * Get loyalty customer details by phone
      */
     @GetMapping("/customer")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:loyalty')")
     public ResponseEntity<?> getCustomerByPhone(
             @RequestParam String phone,
             @RequestParam String countryCode) {
@@ -53,7 +53,7 @@ public class LoyaltyController {
      * Get transaction history for a customer
      */
     @GetMapping("/transactions")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:loyalty')")
     public ResponseEntity<?> getTransactionHistory(
             @RequestParam String phone,
             @RequestParam String countryCode) {
@@ -76,7 +76,7 @@ public class LoyaltyController {
      * Calculate points for purchase amount
      */
     @GetMapping("/calculate-points")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:loyalty')")
     public ResponseEntity<?> calculatePoints(
             @RequestParam BigDecimal amount,
             @RequestParam(required = false) String phone,
@@ -122,7 +122,7 @@ public class LoyaltyController {
      * Calculate discount for points
      */
     @GetMapping("/calculate-discount")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
+    @PreAuthorize("hasAuthority('view:loyalty')")
     public ResponseEntity<?> calculateDiscount(@RequestParam int points) {
         try {
             BigDecimal discount = loyaltyService.calculateMaxDiscount(points);

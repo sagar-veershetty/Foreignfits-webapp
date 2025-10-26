@@ -33,6 +33,7 @@ public class RolePermissionMapper {
             Permission.ADD_PRODUCT.getPermission(),
             Permission.EDIT_PRODUCT.getPermission(),
             Permission.DELETE_PRODUCT.getPermission(),
+            Permission.APPROVE_PRODUCT.getPermission(), // Admin can approve products
             Permission.MANAGE_INVENTORY.getPermission(),
             
             // Sales (view only, cannot create)
@@ -40,18 +41,24 @@ public class RolePermissionMapper {
             Permission.VIEW_SALES_HISTORY.getPermission(),
             Permission.VIEW_SALES_ANALYTICS.getPermission(),
             
-            // Stock movements
+            // Stock movements (create, view, and approve)
             Permission.VIEW_STOCK_MOVEMENTS.getPermission(),
-            Permission.CREATE_STOCK_MOVEMENT.getPermission(),
-            Permission.REQUEST_STOCK_TRANSFER.getPermission(),
-            Permission.APPROVE_STOCK_TRANSFER.getPermission(),
-            Permission.COMPLETE_STOCK_TRANSFER.getPermission(),
+            Permission.CREATE_STOCK_MOVEMENT.getPermission(), // Admin can create stock movements
+            Permission.APPROVE_STOCK_MOVEMENT.getPermission(), // Admin can approve stock movements
+            
+            // Stock transfers (full access)
+            Permission.REQUEST_STOCK_TRANSFER.getPermission(), // Admin can create transfers
+            Permission.APPROVE_STOCK_TRANSFER.getPermission(), // Admin can approve transfers
+            Permission.COMPLETE_STOCK_TRANSFER.getPermission(), // Admin can complete transfers
+            Permission.CANCEL_STOCK_TRANSFER.getPermission(), // Admin can cancel transfers
+            Permission.VIEW_STOCK_TRANSFERS.getPermission(), // Admin can view transfers
             
             // User management
             Permission.VIEW_USERS.getPermission(),
             Permission.CREATE_USER.getPermission(),
             Permission.EDIT_USER.getPermission(),
             Permission.DELETE_USER.getPermission(),
+            Permission.APPROVE_USERS.getPermission(), // Admin can approve user registrations
             
             // Location management
             Permission.VIEW_LOCATIONS.getPermission(),
@@ -75,16 +82,23 @@ public class RolePermissionMapper {
             // Products (view and edit only, no add)
             Permission.VIEW_PRODUCTS.getPermission(),
             Permission.EDIT_PRODUCT.getPermission(),
+            Permission.APPROVE_PRODUCT.getPermission(),
             
             // Inventory
             Permission.MANAGE_INVENTORY.getPermission(),
+            Permission.VIEW_INVENTORY.getPermission(),
             
             // Stock movements
             Permission.VIEW_STOCK_MOVEMENTS.getPermission(),
             Permission.CREATE_STOCK_MOVEMENT.getPermission(),
+            Permission.APPROVE_STOCK_MOVEMENT.getPermission(), // Warehouse can approve stock movements
+            
+            // Stock transfers
             Permission.REQUEST_STOCK_TRANSFER.getPermission(),
             Permission.APPROVE_STOCK_TRANSFER.getPermission(),
             Permission.COMPLETE_STOCK_TRANSFER.getPermission(),
+            Permission.CANCEL_STOCK_TRANSFER.getPermission(),
+            Permission.VIEW_STOCK_TRANSFERS.getPermission(),
             
             // Locations (view only)
             Permission.VIEW_LOCATIONS.getPermission()
@@ -99,6 +113,7 @@ public class RolePermissionMapper {
         return Set.of(
             // Products (read-only)
             Permission.VIEW_PRODUCTS.getPermission(),
+            Permission.VIEW_INVENTORY.getPermission(),
             
             // Sales
             Permission.VIEW_SALES.getPermission(),
@@ -106,8 +121,10 @@ public class RolePermissionMapper {
             Permission.VIEW_SALES_HISTORY.getPermission(),
             Permission.VIEW_SALES_ANALYTICS.getPermission(),
             
-            // Stock movements (view only for their location)
+            // Stock movements and transfers
             Permission.VIEW_STOCK_MOVEMENTS.getPermission(),
+            Permission.CREATE_STOCK_MOVEMENT.getPermission(),
+            Permission.REQUEST_STOCK_TRANSFER.getPermission(),
             
             // Locations (view only)
             Permission.VIEW_LOCATIONS.getPermission()

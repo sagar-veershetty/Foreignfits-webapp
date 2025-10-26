@@ -25,28 +25,21 @@ public class ProductController {
     private final UserService userService;
     
     @GetMapping
+    @PreAuthorize("hasAuthority('view:products')")
     public ResponseEntity<List<ProductDto>> getAllProducts(Authentication authentication) {
-        // Get current user's email from authentication
+        // Get current user entity from authentication
         String email = authentication.getName();
-        UserDto currentUser = userService.getUserByEmail(email)
+        var user = userService.getUserEntityByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        List<ProductDto> products;
-        
-        // Filter by location for SALES and WAREHOUSE users
-        if ((currentUser.getRole() == User.UserRole.SALES || 
-             currentUser.getRole() == User.UserRole.WAREHOUSE) && 
-            currentUser.getLocationId() != null) {
-            products = productService.getProductsByLocation(currentUser.getLocationId());
-        } else {
-            // ADMIN can see all products
-            products = productService.getAllProducts();
-        }
+        // Use user-based filtering
+        List<ProductDto> products = productService.getProductsForUser(user);
         
         return ResponseEntity.ok(products);
     }
     
     @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('view:products')")
     public ResponseEntity<ProductDto> getProductById(@PathVariable Long id) {
         return productService.getProductById(id)
                 .map(ResponseEntity::ok)
@@ -54,6 +47,7 @@ public class ProductController {
     }
     
     @GetMapping("/sku/{sku}")
+    @PreAuthorize("hasAuthority('view:products')")
     public ResponseEntity<ProductDto> getProductBySku(@PathVariable String sku) {
         return productService.getProductBySku(sku)
                 .map(ResponseEntity::ok)
@@ -61,6 +55,7 @@ public class ProductController {
     }
     
     @GetMapping("/barcode/{barcode}")
+    @PreAuthorize("hasAuthority('view:products')")
     public ResponseEntity<ProductDto> getProductByBarcode(@PathVariable String barcode) {
         return productService.getProductByBarcode(barcode)
                 .map(ResponseEntity::ok)
@@ -74,7 +69,7 @@ public class ProductController {
     }
     
     @GetMapping("/location/{locationId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('cross:location_access')")
     public ResponseEntity<List<ProductDto>> getProductsByLocation(@PathVariable Long locationId, Authentication authentication) {
         // Only ADMIN can query products by specific location
         // SALES and WAREHOUSE users should use the default getAllProducts() which filters automatically
@@ -95,18 +90,19 @@ public class ProductController {
     }
     
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('WAREHOUSE')")
+    @PreAuthorize("hasAuthority('add:product')")
     public ResponseEntity<ProductDto> createProduct(@Valid @RequestBody CreateProductRequest request) {
         try {
             ProductDto product = productService.createProduct(request);
             return ResponseEntity.ok(product);
         } catch (Exception e) {
+            
             return ResponseEntity.badRequest().build();
         }
     }
     
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('WAREHOUSE')")
+    @PreAuthorize("hasAuthority('edit:product')")
     public ResponseEntity<ProductDto> updateProduct(@PathVariable Long id, @Valid @RequestBody CreateProductRequest request) {
         try {
             ProductDto product = productService.updateProduct(id, request);
@@ -117,7 +113,7 @@ public class ProductController {
     }
     
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('delete:product')")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         try {
             productService.deleteProduct(id);

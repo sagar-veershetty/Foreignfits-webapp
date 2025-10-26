@@ -67,10 +67,7 @@ public class Product {
     @Column(name = "wholesale_min_quantity", nullable = false)
     private Integer wholesaleMinQuantity;
     
-    @NotNull(message = "Stock is required")
-    @Min(value = 0, message = "Stock cannot be negative")
-    @Column(nullable = false)
-    private Integer stock;
+    // Stock is now tracked in LocationInventory table - removed from Product entity
     
     @NotNull(message = "Minimum stock is required")
     @Min(value = 0, message = "Minimum stock cannot be negative")
@@ -100,6 +97,23 @@ public class Product {
     
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<StockMovement> stockMovements;
+    
+    @NotBlank(message = "Created by is required")
+    @Size(max = 100, message = "Created by cannot exceed 100 characters")
+    @Column(name = "created_by", nullable = false, length = 100)
+    private String createdBy;
+    
+    @Column(name = "is_approved", nullable = false)
+    private Boolean isApproved = false; // Products require approval
+    
+    @Column(name = "approved_by", length = 100)
+    private String approvedBy;
+    
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+    
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
     
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -141,8 +155,7 @@ public class Product {
     public Integer getWholesaleMinQuantity() { return wholesaleMinQuantity; }
     public void setWholesaleMinQuantity(Integer wholesaleMinQuantity) { this.wholesaleMinQuantity = wholesaleMinQuantity; }
     
-    public Integer getStock() { return stock; }
-    public void setStock(Integer stock) { this.stock = stock; }
+    // Stock getters/setters removed - use LocationInventory instead
     
     public Integer getMinStock() { return minStock; }
     public void setMinStock(Integer minStock) { this.minStock = minStock; }
@@ -164,6 +177,21 @@ public class Product {
     
     public List<StockMovement> getStockMovements() { return stockMovements; }
     public void setStockMovements(List<StockMovement> stockMovements) { this.stockMovements = stockMovements; }
+    
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    
+    public Boolean getIsApproved() { return isApproved; }
+    public void setIsApproved(Boolean isApproved) { this.isApproved = isApproved; }
+    
+    public String getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+    
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

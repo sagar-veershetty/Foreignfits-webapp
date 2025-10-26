@@ -22,6 +22,15 @@ public class StockMovementDto {
     private LocationDto location;
     private String createdBy;
     private LocalDateTime createdAt;
+    private StockMovement.MovementStatus status; // Movement status (PENDING, APPROVED, REJECTED)
+    private String approvedBy;
+    private LocalDateTime approvedAt;
+    private String rejectionReason;
+    
+    // Transfer-specific fields
+    private Long transferId;
+    private LocationDto fromLocation;
+    private LocationDto toLocation;
     
     // Manual getters and setters to ensure compatibility
     public Long getId() { return id; }
@@ -56,4 +65,25 @@ public class StockMovementDto {
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    
+    public StockMovement.MovementStatus getStatus() { return status; }
+    public void setStatus(StockMovement.MovementStatus status) { this.status = status; }
+    
+    public String getApprovedBy() { return approvedBy; }
+    public void setApprovedBy(String approvedBy) { this.approvedBy = approvedBy; }
+    
+    public LocalDateTime getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
+    
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    
+    public Long getTransferId() { return transferId; }
+    public void setTransferId(Long transferId) { this.transferId = transferId; }
+    
+    public LocationDto getFromLocation() { return fromLocation; }
+    public void setFromLocation(LocationDto fromLocation) { this.fromLocation = fromLocation; }
+    
+    public LocationDto getToLocation() { return toLocation; }
+    public void setToLocation(LocationDto toLocation) { this.toLocation = toLocation; }
 }

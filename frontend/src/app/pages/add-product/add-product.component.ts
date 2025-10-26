@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Product, Location } from '../../core/models';
 import * as JsBarcode from 'jsbarcode';
 
@@ -17,15 +18,6 @@ import * as JsBarcode from 'jsbarcode';
         <div class="mb-6">
           <h2 class="text-2xl font-bold text-gray-900">{{ isEditMode ? 'Edit Product' : 'Add New Product' }}</h2>
           <p class="text-gray-500 mt-1">Foreign Fits - Global Fashion Collection</p>
-        </div>
-
-        <!-- Success banner -->
-        <div *ngIf="creationSuccess" class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 flex items-center justify-between">
-          <span>Product added successfully.</span>
-          <div class="space-x-2">
-            <button (click)="goToDashboard()" class="px-3 py-1 bg-green-600 text-white rounded">Go to Dashboard</button>
-            <button (click)="dismissSuccess()" class="px-3 py-1 border border-green-300 rounded">Add another</button>
-          </div>
         </div>
 
         <form (ngSubmit)="onSubmit()" #productForm="ngForm" class="space-y-6" *ngIf="appState$ | async as appState">
@@ -101,15 +93,30 @@ import * as JsBarcode from 'jsbarcode';
 
           <!-- Location -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Location (Warehouse/Store) *</label>
-            <select required [(ngModel)]="formData.locationId" name="locationId"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="">Select location</option>
-              <option *ngFor="let location of appState.locations" [value]="location.id">
-                {{ location.name }} ({{ location.type }})
-              </option>
-            </select>
-            <p class="text-xs text-gray-500 mt-1">Choose the warehouse or store where this product will be stored</p>
+            <!-- Admin users: Products automatically added to SUPPLIER location -->
+            <div *ngIf="isAdmin()">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+              <div class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                <span class="font-medium">Supplier</span>
+                <span class="text-xs text-gray-500 ml-2">(Products added to supplier inventory)</span>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Products will be added to Supplier location. Use Stock Transfer to move to warehouses.</p>
+              <!-- Hidden input to maintain form binding for admin -->
+              <input type="hidden" [(ngModel)]="formData.locationId" name="locationId" value="1" />
+            </div>
+            
+            <!-- Warehouse users: Select warehouse location -->
+            <div *ngIf="!isAdmin()">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Location (Warehouse) *</label>
+              <select required [(ngModel)]="formData.locationId" name="locationId"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">Select warehouse</option>
+                <option *ngFor="let location of getWarehouseLocations(appState.locations)" [value]="location.id">
+                  {{ location.name }}
+                </option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">Choose the warehouse where this product will be stored</p>
+            </div>
           </div>
 
           <!-- SKU -->
@@ -119,31 +126,7 @@ import * as JsBarcode from 'jsbarcode';
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             <div *ngIf="skuError" class="mt-1 text-sm text-red-600">{{ skuError }}</div>
             <div *ngIf="!skuError && isCheckingSku" class="mt-1 text-sm text-gray-500">Checking SKU...</div>
-          </div>
-
-          <!-- Barcode -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Barcode (optional)</label>
-            <div class="flex gap-2">
-              <div class="relative flex-1">
-                <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="2" height="16"></rect><rect x="7" y="4" width="1" height="16"></rect><rect x="10" y="4" width="2" height="16"></rect><rect x="14" y="4" width="1" height="16"></rect><rect x="17" y="4" width="2" height="16"></rect></svg>
-                </div>
-                <input type="text" [(ngModel)]="formData.barcode" name="barcode" (blur)="validateBarcode(); renderBarcode()" (ngModelChange)="renderBarcode()"
-                       placeholder="Enter or scan barcode"
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-              </div>
-              <button type="button" (click)="onGenerateBarcode()" class="px-4 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-800">Generate</button>
-            </div>
-            <div *ngIf="barcodeError" class="mt-1 text-sm text-red-600">{{ barcodeError }}</div>
-            <div *ngIf="!barcodeError && isCheckingBarcode" class="mt-1 text-sm text-gray-500">Checking barcode...</div>
-            <div class="mt-3 border border-gray-200 rounded-lg p-3">
-              <div class="text-sm text-gray-600 mb-2">Preview</div>
-              <div class="flex items-center justify-center min-h-[70px]">
-                <svg #barcodeSvg class="w-full h-16"></svg>
-              </div>
-              <div class="text-center text-xs text-gray-500 mt-1">{{ formData.barcode || '—' }}</div>
-            </div>
+            <p class="text-xs text-gray-500 mt-1">Barcode will be auto-generated based on SKU</p>
           </div>
 
           <!-- Images uploader -->
@@ -174,7 +157,7 @@ import * as JsBarcode from 'jsbarcode';
 
           <!-- Actions -->
           <div class="flex gap-3">
-            <button type="submit" [disabled]="!productForm.valid || isCheckingSku || isCheckingBarcode || skuError || barcodeError"
+            <button type="submit" [disabled]="!productForm.valid || isCheckingSku || skuError"
                     class="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h2m0 0h9a2 2 0 002-2v-9a2 2 0 00-2-2h-2m0 0V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0h4"/></svg>
               <span>{{ isEditMode ? 'Update Product' : 'Add Product' }}</span>
@@ -217,11 +200,56 @@ export class AddProductComponent implements OnInit, AfterViewInit {
   editingProductId: string | null = null;
   @ViewChild('barcodeSvg') barcodeSvg?: ElementRef<SVGSVGElement>;
 
-  constructor(private appService: AppService, private router: Router, private route: ActivatedRoute) {
+  constructor(
+    private appService: AppService, 
+    private authService: AuthService,
+    private router: Router, 
+    private route: ActivatedRoute
+  ) {
     this.appState$ = this.appService.appState$;
   }
 
   ngOnInit(): void {
+    // Ensure initial data (including locations) is loaded
+    // Force reload if locations are empty
+    const currentState = this.appService.appStateBehaviorSubject.value;
+    if (!currentState.locations || currentState.locations.length === 0) {
+      console.log('Locations empty, forcing data reload...');
+      this.appService.loadInitialData().subscribe({
+        next: () => {
+          console.log('Initial data loaded successfully');
+          const state = this.appService.appStateBehaviorSubject.value;
+          console.log('Locations after load:', state.locations);
+          // Auto-set location to SUPPLIER for admin users after data loads
+          if (this.isAdmin()) {
+            this.formData.locationId = '1'; // SUPPLIER location ID
+            console.log('Admin detected - locationId set to:', this.formData.locationId);
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load initial data:', err);
+        }
+      });
+    } else {
+      console.log('Locations already loaded:', currentState.locations);
+      // Auto-set location to SUPPLIER for admin users
+      if (this.isAdmin()) {
+        this.formData.locationId = '1'; // SUPPLIER location ID
+        console.log('Admin detected - locationId set to:', this.formData.locationId);
+      }
+    }
+    
+    // Also subscribe to state changes for updates
+    this.appService.appState$.subscribe(state => {
+      if (this.isAdmin() && state.locations.length > 0) {
+        // Double-check locationId is set for admin
+        if (!this.formData.locationId) {
+          this.formData.locationId = '1';
+          console.log('Setting locationId in appState subscription:', this.formData.locationId);
+        }
+      }
+    });
+    
     this.route.queryParamMap.subscribe(params => {
       const id = params.get('id');
       if (id) {
@@ -261,9 +289,36 @@ export class AddProductComponent implements OnInit, AfterViewInit {
 
   onSubmit(): void {
     const appState = this.appService.appStateBehaviorSubject.value;
-    const selectedLocation = appState.locations.find((loc: Location) => loc.id === this.formData.locationId);
+    
+    console.log('Form submission - locationId:', this.formData.locationId);
+    console.log('Is Admin:', this.isAdmin());
+    console.log('Available locations:', appState.locations);
+    
+    // Check if locations are loaded
+    if (!appState.locations || appState.locations.length === 0) {
+      alert('Loading location data. Please wait a moment and try again.');
+      console.error('Locations not loaded yet!');
+      // Trigger data load
+      this.appService.loadInitialData().subscribe();
+      return;
+    }
+    
+    // For admin users, ensure locationId is set to SUPPLIER (ID=1)
+    if (this.isAdmin() && !this.formData.locationId) {
+      this.formData.locationId = '1';
+      console.log('Admin locationId was empty, set to:', this.formData.locationId);
+    }
+    
+    const selectedLocation = appState.locations.find((loc: Location) => 
+      loc.id === this.formData.locationId || 
+      loc.id.toString() === this.formData.locationId ||
+      this.formData.locationId === loc.id.toString()
+    );
+    
+    console.log('Selected location:', selectedLocation);
     
     if (!selectedLocation) {
+      console.error('Location not found! locationId:', this.formData.locationId);
       alert('Please select a location for the product');
       return;
     }
@@ -287,40 +342,34 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // Run duplicate checks before creating
+    // Run duplicate checks before creating (only SKU check needed now)
     const skuCheck$ = this.appService.productExistsBySku(this.formData.sku);
-    const barcodeCheck$ = this.formData.barcode ? this.appService.productExistsByBarcode(this.formData.barcode) : of(false);
 
     this.isCheckingSku = true;
-    this.isCheckingBarcode = !!this.formData.barcode;
 
-    forkJoin([skuCheck$, barcodeCheck$]).subscribe({
-      next: ([skuExists, barcodeExists]) => {
+    skuCheck$.subscribe({
+      next: (skuExists) => {
         this.isCheckingSku = false;
-        this.isCheckingBarcode = false;
 
         this.skuError = skuExists ? 'SKU already exists. Please use a unique SKU.' : null;
-        this.barcodeError = barcodeExists ? 'Barcode already exists. Leave blank to auto-generate.' : null;
 
-        if (skuExists || barcodeExists) {
+        if (skuExists) {
           return; // stop submission; errors shown inline
         }
+
+        // Auto-generate unique barcode based on SKU
+        const generatedBarcode = this.generateBarcode();
 
         const product = {
           ...this.formData,
           location: selectedLocation,
-          barcode: this.formData.barcode || this.generateBarcode(),
+          barcode: generatedBarcode,
         };
 
         this.appService.createProduct(product).subscribe({
           next: () => {
-            const go = confirm('Product added successfully! Go to dashboard?');
-            if (go) {
-              this.goToDashboard();
-            } else {
-              this.creationSuccess = true;
-              this.resetForm();
-            }
+            // Product added successfully - redirect to dashboard silently (no popup)
+            this.router.navigate(['/dashboard']);
           },
           error: (err) => {
             console.error('Create product failed', err);
@@ -330,9 +379,8 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       },
       error: (err) => {
         this.isCheckingSku = false;
-        this.isCheckingBarcode = false;
-        console.error('Validation checks failed', err);
-        alert('Could not validate SKU/barcode. Please try again.');
+        console.error('Validation check failed', err);
+        alert('Could not validate SKU. Please try again.');
       }
     });
   }
@@ -403,20 +451,16 @@ export class AddProductComponent implements OnInit, AfterViewInit {
   }
 
   generateBarcode(): string {
-    const categoryCode = {
-      'shirts': '01',
-      'pants': '02', 
-      'dresses': '03',
-      'jackets': '04',
-      'shoes': '05',
-      'accessories': '06'
-    }[this.formData.category] || '00';
+    // Generate barcode based on SKU with unique suffix
+    if (!this.formData.sku) {
+      return '';
+    }
     
-    const productHash = Date.now().toString().slice(-8).padStart(8, '0');
-    const baseCode = categoryCode + productHash;
-    const checksum = (parseInt(baseCode) % 97).toString().padStart(2, '0');
+    // Use SKU as base and add timestamp for uniqueness
+    const timestamp = Date.now().toString().slice(-6);
+    const skuCode = this.formData.sku.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8);
     
-    return baseCode + checksum;
+    return `${skuCode}${timestamp}`;
   }
   onGenerateBarcode(): void {
     this.formData.barcode = this.generateBarcode();
@@ -454,5 +498,18 @@ export class AddProductComponent implements OnInit, AfterViewInit {
 
   removeImage(index: number): void {
     this.formData.imageUrls.splice(index, 1);
+  }
+
+  // Filter locations to only show warehouses (exclude Supplier and Stores)
+  getWarehouseLocations(locations: Location[]): Location[] {
+    return locations.filter(loc => 
+      loc.type.toLowerCase() === 'warehouse' && 
+      loc.name.toLowerCase() !== 'supplier'
+    );
+  }
+
+  // Check if current user is admin
+  isAdmin(): boolean {
+    return this.authService.hasCrossLocationAccess();
   }
 }

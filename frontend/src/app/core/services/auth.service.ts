@@ -241,12 +241,28 @@ export class AuthService {
     return this.hasPermission('create:stock_movement');
   }
 
+  canApproveStockMovements(): boolean {
+    return this.hasPermission('approve:stock_movement');
+  }
+
+  canApproveProducts(): boolean {
+    return this.hasPermission('approve:product');
+  }
+
   canRequestStockTransfer(): boolean {
     return this.hasPermission('request:stock_transfer');
   }
 
   canApproveStockTransfer(): boolean {
     return this.hasPermission('approve:stock_transfer');
+  }
+
+  canApproveUsers(): boolean {
+    return this.hasPermission('approve:users');
+  }
+
+  canViewUsers(): boolean {
+    return this.hasPermission('view:users');
   }
 
   canCompleteStockTransfer(): boolean {

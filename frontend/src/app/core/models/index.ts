@@ -18,6 +18,11 @@ export interface Product {
   imageUrls?: string[];
   locationId: string;
   location?: Location;
+  createdBy?: string;
+  isApproved?: boolean;
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectionReason?: string;
 }
 
 export interface Location {
@@ -81,16 +86,24 @@ export interface StockMovement {
   id: string;
   productId: string;
   product: Product;
-  type: 'adjustment' | 'sale' | 'return' | 'damage' | 'transfer_out' | 'transfer_in' | 'restock';
+  type: 'adjustment' | 'sale' | 'return' | 'damage' | 'transfer' | 'restock';
   quantity: number;
   previousStock: number;
   newStock: number;
   reason?: string;
   reference?: string;
-  locationId?: string;
-  location?: Location;
+  // locationId and location fields removed - use fromLocation and toLocation from transfer
   createdBy: string;
   createdAt: Date;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED'; // Movement status
+  approvedBy?: string;
+  approvedAt?: Date;
+  rejectionReason?: string;
+  
+  // Transfer-specific fields - now ALL movements have these via transfer
+  transferId?: string;
+  fromLocation?: Location;
+  toLocation?: Location;
 }
 
 export interface StockAdjustment {

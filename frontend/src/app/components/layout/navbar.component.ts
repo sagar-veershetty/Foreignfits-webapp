@@ -111,10 +111,8 @@ export class NavbarComponent {
       tabs.push(this.tabs.find(t => t.id === 'stock-movement')!);
     }
     
-    // Approvals - admin only (for user approval management)
-    if (user.role === 'admin') {
-      tabs.push(this.tabs.find(t => t.id === 'approvals')!);
-    }
+    // Approvals - available to all authenticated users (role-based filtering inside component)
+    tabs.push(this.tabs.find(t => t.id === 'approvals')!);
     
     return tabs.filter(t => t !== undefined);
   }
