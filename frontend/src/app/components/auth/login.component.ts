@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService, AuthState, LoginCredentials } from '../../core/services/auth.service';
+import { AppService } from '../../core/services/app.service';
 
 @Component({
   selector: 'app-login',
@@ -17,14 +18,22 @@ export class LoginComponent {
   credentials: LoginCredentials = { email: '', password: '' };
   showPassword = false;
 
-  constructor(private authService: AuthService, private router: Router) {
+  constructor(
+    private authService: AuthService, 
+    private router: Router,
+    private appService: AppService
+  ) {
     this.authState$ = this.authService.authState$;
   }
 
   onSubmit(): void {
     this.authService.clearError();
     this.authService.login(this.credentials).subscribe({
-      next: () => this.router.navigate(['/dashboard'], { replaceUrl: true }), // replace login page in history
+      next: () => {
+        // Reset app data when new user logs in to force fresh data load with correct role permissions
+        this.appService.resetDataLoadedFlag();
+        this.router.navigate(['/dashboard'], { replaceUrl: true }); // replace login page in history
+      },
       error: (err) => console.error('Login failed:', err)
     });
   }
