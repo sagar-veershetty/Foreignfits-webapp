@@ -32,6 +32,7 @@ public class SaleService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final LoyaltyService loyaltyService;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST (inclusive)
     
@@ -104,6 +105,8 @@ public class SaleService {
         sale.setPaymentMethod(request.getPaymentMethod());
         sale.setCustomerName(request.getCustomerName());
         sale.setCustomerEmail(request.getCustomerEmail());
+        sale.setCustomerPhone(request.getCustomerPhone());
+        sale.setCustomerCountryCode(request.getCustomerCountryCode());
         sale.setSoldBy(soldBy);
         
         Sale savedSale = saleRepository.save(sale);
@@ -137,6 +140,29 @@ public class SaleService {
             movement.setCreatedBy(soldBy.getName());
             
             stockMovementRepository.save(movement);
+        }
+        
+        // Process loyalty points if customer phone is provided
+        if (request.getCustomerPhone() != null && !request.getCustomerPhone().isEmpty() &&
+            request.getCustomerCountryCode() != null && !request.getCustomerCountryCode().isEmpty()) {
+            try {
+                // Get or create loyalty customer
+                LoyaltyCustomer loyaltyCustomer = loyaltyService.getOrCreateCustomer(
+                    request.getCustomerPhone(),
+                    request.getCustomerCountryCode(),
+                    request.getCustomerName() != null ? request.getCustomerName() : "Customer",
+                    request.getCustomerEmail()
+                );
+                
+                // Award points for purchase
+                int pointsEarned = loyaltyService.awardPointsForPurchase(loyaltyCustomer, savedSale, total);
+                savedSale.setPointsEarned(pointsEarned);
+                saleRepository.save(savedSale);
+                
+            } catch (Exception e) {
+                // Log error but don't fail the sale
+                System.err.println("Error processing loyalty points: " + e.getMessage());
+            }
         }
         
         return convertToDto(savedSale);
@@ -208,6 +234,11 @@ public class SaleService {
         dto.setPaymentMethod(sale.getPaymentMethod());
         dto.setCustomerName(sale.getCustomerName());
         dto.setCustomerEmail(sale.getCustomerEmail());
+        dto.setCustomerPhone(sale.getCustomerPhone());
+        dto.setCustomerCountryCode(sale.getCustomerCountryCode());
+        dto.setPointsEarned(sale.getPointsEarned());
+        dto.setPointsRedeemed(sale.getPointsRedeemed());
+        dto.setDiscountFromPoints(sale.getDiscountFromPoints());
         dto.setCreatedAt(sale.getCreatedAt());
         
         // Convert sold by user

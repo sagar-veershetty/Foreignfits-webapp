@@ -58,6 +58,12 @@ export class NavbarComponent {
       route: '/stock-movement',
       iconPath: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
     },
+    { 
+      id: 'approvals', 
+      label: 'Approvals', 
+      route: '/approvals',
+      iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
   ];
 
   constructor(
@@ -74,8 +80,10 @@ export class NavbarComponent {
         return this.tabs.filter(tab => ['dashboard', 'inventory', 'sales', 'sales-history'].includes(tab.id));
       case 'warehouse':
         return this.tabs.filter(tab => ['dashboard', 'inventory', 'stock-movement'].includes(tab.id));
+      case 'admin':
+        return this.tabs; // Admin sees all tabs including approvals
       default:
-        return this.tabs;
+        return this.tabs.filter(tab => tab.id !== 'approvals'); // Others don't see approvals
     }
   }
 

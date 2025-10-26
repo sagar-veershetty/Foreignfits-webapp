@@ -75,7 +75,7 @@ public class UserService {
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(role);
-        user.setIsActive(true);
+        user.setIsActive(false); // New users require admin approval
         
         // Set location if provided
         if (locationId != null) {

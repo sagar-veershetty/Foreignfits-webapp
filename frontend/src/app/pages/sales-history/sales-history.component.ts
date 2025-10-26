@@ -4,11 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
+import { Sale } from '../../core/models';
+import { PrintReceiptComponent } from '../sales/print-receipt.component';
+import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
 
 @Component({
   selector: 'app-sales-history',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PrintReceiptComponent],
   templateUrl: './sales-history.component.html'
 })
 export class SalesHistoryComponent {
@@ -19,6 +22,15 @@ export class SalesHistoryComponent {
   fromDate?: string; // yyyy-MM-dd
   toDate?: string;   // yyyy-MM-dd
   locationFilter: string = 'all'; // Location filter for ADMIN
+  searchQuery: string = ''; // Search by Bill ID
+
+  // Sale details modal
+  showSaleDetails: boolean = false;
+  selectedSale: Sale | null = null;
+
+  // Receipt modal
+  showReceiptModal = false;
+  receiptData: ReceiptData | null = null;
 
   constructor(
     private appService: AppService,
@@ -66,6 +78,27 @@ export class SalesHistoryComponent {
       });
     }
     
+    // Filter by search query (Bill ID, Customer Name, or Mobile Number)
+    if (this.searchQuery && this.searchQuery.trim() !== '') {
+      const query = this.searchQuery.toLowerCase().trim();
+      sales = sales.filter(sale => {
+        // Search by Bill ID
+        const billIdMatch = sale.id.toLowerCase().includes(query) || 
+                           sale.id.slice(0, 8).toLowerCase().includes(query);
+        
+        // Search by Customer Name
+        const nameMatch = sale.customerName?.toLowerCase().includes(query) || false;
+        
+        // Search by Mobile Number (with or without country code)
+        const phoneMatch = sale.customerPhone?.includes(query) || false;
+        const fullPhoneMatch = sale.customerPhone && sale.customerCountryCode 
+          ? (sale.customerCountryCode + sale.customerPhone).includes(query)
+          : false;
+        
+        return billIdMatch || nameMatch || phoneMatch || fullPhoneMatch;
+      });
+    }
+    
     // Filter by date
     if (this.filterMode === 'all') return sales;
 
@@ -109,5 +142,44 @@ export class SalesHistoryComponent {
 
   getFilteredRevenue(appState: AppState): number {
     return this.getFilteredSales(appState).reduce((sum, s) => sum + (s.total || 0), 0);
+  }
+
+  viewSaleDetails(sale: Sale): void {
+    this.selectedSale = sale;
+    this.showSaleDetails = true;
+  }
+
+  closeSaleDetails(): void {
+    this.showSaleDetails = false;
+    this.selectedSale = null;
+  }
+
+  printSale(): void {
+    if (!this.selectedSale) return;
+
+    // Convert sale to receipt data
+    const receiptItems: ReceiptItem[] = this.selectedSale.items.map(item => ({
+      name: item.product.name,
+      details: `${item.product.size} – ${item.product.color}`,
+      qty: item.quantity,
+      price: item.price
+    }));
+
+    this.receiptData = {
+      number: this.selectedSale.id || 'N/A',
+      date: this.selectedSale.createdAt.toLocaleDateString('en-GB'),
+      time: this.selectedSale.createdAt.toLocaleTimeString('en-GB'),
+      customer: this.selectedSale.customerName || 'Walk-in Customer',
+      items: receiptItems,
+      subtotal: this.selectedSale.subtotal,
+      taxLabel: '5% GST (included)',
+      tax: this.selectedSale.tax,
+      total: this.selectedSale.total,
+      paymentMethod: this.selectedSale.paymentMethod.toUpperCase()
+    };
+
+    // Close sale details modal and open receipt modal
+    this.showSaleDetails = false;
+    this.showReceiptModal = true;
   }
 }

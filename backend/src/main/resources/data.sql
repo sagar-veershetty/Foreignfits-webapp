@@ -17,7 +17,9 @@ INSERT INTO users (id, name, email, password, role, location_id, is_active, crea
 (1, 'Admin User', 'admin@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'ADMIN', NULL, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (2, 'Sales Rep - Retail Store', 'sales@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (3, 'Warehouse Manager', 'warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', 1, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(4, 'Sales Rep - Wholesale Store', 'sales.wholesale@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+(4, 'Sales Rep - Wholesale Store', 'sales.wholesale@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(5, 'Pending Sales User', 'pending.sales@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 3, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(6, 'Pending Warehouse User', 'pending.warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', 1, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- Insert sample products (prices in paise - multiply by 100)
 INSERT INTO products (id, name, category, size, color, price, cost, wholesale_price, wholesale_min_quantity, stock, min_stock, sku, description, barcode, location_id, created_at, updated_at) VALUES

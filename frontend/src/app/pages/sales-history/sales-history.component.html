@@ -21,6 +21,21 @@
   <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
     <!-- Filters toolbar -->
     <div class="p-4 border-b border-gray-100 flex flex-col md:flex-row md:items-center gap-3">
+      <!-- Search by Bill ID -->
+      <div class="relative flex-1 max-w-md">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+        <input 
+          type="text" 
+          [(ngModel)]="searchQuery"
+          placeholder="Search by Bill ID, Customer Name, or Mobile Number..."
+          class="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+        />
+      </div>
+      
       <div class="flex items-center gap-2">
         <button (click)="setFilter('all')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">All</button>
         <button (click)="setFilter('today')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='today' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">Today</button>
@@ -39,11 +54,10 @@
         </option>
       </select>
       
-      <div class="flex-1"></div>
       <div class="flex items-center gap-2">
-        <input type="date" [(ngModel)]="fromDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        <input type="date" [(ngModel)]="fromDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" placeholder="dd/mm/yyyy" />
         <span class="text-gray-400">to</span>
-        <input type="date" [(ngModel)]="toDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+        <input type="date" [(ngModel)]="toDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" placeholder="dd/mm/yyyy" />
         <button (click)="setFilter('range')" class="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700">Apply</button>
       </div>
     </div>
@@ -61,6 +75,9 @@
               Customer
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Mobile
+            </th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Items
             </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -73,7 +90,7 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr *ngIf="getFilteredSales(appState).length === 0">
-            <td colspan="6" class="px-6 py-12 text-center">
+            <td colspan="7" class="px-6 py-12 text-center">
               <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="height: 30px;">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
@@ -81,7 +98,9 @@
             </td>
           </tr>
           
-          <tr *ngFor="let sale of getFilteredSales(appState)" class="hover:bg-gray-50 transition-colors">
+          <tr *ngFor="let sale of getFilteredSales(appState)" 
+              (click)="viewSaleDetails(sale)"
+              class="hover:bg-blue-50 transition-colors cursor-pointer">
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm text-gray-900">
                 {{ sale.createdAt | date:'short' }}
@@ -95,6 +114,14 @@
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm text-gray-900">
                 {{ sale.customerName || 'Walk-in Customer' }}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-700">
+                <span *ngIf="sale.customerPhone && sale.customerCountryCode">
+                  {{ sale.customerCountryCode }} {{ sale.customerPhone }}
+                </span>
+                <span *ngIf="!sale.customerPhone" class="text-gray-400 text-xs">—</span>
               </div>
             </td>
             <td class="px-6 py-4">
@@ -116,7 +143,7 @@
         </tbody>
         <tfoot class="bg-gray-50 border-t border-gray-200">
           <tr>
-            <td class="px-6 py-3" colspan="3"></td>
+            <td class="px-6 py-3" colspan="4"></td>
             <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-700">
               {{ getFilteredItemsCount(appState) }} items
             </td>
@@ -131,3 +158,144 @@
     </div>
   </div>
 </div>
+
+<!-- Sale Details Modal -->
+<div *ngIf="showSaleDetails && selectedSale" 
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     (click)="closeSaleDetails()">
+  <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" 
+       (click)="$event.stopPropagation()">
+    
+    <!-- Modal Header -->
+    <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
+      <div>
+        <h2 class="text-2xl font-bold">Sale Details</h2>
+        <p class="text-purple-100 text-sm">Bill #{{ selectedSale.id.slice(0, 8).toUpperCase() }}</p>
+      </div>
+      <button (click)="closeSaleDetails()" 
+              class="text-white hover:bg-purple-500 rounded-lg p-2 transition-colors">
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-6 space-y-6">
+      
+      <!-- Sale Info Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Date & Time</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.createdAt | date:'short' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Customer</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.customerName || 'Walk-in' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Mobile Number</p>
+          <p class="text-sm font-semibold text-gray-900">
+            <span *ngIf="selectedSale.customerPhone && selectedSale.customerCountryCode">
+              {{ selectedSale.customerCountryCode }} {{ selectedSale.customerPhone }}
+            </span>
+            <span *ngIf="!selectedSale.customerPhone" class="text-gray-400">N/A</span>
+          </p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Payment Method</p>
+          <span class="inline-block px-2 py-1 rounded-full text-xs font-medium"
+                [class.bg-green-100]="selectedSale.paymentMethod === 'cash'"
+                [class.text-green-700]="selectedSale.paymentMethod === 'cash'"
+                [class.bg-blue-100]="selectedSale.paymentMethod === 'card'"
+                [class.text-blue-700]="selectedSale.paymentMethod === 'card'"
+                [class.bg-purple-100]="selectedSale.paymentMethod === 'other'"
+                [class.text-purple-700]="selectedSale.paymentMethod === 'other'">
+            {{ selectedSale.paymentMethod | uppercase }}
+          </span>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Sold By</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.soldBy || 'N/A' }}</p>
+        </div>
+      </div>
+
+      <!-- Items Table -->
+      <div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">Items Purchased</h3>
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+          <table class="w-full">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr *ngFor="let item of selectedSale.items" class="hover:bg-gray-50">
+                <td class="px-4 py-3">
+                  <div class="text-sm font-medium text-gray-900">{{ item.product.name }}</div>
+                  <div class="text-xs text-gray-500">{{ item.product.category }}</div>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-700">{{ item.product.size }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">{{ item.product.color }}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">{{ item.quantity }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700 text-right">₹{{ item.price.toFixed(2) }}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 text-right font-semibold">
+                  ₹{{ (item.quantity * item.price).toFixed(2) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Totals Section -->
+      <div class="border-t border-gray-200 pt-4">
+        <div class="flex justify-end">
+          <div class="w-full md:w-1/2 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Subtotal:</span>
+              <span class="font-medium text-gray-900">₹{{ selectedSale.subtotal.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Tax:</span>
+              <span class="font-medium text-gray-900">₹{{ selectedSale.tax.toFixed(2) }}</span>
+            </div>
+            <div class="border-t border-gray-300 pt-2 flex justify-between text-lg">
+              <span class="font-bold text-gray-900">Total:</span>
+              <span class="font-bold text-green-600">₹{{ selectedSale.total.toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-xl border-t border-gray-200">
+      <button (click)="closeSaleDetails()" 
+              class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">
+        Close
+      </button>
+      <button (click)="printSale()" 
+              class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+        </svg>
+        Print Receipt
+      </button>
+    </div>
+  </div>
+</div>
+
+<app-print-receipt
+  *ngIf="showReceiptModal && receiptData"
+  [receipt]="receiptData"
+  [show]="showReceiptModal"
+  (close)="showReceiptModal = false">
+</app-print-receipt>

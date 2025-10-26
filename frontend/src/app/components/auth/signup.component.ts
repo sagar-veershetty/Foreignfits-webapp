@@ -147,7 +147,7 @@ export class SignupComponent implements OnInit {
       this.signupData.locationId
     ).subscribe({
       next: () => {
-        alert('Account created successfully. You can now sign in.');
+        alert('Account created successfully! Your account is pending admin approval. You will be able to log in once approved.');
         this.goToLogin();
       },
       error: (err) => {

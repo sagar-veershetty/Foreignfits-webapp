@@ -80,6 +80,15 @@ export const routes: Routes = [
     data: { roles: ['admin','sales'] }
   },
   { 
+    path: 'approvals', 
+    loadComponent: () => import('./pages/approvals/approvals.component').then(m => m.ApprovalsComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin'] }
+  },
+  { 
     path: 'customer', 
     loadComponent: () => import('./pages/customer/customer-app.component').then(m => m.CustomerAppComponent)
   },

@@ -201,6 +201,7 @@ export class AuthService {
       locationId: apiUser.locationId?.toString(),
       locationName: apiUser.locationName,
       avatar: apiUser.avatar,
+      isActive: apiUser.isActive !== false, // Default to true if not specified
       createdAt: new Date(apiUser.createdAt),
       lastLogin: apiUser.lastLogin ? new Date(apiUser.lastLogin) : undefined,
     };

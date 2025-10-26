@@ -53,7 +53,7 @@ public class User {
     private String avatar;
     
     @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
+    private Boolean isActive = false;
     
     @Column(name = "last_login")
     private LocalDateTime lastLogin;

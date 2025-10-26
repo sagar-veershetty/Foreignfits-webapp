@@ -41,6 +41,14 @@ public class AuthController {
                 log.info("Login failed for email={} reason=invalid-password", loginRequest.getEmail());
                 return ResponseEntity.badRequest().body(error);
             }
+            
+            // Check if user is active
+            if (!userDto.getIsActive()) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Your account is pending approval. Please contact administrator.");
+                log.info("Login failed for email={} reason=account-inactive", loginRequest.getEmail());
+                return ResponseEntity.status(403).body(error);
+            }
 
             // Generate token
             String token = tokenProvider.generateTokenFromEmail(loginRequest.getEmail());

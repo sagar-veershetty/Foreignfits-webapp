@@ -25,9 +25,15 @@ export class BarcodeScannerDirective implements OnInit, OnDestroy {
     if (!this.listening) return;
     // Ignore modifier keys
     if (event.ctrlKey || event.altKey || event.metaKey) return;
+    
+    // Initialize buffer if undefined
+    if (!this.buffer) {
+      this.buffer = '';
+    }
+    
     // Most scanners send barcode then Enter
     if (event.key === 'Enter') {
-      if (this.buffer.length > 3) {
+      if (this.buffer && this.buffer.length > 3) {
         this.barcodeScanned.emit(this.buffer);
       }
       this.buffer = '';
@@ -35,7 +41,7 @@ export class BarcodeScannerDirective implements OnInit, OnDestroy {
       return;
     }
     // Only accept printable characters
-    if (event.key.length === 1) {
+    if (event.key && event.key.length === 1) {
       this.buffer += event.key;
       clearTimeout(this.timer);
       // Reset buffer if no input for 100ms (scanner is fast)

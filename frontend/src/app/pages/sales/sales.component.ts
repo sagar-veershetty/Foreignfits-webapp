@@ -5,7 +5,8 @@ import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Product, SaleItem, Sale } from '../../core/models';
+import { LoyaltyService } from '../../core/services/loyalty.service';
+import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation } from '../../core/models';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { PrintReceiptComponent } from './print-receipt.component';
 
@@ -22,13 +23,25 @@ export class SalesComponent {
   appState$: Observable<AppState>;
   searchTerm = '';
   customerName = '';
+  customerPhone = '';
+  customerCountryCode = '+91'; // Default to India
   paymentMethod: 'cash' | 'card' | 'other' = 'cash';
   completedSale: Sale | null = null;
   private imageIndex: Record<string, number> = {};
+  showSuccessMessage = false;
+  successMessage = '';
+  
+  // Loyalty points properties
+  loyaltyCustomer: LoyaltyCustomer | null = null;
+  pointsToEarn: PointsCalculation | null = null;
+  pointsToRedeem = 0;
+  discountFromPoints = 0;
+  isLoadingLoyalty = false;
 
   constructor(
     private appService: AppService,
-    private authService: AuthService
+    private authService: AuthService,
+    public loyaltyService: LoyaltyService
   ) {
     this.appState$ = this.appService.appState$;
   }
@@ -94,6 +107,86 @@ export class SalesComponent {
     this.appService.removeFromSale(productId);
   }
 
+  /**
+   * Fetch loyalty customer when phone number is entered
+   */
+  onPhoneChange(): void {
+    // Clear previous loyalty data
+    this.loyaltyCustomer = null;
+    this.pointsToEarn = null;
+    
+    // Only fetch if we have a valid phone number (at least 10 digits)
+    if (this.customerPhone && this.customerPhone.length >= 10) {
+      this.isLoadingLoyalty = true;
+      this.loyaltyService.getCustomerByPhone(this.customerPhone, this.customerCountryCode).subscribe({
+        next: (customer) => {
+          this.loyaltyCustomer = customer;
+          this.isLoadingLoyalty = false;
+          
+          // Calculate points to earn for current cart
+          const appState = this.appService.appStateBehaviorSubject.value;
+          const total = this.getTotal(appState);
+          if (total > 0) {
+            this.calculatePointsToEarn(total);
+          }
+        },
+        error: () => {
+          this.isLoadingLoyalty = false;
+        }
+      });
+    }
+  }
+
+  /**
+   * Calculate points that will be earned for current cart total
+   */
+  private calculatePointsToEarn(amount: number): void {
+    if (!this.customerPhone) return;
+    
+    this.loyaltyService.calculatePoints(amount, this.customerPhone, this.customerCountryCode).subscribe({
+      next: (calculation) => {
+        this.pointsToEarn = calculation;
+      }
+    });
+  }
+
+  /**
+   * Apply points redemption
+   */
+  applyPointsRedemption(): void {
+    if (!this.loyaltyCustomer || this.pointsToRedeem <= 0) return;
+    
+    // Check minimum points requirement
+    if (this.pointsToRedeem < 500) {
+      alert('Minimum 500 points required for redemption');
+      return;
+    }
+    
+    // Check if customer has enough points
+    if (this.pointsToRedeem > this.loyaltyCustomer.currentPoints) {
+      alert(`Customer only has ${this.loyaltyCustomer.currentPoints} points available`);
+      return;
+    }
+    
+    // Calculate discount
+    this.loyaltyService.calculateDiscount(this.pointsToRedeem).subscribe({
+      next: (calculation) => {
+        if (calculation) {
+          this.discountFromPoints = calculation.discountAmount;
+          alert(`Discount of ₹${this.discountFromPoints.toFixed(2)} applied!`);
+        }
+      }
+    });
+  }
+
+  /**
+   * Clear points redemption
+   */
+  clearPointsRedemption(): void {
+    this.pointsToRedeem = 0;
+    this.discountFromPoints = 0;
+  }
+
   getSubtotal(appState: AppState): number {
     return appState.currentSale.reduce((sum, item) => sum + item.total, 0);
   }
@@ -107,7 +200,9 @@ export class SalesComponent {
 
   getTotal(appState: AppState): number {
     // Total equals subtotal since GST is inclusive (customer doesn't pay extra)
-    return this.getSubtotal(appState);
+    // Subtract loyalty discount if applied
+    const subtotal = this.getSubtotal(appState);
+    return Math.max(0, subtotal - this.discountFromPoints);
   }
 
   completeSale(appState: AppState): void {
@@ -122,6 +217,10 @@ export class SalesComponent {
     const saleData = {
       paymentMethod: this.paymentMethod,
       customerName: this.customerName,
+      customerPhone: this.customerPhone,
+      customerCountryCode: this.customerCountryCode,
+      pointsRedeemed: this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
+      discountFromPoints: this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
     };
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
@@ -150,8 +249,16 @@ export class SalesComponent {
           paymentMethod: this.paymentMethod.toUpperCase()
         };
         this.showReceiptModal = true;
+        
+        // Reset form and loyalty data
         this.customerName = '';
+        this.customerPhone = '';
+        this.customerCountryCode = '+91';
         this.searchTerm = '';
+        this.loyaltyCustomer = null;
+        this.pointsToEarn = null;
+        this.pointsToRedeem = 0;
+        this.discountFromPoints = 0;
       },
       error: (err) => {
         const status = err?.status;
@@ -209,5 +316,24 @@ export class SalesComponent {
 
   imageCount(product: Product): number {
     return product.imageUrls ? product.imageUrls.length : 0;
+  }
+
+  onReceiptModalClose(): void {
+    this.showReceiptModal = false;
+    
+    // Show success message
+    if (this.receiptData) {
+      this.successMessage = `Sale completed successfully! Bill #${this.receiptData.number}`;
+      this.showSuccessMessage = true;
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        this.showSuccessMessage = false;
+      }, 5000);
+    }
+  }
+
+  closeSuccessMessage(): void {
+    this.showSuccessMessage = false;
   }
 }

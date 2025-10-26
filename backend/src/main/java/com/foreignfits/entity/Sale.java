@@ -57,9 +57,27 @@ public class Sale {
     @Column(name = "customer_email", length = 150)
     private String customerEmail;
     
+    @Column(name = "customer_phone", length = 15)
+    private String customerPhone;
+    
+    @Column(name = "customer_country_code", length = 5)
+    private String customerCountryCode;
+    
+    @Column(name = "points_earned")
+    private Integer pointsEarned;
+    
+    @Column(name = "points_redeemed")
+    private Integer pointsRedeemed;
+    
+    @Column(name = "discount_from_points", precision = 12, scale = 2)
+    private BigDecimal discountFromPoints;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sold_by_id", nullable = false)
     private User soldBy;
+    
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = false;
     
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -94,8 +112,26 @@ public class Sale {
     public String getCustomerEmail() { return customerEmail; }
     public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
     
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+    
+    public String getCustomerCountryCode() { return customerCountryCode; }
+    public void setCustomerCountryCode(String customerCountryCode) { this.customerCountryCode = customerCountryCode; }
+    
+    public Integer getPointsEarned() { return pointsEarned; }
+    public void setPointsEarned(Integer pointsEarned) { this.pointsEarned = pointsEarned; }
+    
+    public Integer getPointsRedeemed() { return pointsRedeemed; }
+    public void setPointsRedeemed(Integer pointsRedeemed) { this.pointsRedeemed = pointsRedeemed; }
+    
+    public BigDecimal getDiscountFromPoints() { return discountFromPoints; }
+    public void setDiscountFromPoints(BigDecimal discountFromPoints) { this.discountFromPoints = discountFromPoints; }
+    
     public User getSoldBy() { return soldBy; }
     public void setSoldBy(User soldBy) { this.soldBy = soldBy; }
+    
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
