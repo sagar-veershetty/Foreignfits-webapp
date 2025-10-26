@@ -405,7 +405,12 @@ export class AppService {
           });
 
           // Refresh sales from backend to ensure dashboard stats are up-to-date
-          this.loadSales().subscribe();
+          // Only refresh if user role needs sales data
+          const currentUser = this.authService.getCurrentUser();
+          const userRole = currentUser?.role?.toLowerCase();
+          if (userRole === 'sales' || userRole === 'admin') {
+            this.loadSales().subscribe();
+          }
         }),
         catchError(error => {
           this.updateAppState({
@@ -420,10 +425,20 @@ export class AppService {
   // Auto-refresh utilities (for live-updating dashboards)
   startAutoRefresh(intervalMs: number = 15000): void {
     this.stopAutoRefresh();
-    this.autoRefreshSub = interval(intervalMs).subscribe(() => {
-      // Light-weight refresh: sales only (stats depend on it)
-      this.loadSales().subscribe();
-    });
+    
+    // Only auto-refresh sales data for users who need it (admin and sales roles)
+    const currentUser = this.authService.getCurrentUser();
+    const userRole = currentUser?.role?.toLowerCase();
+    
+    if (userRole === 'sales' || userRole === 'admin') {
+      this.autoRefreshSub = interval(intervalMs).subscribe(() => {
+        // Light-weight refresh: sales only (stats depend on it)
+        this.loadSales().subscribe();
+      });
+      console.log(`Auto-refresh started for ${userRole} user (${intervalMs}ms interval)`);
+    } else {
+      console.log(`Auto-refresh skipped for ${userRole} user (not needed)`);
+    }
   }
 
   stopAutoRefresh(): void {
