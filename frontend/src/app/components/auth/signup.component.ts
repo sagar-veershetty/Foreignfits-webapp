@@ -33,6 +33,7 @@ export class SignupComponent implements OnInit {
   
   allLocations = signal<Location[]>([]);
   isLoadingLocations = signal(false);
+  selectedRole = signal<'admin' | 'sales' | 'warehouse'>('sales');
 
   signupData: SignupData = {
     name: '',
@@ -45,7 +46,7 @@ export class SignupComponent implements OnInit {
 
   // Computed: Filter locations based on selected role
   availableLocations = computed(() => {
-    const role = this.signupData.role;
+    const role = this.selectedRole();
     const locations = this.allLocations();
 
     if (role === 'admin') {
@@ -54,15 +55,18 @@ export class SignupComponent implements OnInit {
       // Show only stores for sales users
       return locations.filter(loc => loc.type.toLowerCase() === 'store');
     } else if (role === 'warehouse') {
-      // Show only warehouses for warehouse users
-      return locations.filter(loc => loc.type.toLowerCase() === 'warehouse');
+      // Show only warehouses for warehouse users (exclude supplier by name)
+      return locations.filter(loc => 
+        loc.type.toLowerCase() === 'warehouse' && 
+        !loc.name.toLowerCase().includes('supplier')
+      );
     }
     return [];
   });
 
   // Computed: Check if location is required
   isLocationRequired = computed(() => {
-    return this.signupData.role === 'sales' || this.signupData.role === 'warehouse';
+    return this.selectedRole() === 'sales' || this.selectedRole() === 'warehouse';
   });
 
   constructor(
@@ -75,6 +79,8 @@ export class SignupComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Initialize selectedRole signal with current role
+    this.selectedRole.set(this.signupData.role);
     this.loadLocations();
   }
 
@@ -111,6 +117,8 @@ export class SignupComponent implements OnInit {
   }
 
   onRoleChange(): void {
+    // Update the signal to trigger computed properties
+    this.selectedRole.set(this.signupData.role);
     // Reset location when role changes
     this.signupData.locationId = null;
     this.clearErrors();
