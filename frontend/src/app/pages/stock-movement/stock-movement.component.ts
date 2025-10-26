@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppService } from '../../core/services/app.service';
@@ -57,6 +57,13 @@ export class StockMovementComponent implements OnInit {
   ngOnInit() {
     this.loadData();
     this.loadCurrentUser();
+    
+    // Auto-set FROM location for warehouse users
+    setTimeout(() => {
+      if (this.isWarehouseUser() && this.getUserLocationId()) {
+        this.transferForm.fromLocationId = this.getUserLocationId() || '';
+      }
+    }, 500);
   }
 
   loadData() {
@@ -84,8 +91,31 @@ export class StockMovementComponent implements OnInit {
     return role === 'admin' || role === 'warehouse';
   }
 
-  get filteredMovements(): StockMovement[] {
+  isWarehouseUser(): boolean {
+    return this.currentUser()?.role === 'warehouse';
+  }
+
+  getUserLocationId(): string | undefined {
+    return this.currentUser()?.locationId;
+  }
+
+  getUserLocationName(): string | undefined {
+    return this.currentUser()?.locationName;
+  }
+
+  filteredMovements = computed(() => {
     let movements = this.stockMovements();
+    const user = this.currentUser();
+    
+    // Filter by user's location for WAREHOUSE users (they can only see their location's movements)
+    if (user?.role === 'warehouse' && user?.locationId) {
+      movements = movements.filter(m => {
+        // Check if movement's locationId matches user's location
+        // OR if product's locationId matches user's location
+        return m.locationId === user.locationId || 
+               m.product?.locationId === user.locationId;
+      });
+    }
     
     // Filter by type
     if (this.filterType() !== 'all') {
@@ -125,7 +155,7 @@ export class StockMovementComponent implements OnInit {
     return movements.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }
+  });
 
   setActiveTab(tab: 'movements' | 'adjustment' | 'transfer') {
     this.activeTab.set(tab);

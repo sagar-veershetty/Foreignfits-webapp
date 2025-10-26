@@ -1,13 +1,17 @@
 package com.foreignfits.controller;
 
 import com.foreignfits.dto.ProductDto;
+import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateProductRequest;
 import com.foreignfits.entity.Product;
+import com.foreignfits.entity.User;
 import com.foreignfits.service.ProductService;
+import com.foreignfits.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,10 +22,27 @@ import java.util.List;
 public class ProductController {
     
     private final ProductService productService;
+    private final UserService userService;
     
     @GetMapping
-    public ResponseEntity<List<ProductDto>> getAllProducts() {
-        List<ProductDto> products = productService.getAllProducts();
+    public ResponseEntity<List<ProductDto>> getAllProducts(Authentication authentication) {
+        // Get current user's email from authentication
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<ProductDto> products;
+        
+        // Filter by location for SALES and WAREHOUSE users
+        if ((currentUser.getRole() == User.UserRole.SALES || 
+             currentUser.getRole() == User.UserRole.WAREHOUSE) && 
+            currentUser.getLocationId() != null) {
+            products = productService.getProductsByLocation(currentUser.getLocationId());
+        } else {
+            // ADMIN can see all products
+            products = productService.getAllProducts();
+        }
+        
         return ResponseEntity.ok(products);
     }
     
@@ -53,7 +74,10 @@ public class ProductController {
     }
     
     @GetMapping("/location/{locationId}")
-    public ResponseEntity<List<ProductDto>> getProductsByLocation(@PathVariable Long locationId) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductDto>> getProductsByLocation(@PathVariable Long locationId, Authentication authentication) {
+        // Only ADMIN can query products by specific location
+        // SALES and WAREHOUSE users should use the default getAllProducts() which filters automatically
         List<ProductDto> products = productService.getProductsByLocation(locationId);
         return ResponseEntity.ok(products);
     }

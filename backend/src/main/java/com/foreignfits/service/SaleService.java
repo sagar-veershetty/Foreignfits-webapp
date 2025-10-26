@@ -45,6 +45,12 @@ public class SaleService {
         User soldBy = userRepository.findById(soldById)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + soldById));
         
+        // Get user's assigned location if they are SALES role
+        Long userLocationId = null;
+        if (soldBy.getRole() == User.UserRole.SALES && soldBy.getLocation() != null) {
+            userLocationId = soldBy.getLocation().getId();
+        }
+        
         // Validate and prepare sale items
         List<SaleItem> saleItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
@@ -52,6 +58,14 @@ public class SaleService {
         for (SaleItemRequest itemRequest : request.getItems()) {
             Product product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found with id: " + itemRequest.getProductId()));
+            
+            // Security check: SALES users can only sell products from their assigned location
+            if (userLocationId != null) {
+                if (product.getLocation() == null || !product.getLocation().getId().equals(userLocationId)) {
+                    throw new RuntimeException("You can only sell products from your assigned location: " + 
+                        soldBy.getLocation().getName());
+                }
+            }
             
             // Check stock availability
             if (product.getStock() < itemRequest.getQuantity()) {
@@ -143,6 +157,46 @@ public class SaleService {
     public BigDecimal getTodaysRevenue() {
         BigDecimal revenue = saleRepository.getTodaysRevenue();
         return revenue != null ? revenue : BigDecimal.ZERO;
+    }
+    
+    // Location-based filtering methods for SALES users
+    public List<SaleDto> getSalesByLocation(Long locationId) {
+        return saleRepository.findAll().stream()
+                .filter(sale -> sale.getItems().stream()
+                        .anyMatch(item -> item.getProduct().getLocation() != null && 
+                                item.getProduct().getLocation().getId().equals(locationId)))
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    public List<SaleDto> getTodaysSalesByLocation(Long locationId) {
+        return saleRepository.findTodaysSales().stream()
+                .filter(sale -> sale.getItems().stream()
+                        .anyMatch(item -> item.getProduct().getLocation() != null && 
+                                item.getProduct().getLocation().getId().equals(locationId)))
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    public BigDecimal getTodaysRevenueByLocation(Long locationId) {
+        List<Sale> todaysSales = saleRepository.findTodaysSales().stream()
+                .filter(sale -> sale.getItems().stream()
+                        .anyMatch(item -> item.getProduct().getLocation() != null && 
+                                item.getProduct().getLocation().getId().equals(locationId)))
+                .collect(Collectors.toList());
+        
+        return todaysSales.stream()
+                .map(Sale::getTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    
+    public List<SaleDto> getSalesBetweenDatesByLocation(LocalDateTime startDate, LocalDateTime endDate, Long locationId) {
+        return saleRepository.findSalesBetweenDates(startDate, endDate).stream()
+                .filter(sale -> sale.getItems().stream()
+                        .anyMatch(item -> item.getProduct().getLocation() != null && 
+                                item.getProduct().getLocation().getId().equals(locationId)))
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
     
     private SaleDto convertToDto(Sale sale) {

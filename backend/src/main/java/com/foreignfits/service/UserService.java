@@ -1,7 +1,9 @@
 package com.foreignfits.service;
 
 import com.foreignfits.dto.UserDto;
+import com.foreignfits.entity.Location;
 import com.foreignfits.entity.User;
+import com.foreignfits.repository.LocationRepository;
 import com.foreignfits.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,6 +21,7 @@ import java.util.stream.Collectors;
 public class UserService {
     
     private final UserRepository userRepository;
+    private final LocationRepository locationRepository;
     private final PasswordEncoder passwordEncoder;
     
     public List<UserDto> getAllUsers() {
@@ -38,8 +41,33 @@ public class UserService {
     }
     
     public UserDto createUser(String name, String email, String password, User.UserRole role) {
+        return createUser(name, email, password, role, null);
+    }
+    
+    public UserDto createUser(String name, String email, String password, User.UserRole role, Long locationId) {
         if (userRepository.existsByEmail(email)) {
             throw new RuntimeException("User with email " + email + " already exists");
+        }
+        
+        // Validate location assignment based on role
+        if (locationId != null) {
+            Location location = locationRepository.findById(locationId)
+                    .orElseThrow(() -> new RuntimeException("Location not found with id: " + locationId));
+            
+            // SALES users can only be assigned to STORE locations
+            if (role == User.UserRole.SALES && location.getType() != Location.LocationType.STORE) {
+                throw new RuntimeException("Sales users can only be assigned to STORE locations");
+            }
+            
+            // WAREHOUSE users can only be assigned to WAREHOUSE locations
+            if (role == User.UserRole.WAREHOUSE && location.getType() != Location.LocationType.WAREHOUSE) {
+                throw new RuntimeException("Warehouse users can only be assigned to WAREHOUSE locations");
+            }
+        } else {
+            // SALES and WAREHOUSE users must have a location
+            if (role == User.UserRole.SALES || role == User.UserRole.WAREHOUSE) {
+                throw new RuntimeException(role + " users must be assigned to a location");
+            }
         }
         
         User user = new User();
@@ -48,6 +76,12 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(role);
         user.setIsActive(true);
+        
+        // Set location if provided
+        if (locationId != null) {
+            Location location = locationRepository.findById(locationId).orElse(null);
+            user.setLocation(location);
+        }
         
         User savedUser = userRepository.save(user);
         return convertToDto(savedUser);
@@ -94,6 +128,13 @@ public class UserService {
         dto.setName(user.getName());
         dto.setEmail(user.getEmail());
         dto.setRole(user.getRole());
+        
+        // Include location information if user is assigned to a location
+        if (user.getLocation() != null) {
+            dto.setLocationId(user.getLocation().getId());
+            dto.setLocationName(user.getLocation().getName());
+        }
+        
         dto.setAvatar(user.getAvatar());
         dto.setIsActive(user.getIsActive());
         dto.setLastLogin(user.getLastLogin());

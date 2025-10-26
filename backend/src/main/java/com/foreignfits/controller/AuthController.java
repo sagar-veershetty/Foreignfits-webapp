@@ -69,9 +69,10 @@ public class AuthController {
             @RequestParam String name,
             @RequestParam String email,
             @RequestParam String password,
-            @RequestParam User.UserRole role) {
+            @RequestParam User.UserRole role,
+            @RequestParam(required = false) Long locationId) {
         try {
-            UserDto user = userService.createUser(name, email, password, role);
+            UserDto user = userService.createUser(name, email, password, role, locationId);
             
             Map<String, Object> response = new HashMap<>();
             response.put("user", user);

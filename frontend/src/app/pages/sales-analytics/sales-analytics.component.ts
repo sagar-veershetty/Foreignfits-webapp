@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Sale, SaleItem } from '../../core/models';
 
 type Period = 'today' | 'week' | 'month' | 'custom';
@@ -47,6 +48,10 @@ type Period = 'today' | 'week' | 'month' | 'custom';
           <button class="px-3 py-1.5 rounded-lg bg-gray-900 text-white" (click)="refresh()">Apply</button>
         </div>
         <div class="flex-1"></div>
+        <select *ngIf="isAdmin()" [(ngModel)]="locationFilter" class="px-3 py-1.5 border border-gray-300 rounded-lg">
+          <option value="all">All Locations</option>
+          <option *ngFor="let location of s.locations" [value]="location.id">{{ location.name }} ({{ location.type }})</option>
+        </select>
         <select [(ngModel)]="paymentFilter" class="px-3 py-1.5 border border-gray-300 rounded-lg">
           <option value="all">All Payments</option>
           <option value="cash">Cash</option>
@@ -151,10 +156,20 @@ export class SalesAnalyticsComponent {
   from = '';
   to = '';
   paymentFilter: 'all'|'cash'|'card'|'other' = 'all';
+  locationFilter: string = 'all'; // Location filter for ADMIN
   showDetails = false;
 
-  constructor(public router: Router, private app: AppService) {
+  constructor(
+    public router: Router, 
+    private app: AppService,
+    private authService: AuthService
+  ) {
     this.app.appState$.subscribe(s => { this.state = s; });
+  }
+
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin';
   }
 
   get periodLabel(): string {
@@ -207,9 +222,25 @@ export class SalesAnalyticsComponent {
 
   get filtered(): Sale[] {
     if (!this.state) return [];
-    const byDate = this.state.sales.filter((s: Sale) => this.inRange(new Date(s.createdAt)));
-    const byPay = this.paymentFilter === 'all' ? byDate : byDate.filter((s: Sale) => s.paymentMethod === this.paymentFilter);
-    return byPay;
+    let sales = this.state.sales;
+    
+    // Filter by date
+    sales = sales.filter((s: Sale) => this.inRange(new Date(s.createdAt)));
+    
+    // Filter by payment method
+    if (this.paymentFilter !== 'all') {
+      sales = sales.filter((s: Sale) => s.paymentMethod === this.paymentFilter);
+    }
+    
+    // Filter by location (ADMIN only)
+    if (this.isAdmin() && this.locationFilter !== 'all') {
+      sales = sales.filter(sale => {
+        // Check if any item in the sale belongs to the selected location
+        return sale.items?.some(item => item.product.locationId?.toString() === this.locationFilter);
+      });
+    }
+    
+    return sales;
   }
 
   get totalRevenue(): number {

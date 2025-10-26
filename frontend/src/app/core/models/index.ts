@@ -62,6 +62,8 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'sales' | 'warehouse';
+  locationId?: string;
+  locationName?: string;
   avatar?: string;
   createdAt: Date;
   lastLogin?: Date;

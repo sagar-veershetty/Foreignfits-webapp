@@ -73,7 +73,7 @@
             required
             [(ngModel)]="signupData.role"
             name="role"
-            (change)="clearErrors()"
+            (change)="onRoleChange()"
             class="form-input"
           >
             <option value="">Select your role</option>
@@ -81,6 +81,47 @@
             <option value="sales">Sales Representative</option>
             <option value="warehouse">Warehouse Manager</option>
           </select>
+        </div>
+
+        <!-- Location Dropdown (conditionally shown for SALES and WAREHOUSE) -->
+        <div class="form-group" *ngIf="isLocationRequired()">
+          <label class="form-label">
+            {{ signupData.role === 'sales' ? 'Store Location' : 'Warehouse Location' }}
+            <span class="text-red-500">*</span>
+          </label>
+          
+          <div *ngIf="isLoadingLocations()" class="text-gray-500 text-sm">
+            Loading locations...
+          </div>
+          
+          <select
+            *ngIf="!isLoadingLocations()"
+            required
+            [(ngModel)]="signupData.locationId"
+            name="locationId"
+            (change)="clearErrors()"
+            class="form-input"
+          >
+            <option [ngValue]="null">
+              Select a {{ signupData.role === 'sales' ? 'store' : 'warehouse' }}
+            </option>
+            <option 
+              *ngFor="let location of availableLocations()" 
+              [ngValue]="parseInt(location.id)"
+            >
+              {{ location.name }}
+              <span *ngIf="location.city"> - {{ location.city }}</span>
+            </option>
+          </select>
+          
+          <p class="text-xs text-gray-500 mt-1">
+            <span *ngIf="signupData.role === 'sales'">
+              You will only be able to sell items from this store
+            </span>
+            <span *ngIf="signupData.role === 'warehouse'">
+              You will only be able to manage products in this warehouse
+            </span>
+          </p>
         </div>
 
         <div class="form-group">

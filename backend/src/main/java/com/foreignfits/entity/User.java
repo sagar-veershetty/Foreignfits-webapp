@@ -1,5 +1,6 @@
 package com.foreignfits.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -44,6 +45,10 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location location;
+    
     @Column(length = 255)
     private String avatar;
     
@@ -80,6 +85,9 @@ public class User {
     
     public UserRole getRole() { return role; }
     public void setRole(UserRole role) { this.role = role; }
+    
+    public Location getLocation() { return location; }
+    public void setLocation(Location location) { this.location = location; }
     
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }

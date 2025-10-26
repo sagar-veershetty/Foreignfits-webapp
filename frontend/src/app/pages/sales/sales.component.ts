@@ -43,13 +43,23 @@ export class SalesComponent {
   }
 
   getFilteredProducts(appState: AppState): Product[] {
-    return appState.products.filter(product =>
-      product.stock > 0 && (
+    const user = this.authService.getCurrentUser();
+    
+    return appState.products.filter(product => {
+      // Filter by user's location for SALES users
+      if (user?.role === 'sales' && user?.locationId) {
+        if (product.locationId !== user.locationId) {
+          return false;
+        }
+      }
+      
+      // Filter by stock and search term
+      return product.stock > 0 && (
         product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
         product.sku.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
         (product.barcode && product.barcode.includes(this.searchTerm))
-      )
-    );
+      );
+    });
   }
 
   addToSale(product: Product): void {

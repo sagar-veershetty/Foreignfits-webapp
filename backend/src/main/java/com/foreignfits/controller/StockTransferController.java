@@ -1,15 +1,19 @@
 package com.foreignfits.controller;
 
 import com.foreignfits.dto.StockTransferDto;
+import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateStockTransferRequest;
 import com.foreignfits.entity.StockTransfer;
+import com.foreignfits.entity.User;
 import com.foreignfits.security.JwtTokenProvider;
 import com.foreignfits.service.StockTransferService;
+import com.foreignfits.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +26,7 @@ public class StockTransferController {
     
     private final StockTransferService stockTransferService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserService userService;
     
     /**
      * Create a new stock transfer request
@@ -31,10 +36,25 @@ public class StockTransferController {
     @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
     public ResponseEntity<?> createTransfer(
             @Valid @RequestBody CreateStockTransferRequest request,
-            @RequestHeader("Authorization") String token) {
+            @RequestHeader("Authorization") String token,
+            Authentication authentication) {
         try {
             String jwt = token.substring(7);
             Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
+            
+            // Get current user to check location restrictions
+            String email = authentication.getName();
+            UserDto currentUser = userService.getUserByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // WAREHOUSE users can only transfer FROM their assigned location
+            if (currentUser.getRole() == User.UserRole.WAREHOUSE && currentUser.getLocationId() != null) {
+                if (!request.getFromLocationId().equals(currentUser.getLocationId())) {
+                    return ResponseEntity.badRequest()
+                            .body("Warehouse users can only transfer products FROM their assigned location: " + 
+                                  currentUser.getLocationName());
+                }
+            }
             
             // For immediate transfer, use createAndCompleteTransfer which auto-approves and completes
             StockTransferDto transfer = stockTransferService.createAndCompleteTransfer(request, userId);
@@ -110,8 +130,21 @@ public class StockTransferController {
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
-    public ResponseEntity<List<StockTransferDto>> getAllTransfers() {
-        List<StockTransferDto> transfers = stockTransferService.getAllTransfers();
+    public ResponseEntity<List<StockTransferDto>> getAllTransfers(Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<StockTransferDto> transfers;
+        
+        // WAREHOUSE users can only see transfers from/to their location
+        if (currentUser.getRole() == User.UserRole.WAREHOUSE && currentUser.getLocationId() != null) {
+            transfers = stockTransferService.getTransfersByLocation(currentUser.getLocationId());
+        } else {
+            // ADMIN can see all transfers
+            transfers = stockTransferService.getAllTransfers();
+        }
+        
         return ResponseEntity.ok(transfers);
     }
     
@@ -128,11 +161,13 @@ public class StockTransferController {
     
     /**
      * Get transfers by location
-     * Accessible by: Admin, Warehouse
+     * Accessible by: Admin only (WAREHOUSE users should use getAllTransfers which filters automatically)
      */
     @GetMapping("/location/{locationId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE')")
-    public ResponseEntity<List<StockTransferDto>> getTransfersByLocation(@PathVariable Long locationId) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<StockTransferDto>> getTransfersByLocation(@PathVariable Long locationId, Authentication authentication) {
+        // Only ADMIN can query transfers by specific location
+        // WAREHOUSE users should use getAllTransfers() which filters automatically
         List<StockTransferDto> transfers = stockTransferService.getTransfersByLocation(locationId);
         return ResponseEntity.ok(transfers);
     }

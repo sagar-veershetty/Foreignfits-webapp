@@ -2,12 +2,13 @@
   <div class="receipt-modal">
     <div class="receipt-modal-header">
       <div class="receipt-modal-title">Print Receipt</div>
-      <button class="receipt-modal-close" (click)="close()">&times;</button>
+      <button class="receipt-modal-close" (click)="closeModal()">&times;</button>
     </div>
     <div class="receipt-modal-subtitle">Receipt #{{ receipt?.number }}</div>
-  <div class="receipt-paper" #receiptPaper>
-      <div class="receipt-title">FOREIGN FITS</div>
-      <div class="receipt-subtitle">Global Fashion Collection</div>
+    <div class="receipt-content-wrapper">
+      <div class="receipt-paper" #receiptPaper>
+        <div class="receipt-title">FOREIGN FITS</div>
+        <div class="receipt-subtitle">Global Fashion Collection</div>
       <div class="receipt-address">123 Fashion Street, Style City<br>Phone: (555) 123-4567</div>
       
       <hr>
@@ -51,9 +52,10 @@
         <div>Returns within 5 days with receipt</div>
       </div>
     </div>
+    </div>
     <div class="receipt-modal-actions">
       <button class="btn-primary" (click)="print()">Print Receipt</button>
-      <button class="btn-secondary" (click)="close()">Close</button>
+      <button class="btn-secondary" (click)="closeModal()">Close</button>
     </div>
   </div>
 </div>

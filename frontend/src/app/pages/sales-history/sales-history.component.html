@@ -26,6 +26,19 @@
         <button (click)="setFilter('today')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='today' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">Today</button>
         <button (click)="setFilter('week')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='week' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">This Week</button>
       </div>
+      
+      <!-- Location Filter (ADMIN only) -->
+      <select 
+        *ngIf="isAdmin()" 
+        [(ngModel)]="locationFilter"
+        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+      >
+        <option value="all">All Locations</option>
+        <option *ngFor="let location of appState.locations" [value]="location.id">
+          {{ location.name }} ({{ location.type }})
+        </option>
+      </select>
+      
       <div class="flex-1"></div>
       <div class="flex items-center gap-2">
         <input type="date" [(ngModel)]="fromDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />

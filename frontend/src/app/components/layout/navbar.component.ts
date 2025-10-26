@@ -73,7 +73,7 @@ export class NavbarComponent {
       case 'sales':
         return this.tabs.filter(tab => ['dashboard', 'inventory', 'sales', 'sales-history'].includes(tab.id));
       case 'warehouse':
-        return this.tabs.filter(tab => ['dashboard', 'inventory', 'add-product', 'stock-movement'].includes(tab.id));
+        return this.tabs.filter(tab => ['dashboard', 'inventory', 'stock-movement'].includes(tab.id));
       default:
         return this.tabs;
     }

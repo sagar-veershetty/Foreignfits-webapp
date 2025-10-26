@@ -15,6 +15,8 @@ public class UserDto {
     private String name;
     private String email;
     private User.UserRole role;
+    private Long locationId;
+    private String locationName;
     private String avatar;
     private Boolean isActive;
     private LocalDateTime lastLogin;
@@ -33,6 +35,12 @@ public class UserDto {
     
     public User.UserRole getRole() { return role; }
     public void setRole(User.UserRole role) { this.role = role; }
+    
+    public Long getLocationId() { return locationId; }
+    public void setLocationId(Long locationId) { this.locationId = locationId; }
+    
+    public String getLocationName() { return locationName; }
+    public void setLocationName(String locationName) { this.locationName = locationName; }
     
     public String getAvatar() { return avatar; }
     public void setAvatar(String avatar) { this.avatar = avatar; }

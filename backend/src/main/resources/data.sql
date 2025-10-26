@@ -10,10 +10,14 @@ INSERT INTO locations (id, name, type, address, city, state, zip_code, phone, ma
 -- Insert dummy users for testing
 -- Password for all accounts: admin123
 -- This is a BCrypt hash for the password "admin123"
-INSERT INTO users (id, name, email, password, role, is_active, created_at, updated_at) VALUES
-(1, 'Admin User', 'admin@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'ADMIN', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(2, 'Sales Representative', 'sales@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(3, 'Warehouse Manager', 'warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+-- Admin has no location (can access all locations)
+-- Warehouse user is assigned to Main Warehouse
+-- Sales user is assigned to Retail Store - Mohan Market
+INSERT INTO users (id, name, email, password, role, location_id, is_active, created_at, updated_at) VALUES
+(1, 'Admin User', 'admin@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'ADMIN', NULL, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(2, 'Sales Rep - Retail Store', 'sales@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 3, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(3, 'Warehouse Manager', 'warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', 1, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(4, 'Sales Rep - Wholesale Store', 'sales.wholesale@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- Insert sample products (prices in paise - multiply by 100)
 INSERT INTO products (id, name, category, size, color, price, cost, wholesale_price, wholesale_min_quantity, stock, min_stock, sku, description, barcode, location_id, created_at, updated_at) VALUES
@@ -51,7 +55,38 @@ INSERT INTO product_images (product_id, image_url) VALUES
 (9, 'https://images.pexels.com/photos/1040945/pexels-photo-1040945.jpeg?auto=compress&cs=tinysrgb&w=400'),
 (10, 'https://images.pexels.com/photos/985635/pexels-photo-985635.jpeg?auto=compress&cs=tinysrgb&w=400');
 
+-- Insert sample stock movements for testing
+-- Main Warehouse (location_id = 1) stock movements
+INSERT INTO stock_movements (id, product_id, type, quantity, previous_stock, new_stock, reason, reference, location_id, created_by, created_at) VALUES
+(1, 1, 'RESTOCK', 50, 0, 50, 'Initial stock from supplier', 'PO-2024-001', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '5' DAY),
+(2, 1, 'ADJUSTMENT', -5, 50, 45, 'Inventory count correction', 'INV-2024-001', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '3' DAY),
+(3, 2, 'RESTOCK', 30, 0, 30, 'Initial stock from supplier', 'PO-2024-002', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '5' DAY),
+(4, 2, 'TRANSFER_OUT', -5, 30, 25, 'Transfer to store', 'TRF-2024-001', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '2' DAY),
+(5, 3, 'RESTOCK', 35, 0, 35, 'Initial stock from supplier', 'PO-2024-003', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '5' DAY),
+(6, 3, 'DAMAGE', -5, 35, 30, 'Damaged during handling', 'DMG-2024-001', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '2' DAY),
+(7, 4, 'RESTOCK', 15, 0, 15, 'Initial stock from supplier', 'PO-2024-004', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '4' DAY),
+(8, 4, 'ADJUSTMENT', -3, 15, 12, 'Quality control check', 'QC-2024-001', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '1' DAY),
+(9, 5, 'RESTOCK', 20, 0, 20, 'Initial stock from supplier', 'PO-2024-005', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '4' DAY),
+(10, 5, 'ADJUSTMENT', -2, 20, 18, 'Size mismatch correction', 'ADJ-2024-001', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '1' DAY),
+(11, 6, 'RESTOCK', 50, 0, 50, 'Initial stock from supplier', 'PO-2024-006', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '3' DAY),
+(12, 6, 'TRANSFER_OUT', -10, 50, 40, 'Transfer to retail store', 'TRF-2024-002', 1, 'Warehouse Manager', CURRENT_TIMESTAMP - INTERVAL '1' DAY);
+
+-- Wholesale Store (location_id = 2) stock movements
+INSERT INTO stock_movements (id, product_id, type, quantity, previous_stock, new_stock, reason, reference, location_id, created_by, created_at) VALUES
+(13, 7, 'TRANSFER_IN', 10, 0, 10, 'Transfer from warehouse', 'TRF-2024-003', 2, 'Sales Rep - Wholesale Store', CURRENT_TIMESTAMP - INTERVAL '2' DAY),
+(14, 7, 'SALE', -2, 10, 8, 'Customer purchase', 'SALE-2024-001', 2, 'Sales Rep - Wholesale Store', CURRENT_TIMESTAMP - INTERVAL '1' DAY),
+(15, 8, 'TRANSFER_IN', 8, 0, 8, 'Transfer from warehouse', 'TRF-2024-004', 2, 'Sales Rep - Wholesale Store', CURRENT_TIMESTAMP - INTERVAL '2' DAY),
+(16, 8, 'SALE', -3, 8, 5, 'Customer purchase', 'SALE-2024-002', 2, 'Sales Rep - Wholesale Store', CURRENT_TIMESTAMP - INTERVAL '1' DAY);
+
+-- Retail Store (location_id = 3) stock movements
+INSERT INTO stock_movements (id, product_id, type, quantity, previous_stock, new_stock, reason, reference, location_id, created_by, created_at) VALUES
+(17, 9, 'TRANSFER_IN', 15, 0, 15, 'Transfer from warehouse', 'TRF-2024-005', 3, 'Sales Rep - Retail Store', CURRENT_TIMESTAMP - INTERVAL '2' DAY),
+(18, 9, 'SALE', -3, 15, 12, 'Customer purchase', 'SALE-2024-003', 3, 'Sales Rep - Retail Store', CURRENT_TIMESTAMP - INTERVAL '1' DAY),
+(19, 10, 'TRANSFER_IN', 10, 0, 10, 'Transfer from warehouse', 'TRF-2024-006', 3, 'Sales Rep - Retail Store', CURRENT_TIMESTAMP - INTERVAL '2' DAY),
+(20, 10, 'SALE', -4, 10, 6, 'Customer purchase', 'SALE-2024-004', 3, 'Sales Rep - Retail Store', CURRENT_TIMESTAMP);
+
 -- Ensure IDENTITY sequences continue after seeded IDs (H2 syntax)
 ALTER TABLE locations ALTER COLUMN id RESTART WITH 4;
-ALTER TABLE users ALTER COLUMN id RESTART WITH 4;
+ALTER TABLE users ALTER COLUMN id RESTART WITH 5;
 ALTER TABLE products ALTER COLUMN id RESTART WITH 11;
+ALTER TABLE stock_movements ALTER COLUMN id RESTART WITH 21;

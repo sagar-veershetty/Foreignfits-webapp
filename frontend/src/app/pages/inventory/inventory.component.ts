@@ -44,12 +44,25 @@ export class InventoryComponent {
 
 
   getFilteredProducts(appState: AppState): Product[] {
+    const user = this.authService.getCurrentUser();
+    
     return appState.products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
                            product.sku.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
                            (product.barcode && product.barcode.includes(this.searchTerm));
       const matchesCategory = this.categoryFilter === 'all' || product.category === this.categoryFilter;
-      const matchesLocation = this.locationFilter === 'all' || product.locationId === this.locationFilter;
+      
+      // Location filtering logic based on user role
+      let matchesLocation = true;
+      
+      if (user?.role === 'sales' || user?.role === 'warehouse') {
+        // SALES and WAREHOUSE users: only see products from their assigned location
+        matchesLocation = product.locationId === user.locationId;
+      } else if (user?.role === 'admin') {
+        // ADMIN users: can filter by location dropdown or see all
+        matchesLocation = this.locationFilter === 'all' || product.locationId === this.locationFilter;
+      }
+      
       const matchesLowStock = !this.lowStockOnly || product.stock <= product.minStock;
       return matchesSearch && matchesCategory && matchesLocation && matchesLowStock;
     });
@@ -239,6 +252,11 @@ export class InventoryComponent {
   canEdit(): boolean {
     const user = this.authService.getCurrentUser();
     return user?.role === 'admin' || user?.role === 'warehouse';
+  }
+
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin';
   }
 
   onEdit(product: Product): void {

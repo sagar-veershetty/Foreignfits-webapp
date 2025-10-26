@@ -1,7 +1,9 @@
 package com.foreignfits.controller;
 
 import com.foreignfits.dto.SaleDto;
+import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateSaleRequest;
+import com.foreignfits.entity.User;
 import com.foreignfits.service.SaleService;
 import com.foreignfits.service.UserService;
 import jakarta.validation.Valid;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/sales")
@@ -26,22 +29,61 @@ public class SaleController {
     
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
-    public ResponseEntity<List<SaleDto>> getAllSales() {
-        List<SaleDto> sales = saleService.getAllSales();
+    public ResponseEntity<List<SaleDto>> getAllSales(Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<SaleDto> sales;
+        
+        // If user is SALES and has a location assigned, filter by location
+        if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+            sales = saleService.getSalesByLocation(currentUser.getLocationId());
+        } else {
+            // ADMIN can see all sales
+            sales = saleService.getAllSales();
+        }
+        
         return ResponseEntity.ok(sales);
     }
     
     @GetMapping("/today")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
-    public ResponseEntity<List<SaleDto>> getTodaysSales() {
-        List<SaleDto> sales = saleService.getTodaysSales();
+    public ResponseEntity<List<SaleDto>> getTodaysSales(Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<SaleDto> sales;
+        
+        // If user is SALES and has a location assigned, filter by location
+        if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+            sales = saleService.getTodaysSalesByLocation(currentUser.getLocationId());
+        } else {
+            // ADMIN can see all sales
+            sales = saleService.getTodaysSales();
+        }
+        
         return ResponseEntity.ok(sales);
     }
     
     @GetMapping("/revenue/today")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
-    public ResponseEntity<BigDecimal> getTodaysRevenue() {
-        BigDecimal revenue = saleService.getTodaysRevenue();
+    public ResponseEntity<BigDecimal> getTodaysRevenue(Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        BigDecimal revenue;
+        
+        // If user is SALES and has a location assigned, filter by location
+        if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+            revenue = saleService.getTodaysRevenueByLocation(currentUser.getLocationId());
+        } else {
+            // ADMIN can see all revenue
+            revenue = saleService.getTodaysRevenue();
+        }
+        
         return ResponseEntity.ok(revenue);
     }
     
@@ -49,8 +91,22 @@ public class SaleController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('SALES')")
     public ResponseEntity<List<SaleDto>> getSalesBetweenDates(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
-        List<SaleDto> sales = saleService.getSalesBetweenDates(startDate, endDate);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<SaleDto> sales;
+        
+        // If user is SALES and has a location assigned, filter by location
+        if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+            sales = saleService.getSalesBetweenDatesByLocation(startDate, endDate, currentUser.getLocationId());
+        } else {
+            // ADMIN can see all sales
+            sales = saleService.getSalesBetweenDates(startDate, endDate);
+        }
+        
         return ResponseEntity.ok(sales);
     }
     

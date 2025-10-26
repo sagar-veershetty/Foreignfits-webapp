@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, ElementRef, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 
@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 export class PrintReceiptComponent {
   @Input() receipt: any;
   @Input() show: boolean = false;
+  @Output() close = new EventEmitter<void>();
   @ViewChild('receiptPaper', { static: false }) receiptPaperRef!: ElementRef;
   router = inject(Router);
 
@@ -92,11 +93,14 @@ export class PrintReceiptComponent {
       printWindow.document.close();
       console.log('Print window opened and content written for thermal printer.');
     }, 150);
+    
+    // Close the modal after initiating print
+    setTimeout(() => {
+      this.closeModal();
+    }, 200);
   }
 
-  close() {
-    this.show = false;
-    // Optionally, navigate or emit event to parent
-    // this.router.navigate(['/sales']);
+  closeModal() {
+    this.close.emit();
   }
 }

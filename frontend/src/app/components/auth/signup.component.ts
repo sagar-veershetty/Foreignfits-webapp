@@ -1,9 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { AuthService, AuthState } from '../../core/services/auth.service';
+import { AppService } from '../../core/services/app.service';
+import { Location } from '../../core/models';
+import { environment } from '../../../environments/environment';
 
 interface SignupData {
   name: string;
@@ -11,6 +15,7 @@ interface SignupData {
   password: string;
   confirmPassword: string;
   role: 'admin' | 'sales' | 'warehouse';
+  locationId: number | null;
 }
 
 @Component({
@@ -20,25 +25,97 @@ interface SignupData {
   templateUrl: './signup.component.html',
   styleUrls: ['./signup.component.scss']
 })
-export class SignupComponent {
+export class SignupComponent implements OnInit {
   authState$: Observable<AuthState>;
   validationError: string | null = null;
   showPassword = false;
   showConfirmPassword = false;
+  
+  allLocations = signal<Location[]>([]);
+  isLoadingLocations = signal(false);
 
   signupData: SignupData = {
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'sales'
+    role: 'sales',
+    locationId: null
   };
+
+  // Computed: Filter locations based on selected role
+  availableLocations = computed(() => {
+    const role = this.signupData.role;
+    const locations = this.allLocations();
+
+    if (role === 'admin') {
+      return []; // ADMIN doesn't need location
+    } else if (role === 'sales') {
+      return locations.filter(loc => loc.type === 'store');
+    } else if (role === 'warehouse') {
+      return locations.filter(loc => loc.type === 'warehouse');
+    }
+    return [];
+  });
+
+  // Computed: Check if location is required
+  isLocationRequired = computed(() => {
+    return this.signupData.role === 'sales' || this.signupData.role === 'warehouse';
+  });
 
   constructor(
     private authService: AuthService,
+    private appService: AppService,
+    private http: HttpClient,
     private router: Router
   ) {
     this.authState$ = this.authService.authState$;
+  }
+
+  ngOnInit(): void {
+    this.loadLocations();
+  }
+
+  loadLocations(): void {
+    this.isLoadingLocations.set(true);
+    
+    // Fetch locations directly from API
+    this.http.get<any[]>(`${environment.apiUrl}/locations`).subscribe({
+      next: (apiLocations) => {
+        const locations: Location[] = apiLocations.map(loc => ({
+          id: loc.id?.toString() || '',
+          name: loc.name || '',
+          type: loc.type?.toLowerCase() || 'store',
+          address: loc.address || '',
+          city: loc.city || '',
+          state: loc.state || '',
+          zipCode: loc.zipCode || '',
+          phone: loc.phone || '',
+          manager: loc.manager || '',
+          capacity: loc.capacity || 0,
+          isActive: loc.isActive !== false,
+          createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
+        }));
+        this.allLocations.set(locations);
+        this.isLoadingLocations.set(false);
+        console.log('Loaded locations:', locations);
+      },
+      error: (err) => {
+        console.error('Failed to load locations:', err);
+        this.isLoadingLocations.set(false);
+        this.validationError = 'Failed to load locations. Please refresh the page.';
+      }
+    });
+  }
+
+  onRoleChange(): void {
+    // Reset location when role changes
+    this.signupData.locationId = null;
+    this.clearErrors();
+  }
+
+  parseInt(value: string): number {
+    return parseInt(value, 10);
   }
 
   onSubmit(): void {
@@ -56,11 +133,18 @@ export class SignupComponent {
       return;
     }
 
+    // Validate location for SALES and WAREHOUSE roles
+    if (this.isLocationRequired() && !this.signupData.locationId) {
+      this.validationError = `Please select a ${this.signupData.role === 'sales' ? 'store' : 'warehouse'} location`;
+      return;
+    }
+
     this.authService.register(
       this.signupData.name.trim(),
       this.signupData.email.trim(),
       this.signupData.password,
-      this.signupData.role
+      this.signupData.role,
+      this.signupData.locationId
     ).subscribe({
       next: () => {
         alert('Account created successfully. You can now sign in.');
@@ -68,6 +152,7 @@ export class SignupComponent {
       },
       error: (err) => {
         console.error('Signup failed', err);
+        this.validationError = err.error?.error || err.error?.message || 'Registration failed. Please try again.';
       }
     });
   }

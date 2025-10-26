@@ -87,14 +87,19 @@ export class AuthService {
       );
   }
 
-  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse'): Observable<any> {
+  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse', locationId: number | null = null): Observable<any> {
     this.updateAuthState({ ...this.authStateSubject.value, isLoading: true, error: null });
 
-    const body = new HttpParams()
+    let body = new HttpParams()
       .set('name', name)
       .set('email', email)
       .set('password', password)
       .set('role', role.toUpperCase());
+    
+    // Add locationId only if it's not null
+    if (locationId !== null) {
+      body = body.set('locationId', locationId.toString());
+    }
 
     const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' });
 
@@ -193,6 +198,8 @@ export class AuthService {
       name: apiUser.name,
       email: apiUser.email,
       role: apiUser.role.toLowerCase(),
+      locationId: apiUser.locationId?.toString(),
+      locationName: apiUser.locationName,
       avatar: apiUser.avatar,
       createdAt: new Date(apiUser.createdAt),
       lastLogin: apiUser.lastLogin ? new Date(apiUser.lastLogin) : undefined,

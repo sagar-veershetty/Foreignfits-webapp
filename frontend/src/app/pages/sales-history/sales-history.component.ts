@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-sales-history',
@@ -17,9 +18,18 @@ export class SalesHistoryComponent {
   filterMode: 'all' | 'today' | 'week' | 'range' = 'all';
   fromDate?: string; // yyyy-MM-dd
   toDate?: string;   // yyyy-MM-dd
+  locationFilter: string = 'all'; // Location filter for ADMIN
 
-  constructor(private appService: AppService) {
+  constructor(
+    private appService: AppService,
+    private authService: AuthService
+  ) {
     this.appState$ = this.appService.appState$;
+  }
+
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin';
   }
 
   getPaymentMethodClass(method: string): string {
@@ -37,7 +47,26 @@ export class SalesHistoryComponent {
 
   // Return filtered sales based on the selected filter
   getFilteredSales(appState: AppState) {
-    const sales = appState.sales;
+    let sales = appState.sales;
+    
+    const user = this.authService.getCurrentUser();
+    
+    // Filter by user's location for SALES users (they can only see their location's sales)
+    if (user?.role === 'sales' && user?.locationId) {
+      sales = sales.filter(sale => {
+        // Check if any item in the sale belongs to the user's location
+        return sale.items?.some(item => item.product.locationId === user.locationId);
+      });
+    }
+    // Filter by location (ADMIN only - for location dropdown selection)
+    else if (this.isAdmin() && this.locationFilter !== 'all') {
+      sales = sales.filter(sale => {
+        // Check if any item in the sale belongs to the selected location
+        return sale.items?.some(item => item.product.locationId?.toString() === this.locationFilter);
+      });
+    }
+    
+    // Filter by date
     if (this.filterMode === 'all') return sales;
 
     const now = new Date();

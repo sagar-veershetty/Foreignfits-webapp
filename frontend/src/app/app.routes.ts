@@ -50,7 +50,7 @@ export const routes: Routes = [
       () => import('./core/guards/auth.guard').then(m => m.authGuard),
       () => import('./core/guards/role.guard').then(m => m.roleGuard)
     ],
-    data: { roles: ['admin','warehouse'] }
+    data: { roles: ['admin'] }
   },
   { 
     path: 'stock-movement', 

@@ -63,18 +63,42 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  getLocationInfo(): string {
+    const user = this.authService.getCurrentUser();
+    if (user?.role === 'sales' || user?.role === 'warehouse') {
+      return user.locationName ? `Location: ${user.locationName}` : '';
+    }
+    return 'All Locations';
+  }
+
   getStats(appState: AppState): DashboardStats {
+    const user = this.authService.getCurrentUser();
     const today = new Date();
-    const todaySales = appState.sales.filter(sale => {
+    
+    // Filter products by location for SALES/WAREHOUSE users
+    let products = appState.products;
+    if (user?.role === 'sales' || user?.role === 'warehouse') {
+      products = products.filter(p => p.locationId === user.locationId);
+    }
+    
+    // Filter sales by location for SALES/WAREHOUSE users
+    let sales = appState.sales;
+    if (user?.role === 'sales' || user?.role === 'warehouse') {
+      sales = sales.filter(sale => 
+        sale.items?.some(item => item.product.locationId === user.locationId)
+      );
+    }
+    
+    const todaySales = sales.filter(sale => {
       const saleDate = new Date(sale.createdAt);
       return saleDate.toDateString() === today.toDateString();
     });
 
     return {
-      totalProducts: appState.products.length,
-      lowStockItems: appState.products.filter(p => p.stock <= p.minStock).length,
+      totalProducts: products.length,
+      lowStockItems: products.filter(p => p.stock <= p.minStock).length,
       todaySales: todaySales.length,
-      totalRevenue: appState.sales.reduce((sum, sale) => sum + sale.total, 0),
+      totalRevenue: sales.reduce((sum, sale) => sum + sale.total, 0),
     };
   }
 
@@ -82,16 +106,37 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.router.navigate([route]);
   }
 
+  isAdmin(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin';
+  }
+
   getTopCategories(appState: AppState): Array<{ name: string; count: number; color: string }> {
+    const user = this.authService.getCurrentUser();
+    
+    // Filter sales by location for SALES/WAREHOUSE users
+    let sales = appState.sales;
+    if (user?.role === 'sales' || user?.role === 'warehouse') {
+      sales = sales.filter(sale => 
+        sale.items?.some(item => item.product.locationId === user.locationId)
+      );
+    }
+    
     const counts: Record<string, number> = {};
-    appState.sales.forEach(s => s.items.forEach(it => {
+    sales.forEach(s => s.items.forEach(it => {
       const cat = it.product.category;
       counts[cat] = (counts[cat] || 0) + it.quantity;
     }));
+    
     // Fallback: if no sales, show categories from products with 0
     if (Object.keys(counts).length === 0) {
-      appState.products.forEach(p => { counts[p.category] = counts[p.category] || 0; });
+      let products = appState.products;
+      if (user?.role === 'sales' || user?.role === 'warehouse') {
+        products = products.filter(p => p.locationId === user.locationId);
+      }
+      products.forEach(p => { counts[p.category] = counts[p.category] || 0; });
     }
+    
     const palette: Record<string, string> = {
       shirts: 'bg-purple-500',
       accessories: 'bg-pink-500',
@@ -107,14 +152,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getLowStockProducts(appState: AppState) {
-    return appState.products
+    const user = this.authService.getCurrentUser();
+    
+    // Filter products by location for SALES/WAREHOUSE users
+    let products = appState.products;
+    if (user?.role === 'sales' || user?.role === 'warehouse') {
+      products = products.filter(p => p.locationId === user.locationId);
+    }
+    
+    return products
       .filter(p => p.stock <= p.minStock)
       .sort((a, b) => (a.stock - a.minStock) - (b.stock - b.minStock))
       .slice(0, 3);
   }
 
   getRecentTransactions(appState: AppState) {
-    return [...appState.sales]
+    const user = this.authService.getCurrentUser();
+    
+    // Filter sales by location for SALES/WAREHOUSE users
+    let sales = appState.sales;
+    if (user?.role === 'sales' || user?.role === 'warehouse') {
+      sales = sales.filter(sale => 
+        sale.items?.some(item => item.product.locationId === user.locationId)
+      );
+    }
+    
+    return [...sales]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 3);
   }
