@@ -21,6 +21,11 @@ public class SaleDto {
     private Sale.PaymentMethod paymentMethod;
     private String customerName;
     private String customerEmail;
+    private String customerPhone;
+    private String customerCountryCode;
+    private Integer pointsEarned;
+    private Integer pointsRedeemed;
+    private BigDecimal discountFromPoints;
     private UserDto soldBy;
     private LocalDateTime createdAt;
     
@@ -48,6 +53,21 @@ public class SaleDto {
     
     public String getCustomerEmail() { return customerEmail; }
     public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+    
+    public String getCustomerCountryCode() { return customerCountryCode; }
+    public void setCustomerCountryCode(String customerCountryCode) { this.customerCountryCode = customerCountryCode; }
+    
+    public Integer getPointsEarned() { return pointsEarned; }
+    public void setPointsEarned(Integer pointsEarned) { this.pointsEarned = pointsEarned; }
+    
+    public Integer getPointsRedeemed() { return pointsRedeemed; }
+    public void setPointsRedeemed(Integer pointsRedeemed) { this.pointsRedeemed = pointsRedeemed; }
+    
+    public BigDecimal getDiscountFromPoints() { return discountFromPoints; }
+    public void setDiscountFromPoints(BigDecimal discountFromPoints) { this.discountFromPoints = discountFromPoints; }
     
     public UserDto getSoldBy() { return soldBy; }
     public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }

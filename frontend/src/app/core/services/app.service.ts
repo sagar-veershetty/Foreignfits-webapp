@@ -145,7 +145,10 @@ export class AppService {
           });
         }),
         catchError(error => {
-          console.warn('Failed to load stock movements from API:', error);
+          // 403 is expected for SALES users - they don't have access to stock movements
+          if (error.status !== 403) {
+            console.warn('Failed to load stock movements from API:', error);
+          }
           this.updateAppState({
             ...this._appStateSubject.value,
             stockMovements: []
@@ -449,6 +452,8 @@ export class AppService {
       paymentMethod: apiSale.paymentMethod.toLowerCase(),
       customerName: apiSale.customerName,
       customerEmail: apiSale.customerEmail,
+      customerPhone: apiSale.customerPhone,
+      customerCountryCode: apiSale.customerCountryCode,
       soldBy: apiSale.soldBy.name,
       soldById: apiSale.soldBy.id.toString(),
       createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
@@ -512,6 +517,10 @@ export class AppService {
       paymentMethod: saleData.paymentMethod.toUpperCase(),
       customerName: saleData.customerName,
       customerEmail: saleData.customerEmail,
+      customerPhone: saleData.customerPhone,
+      customerCountryCode: saleData.customerCountryCode,
+      pointsRedeemed: saleData.pointsRedeemed,
+      discountFromPoints: saleData.discountFromPoints,
     };
   }
 

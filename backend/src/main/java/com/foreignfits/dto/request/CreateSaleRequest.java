@@ -29,6 +29,14 @@ public class CreateSaleRequest {
     @Size(max = 150, message = "Customer email cannot exceed 150 characters")
     private String customerEmail;
     
+    @Size(max = 15, message = "Customer phone cannot exceed 15 characters")
+    private String customerPhone;
+    
+    @Size(max = 5, message = "Customer country code cannot exceed 5 characters")
+    private String customerCountryCode;
+    
+    private Integer pointsToRedeem; // Optional: points customer wants to redeem for discount
+    
     // Manual getters and setters to ensure compatibility
     public List<SaleItemRequest> getItems() { return items; }
     public void setItems(List<SaleItemRequest> items) { this.items = items; }
@@ -41,4 +49,13 @@ public class CreateSaleRequest {
     
     public String getCustomerEmail() { return customerEmail; }
     public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
+    
+    public String getCustomerPhone() { return customerPhone; }
+    public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
+    
+    public String getCustomerCountryCode() { return customerCountryCode; }
+    public void setCustomerCountryCode(String customerCountryCode) { this.customerCountryCode = customerCountryCode; }
+    
+    public Integer getPointsToRedeem() { return pointsToRedeem; }
+    public void setPointsToRedeem(Integer pointsToRedeem) { this.pointsToRedeem = pointsToRedeem; }
 }

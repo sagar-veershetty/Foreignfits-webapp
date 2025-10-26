@@ -52,9 +52,14 @@ export interface Sale {
   paymentMethod: 'cash' | 'card' | 'other';
   customerName?: string;
   customerEmail?: string;
+  customerPhone?: string;
+  customerCountryCode?: string;
   soldBy: string;
   soldById: string;
   createdAt: Date;
+  pointsEarned?: number;
+  pointsRedeemed?: number;
+  discountFromPoints?: number;
 }
 
 export interface User {
@@ -65,6 +70,7 @@ export interface User {
   locationId?: string;
   locationName?: string;
   avatar?: string;
+  isActive: boolean;
   createdAt: Date;
   lastLogin?: Date;
 }
@@ -98,4 +104,70 @@ export interface DashboardStats {
   lowStockItems: number;
   todaySales: number;
   totalRevenue: number;
+}
+
+// Loyalty Points System Models
+export type LoyaltyTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
+
+export interface LoyaltyCustomer {
+  id: string;
+  phone: string;
+  countryCode: string;
+  customerName: string;
+  currentPoints: number;
+  lifetimePoints: number;
+  tier: LoyaltyTier;
+  tierExpiryDate?: Date;
+  joinDate: Date;
+  lastPurchaseDate?: Date;
+  dateOfBirth?: Date;
+  email?: string;
+}
+
+export type LoyaltyTransactionType = 
+  | 'EARNED_PURCHASE' 
+  | 'REDEEMED' 
+  | 'EXPIRED' 
+  | 'ADJUSTED' 
+  | 'BONUS_SIGNUP' 
+  | 'BONUS_BIRTHDAY' 
+  | 'BONUS_TIER_UPGRADE';
+
+export interface LoyaltyTransaction {
+  id: string;
+  customerId: string;
+  transactionType: LoyaltyTransactionType;
+  points: number;
+  balanceAfter: number;
+  description: string;
+  saleId?: string;
+  expiryDate?: Date;
+  createdAt: Date;
+}
+
+export interface LoyaltyProgramInfo {
+  pointsPerRupee: number;
+  pointValue: number;
+  minPointsToRedeem: number;
+  expirationMonths: number;
+  tiers: {
+    name: LoyaltyTier;
+    minLifetimePoints: number;
+    pointsMultiplier: number;
+    benefits: string[];
+  }[];
+}
+
+export interface PointsCalculation {
+  amount: number;
+  basePoints: number;
+  tierMultiplier: number;
+  totalPoints: number;
+  tier: LoyaltyTier;
+}
+
+export interface DiscountCalculation {
+  points: number;
+  discountAmount: number;
+  pointValue: number;
 }
