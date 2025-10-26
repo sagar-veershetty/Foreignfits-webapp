@@ -45,3 +45,7 @@ frontend/.angular/cache
 
 # OS files
 Thumbs.db
+
+# Documentation files
+*.md
+!README.md
