@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject, Injector } from '@angular/core';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { catchError, tap } from 'rxjs/operators';
@@ -33,7 +33,7 @@ export class AuthService {
 
   public authState$ = this.authStateSubject.asObservable();
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router, private injector: Injector) {}
 
   initializeAuth(): void {
     const savedUser = localStorage.getItem('foreignfits_user');
@@ -137,6 +137,19 @@ export class AuthService {
       isLoading: false,
       error: null
     });
+    
+    // Reset app data on logout using lazy injection to avoid circular dependency
+    // AppService depends on AuthService, so we use Injector to get it dynamically
+    try {
+      // Import dynamically to avoid circular dependency at module level
+      import('./app.service').then(({ AppService }) => {
+        const appService = this.injector.get(AppService);
+        appService.resetDataLoadedFlag();
+      });
+    } catch (error) {
+      console.warn('Could not reset app data on logout:', error);
+    }
+    
     this.router.navigate(['/']);
   }
 

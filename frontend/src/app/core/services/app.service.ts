@@ -1,9 +1,10 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, throwError, forkJoin, of, interval, Subscription } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { catchError, tap, map } from 'rxjs/operators';
 import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment } from '../models';
 import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 export interface AppState {
   products: Product[];
@@ -40,8 +41,26 @@ export class AppService {
     return this._appStateSubject;
   }
 
+  private authService = inject(AuthService);
+
   constructor(private http: HttpClient) {
     // Locations will be loaded from API in loadInitialData
+  }
+
+  /**
+   * Reset the dataLoaded flag to force a fresh data load.
+   * Called when a new user logs in to ensure role-specific data is loaded.
+   */
+  resetDataLoadedFlag(): void {
+    console.log('Resetting dataLoaded flag to force fresh data load');
+    this.updateAppState({
+      ...this._appStateSubject.value,
+      dataLoaded: false,
+      products: [],
+      sales: [],
+      stockMovements: [],
+      locations: []
+    });
   }
 
   loadInitialData(): Observable<any> {
@@ -57,12 +76,26 @@ export class AppService {
     console.log('Loading initial data...');
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
-    return forkJoin({
+    const currentUser = this.authService.getCurrentUser();
+    const userRole = currentUser?.role?.toLowerCase();
+    
+    // Determine what data to load based on user role
+    const dataToLoad: any = {
       products: this.loadProducts(),
-      sales: this.loadSales(),
-      stockMovements: this.loadStockMovements(),
       locations: this.loadLocations()
-    }).pipe(
+    };
+    
+    // Sales data is only needed for SALES and ADMIN roles (not for WAREHOUSE)
+    if (userRole === 'sales' || userRole === 'admin') {
+      dataToLoad.sales = this.loadSales();
+    } else {
+      console.log(`Skipping sales data load for ${userRole} user`);
+    }
+    
+    // Stock movements are needed for all roles
+    dataToLoad.stockMovements = this.loadStockMovements();
+
+    return forkJoin(dataToLoad).pipe(
       tap((data) => {
         console.log('Initial data loaded:', data);
         this.updateAppState({
@@ -372,7 +405,12 @@ export class AppService {
           });
 
           // Refresh sales from backend to ensure dashboard stats are up-to-date
-          this.loadSales().subscribe();
+          // Only refresh if user role needs sales data
+          const currentUser = this.authService.getCurrentUser();
+          const userRole = currentUser?.role?.toLowerCase();
+          if (userRole === 'sales' || userRole === 'admin') {
+            this.loadSales().subscribe();
+          }
         }),
         catchError(error => {
           this.updateAppState({
@@ -387,10 +425,20 @@ export class AppService {
   // Auto-refresh utilities (for live-updating dashboards)
   startAutoRefresh(intervalMs: number = 15000): void {
     this.stopAutoRefresh();
-    this.autoRefreshSub = interval(intervalMs).subscribe(() => {
-      // Light-weight refresh: sales only (stats depend on it)
-      this.loadSales().subscribe();
-    });
+    
+    // Only auto-refresh sales data for users who need it (admin and sales roles)
+    const currentUser = this.authService.getCurrentUser();
+    const userRole = currentUser?.role?.toLowerCase();
+    
+    if (userRole === 'sales' || userRole === 'admin') {
+      this.autoRefreshSub = interval(intervalMs).subscribe(() => {
+        // Light-weight refresh: sales only (stats depend on it)
+        this.loadSales().subscribe();
+      });
+      console.log(`Auto-refresh started for ${userRole} user (${intervalMs}ms interval)`);
+    } else {
+      console.log(`Auto-refresh skipped for ${userRole} user (not needed)`);
+    }
   }
 
   stopAutoRefresh(): void {
