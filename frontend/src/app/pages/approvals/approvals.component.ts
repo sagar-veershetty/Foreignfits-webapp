@@ -313,7 +313,6 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         if (event.url.includes('/approvals')) {
-          console.log('Approvals: Refreshing data on navigation');
           this.loadPendingMovements();
           this.loadPendingUsers();
           this.loadAllUsers();
@@ -464,16 +463,14 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
       return false;
     }
     
-    // Check if this is a TRANSFER movement (unified type) - case insensitive
-    if (movement.type?.toLowerCase() === 'transfer' && movement.transferId && movement.toLocation) {
+    // Check if this is a TRANSFER movement - check both transferId existence AND type
+    // The type can be 'TRANSFER' (uppercase from backend enum) or 'transfer' (lowercase)
+    const isTransfer = movement.transferId != null && movement.transferId !== undefined;
+    
+    if (isTransfer && movement.toLocation) {
       // For transfers: Can ONLY approve if user is at destination location
       return movement.toLocation.id === user.locationId;
     }
-    
-    // Legacy transfer types (TRANSFER_IN/TRANSFER_OUT) - keep for backwards compatibility
-    if (movement.transferId && movement.toLocation) {
-      return movement.toLocation.id === user.locationId;
-    } 
     
     // For non-transfer movements: Can approve if at their fromLocation or toLocation
     return movement.fromLocation?.id === user.locationId || 
@@ -495,22 +492,15 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
       return false;
     }
     
-    // Check if this is a TRANSFER movement (unified type) - case insensitive
-    if (movement.type?.toLowerCase() === 'transfer' && movement.transferId) {
+    // Check if this is a TRANSFER movement - check both transferId existence AND type
+    const isTransfer = movement.transferId != null && movement.transferId !== undefined;
+    
+    if (isTransfer) {
       if (movement.fromLocation && movement.toLocation) {
         // Source location (fromLocation) can cancel
         // Destination (toLocation) can reject
         return movement.fromLocation.id === user.locationId || 
                movement.toLocation.id === user.locationId;
-      }
-    }
-    
-    // Legacy transfer types (TRANSFER_IN/TRANSFER_OUT) - keep for backwards compatibility
-    if (movement.transferId) {
-      if (movement.fromLocation && movement.toLocation) {
-        return movement.fromLocation.id === user.locationId || 
-               movement.toLocation.id === user.locationId ||
-               movement.createdBy === user.email;
       }
     }
     

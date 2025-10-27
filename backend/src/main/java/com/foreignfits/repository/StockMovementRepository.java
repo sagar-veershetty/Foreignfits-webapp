@@ -37,15 +37,23 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     
     // User-based filtering: movements at user's location OR created by user
     // All movements now have transfers, so check fromLocation or toLocation
-    @Query("SELECT DISTINCT sm FROM StockMovement sm LEFT JOIN sm.transfer t WHERE " +
-           "t IS NOT NULL AND (t.fromLocation.id = :locationId OR t.toLocation.id = :locationId OR sm.createdBy = :createdBy) " +
+    // FETCH transfer and its locations eagerly to avoid lazy loading issues
+    @Query("SELECT DISTINCT sm FROM StockMovement sm " +
+           "LEFT JOIN FETCH sm.transfer t " +
+           "LEFT JOIN FETCH t.fromLocation " +
+           "LEFT JOIN FETCH t.toLocation " +
+           "WHERE t IS NOT NULL AND (t.fromLocation.id = :locationId OR t.toLocation.id = :locationId OR sm.createdBy = :createdBy) " +
            "ORDER BY sm.createdAt DESC")
     List<StockMovement> findByLocationIdOrCreatedByOrderByCreatedAtDesc(@Param("locationId") Long locationId, @Param("createdBy") String createdBy);
     
     // Pending movements for user: status PENDING AND movements at their location OR created by them
     // Check fromLocation or toLocation from transfer
-    @Query("SELECT sm FROM StockMovement sm LEFT JOIN sm.transfer t WHERE sm.status = 'PENDING' AND " +
-           "t IS NOT NULL AND (t.fromLocation.id = :locationId OR t.toLocation.id = :locationId OR sm.createdBy = :createdBy) " +
+    // FETCH transfer and its locations eagerly to avoid lazy loading issues
+    @Query("SELECT DISTINCT sm FROM StockMovement sm " +
+           "LEFT JOIN FETCH sm.transfer t " +
+           "LEFT JOIN FETCH t.fromLocation " +
+           "LEFT JOIN FETCH t.toLocation " +
+           "WHERE sm.status = 'PENDING' AND t IS NOT NULL AND (t.fromLocation.id = :locationId OR t.toLocation.id = :locationId OR sm.createdBy = :createdBy) " +
            "ORDER BY sm.createdAt DESC")
     List<StockMovement> findPendingByLocationIdOrCreatedByOrderByCreatedAtDesc(@Param("locationId") Long locationId, @Param("createdBy") String createdBy);
 }

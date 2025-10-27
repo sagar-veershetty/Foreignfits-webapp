@@ -45,6 +45,12 @@ public enum Permission {
     VIEW_REPORTS("view:reports"),
     EXPORT_DATA("export:data"),
     
+    // Loyalty Program
+    VIEW_LOYALTY("view:loyalty"),
+    MANAGE_LOYALTY("manage:loyalty"),
+    EARN_LOYALTY_POINTS("earn:loyalty_points"),
+    REDEEM_LOYALTY_POINTS("redeem:loyalty_points"),
+    
     // System Settings
     MANAGE_SETTINGS("manage:settings");
     

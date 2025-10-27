@@ -277,6 +277,22 @@ export class AuthService {
     return this.hasPermission('manage:settings');
   }
 
+  canViewLoyalty(): boolean {
+    return this.hasPermission('view:loyalty');
+  }
+
+  canManageLoyalty(): boolean {
+    return this.hasPermission('manage:loyalty');
+  }
+
+  canEarnLoyaltyPoints(): boolean {
+    return this.hasPermission('earn:loyalty_points');
+  }
+
+  canRedeemLoyaltyPoints(): boolean {
+    return this.hasPermission('redeem:loyalty_points');
+  }
+
   isTokenValid(): boolean {
     const token = this.getToken();
     const user = localStorage.getItem('foreignfits_user');

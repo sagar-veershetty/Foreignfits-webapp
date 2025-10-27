@@ -43,9 +43,16 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
     
-    // User-based filtering: ALL users see all products from their location
+    // User-based filtering:
+    // - Admin (cross-location access): sees ALL products from ALL locations
+    // - Other users: see products only from their assigned location
     public List<ProductDto> getProductsForUser(User user) {
-        // ALL users (including admin) see all products from their location
+        // Admin with cross-location access sees ALL products from ALL locations
+        if (user.getRole() == User.UserRole.ADMIN) {
+            return getAllProducts();
+        }
+        
+        // Non-admin users see products only from their location
         if (user.getLocation() != null) {
             return productRepository.findByLocationId(user.getLocation().getId()).stream()
                     .map(this::convertToDto)

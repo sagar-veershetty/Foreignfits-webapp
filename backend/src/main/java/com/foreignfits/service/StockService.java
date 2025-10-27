@@ -115,13 +115,35 @@ public class StockService {
         
         // Update LocationInventory NOW that it's approved
         Product product = movement.getProduct();
-        LocationInventory inventory = locationInventoryRepository
-                .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
-                .orElseThrow(() -> new RuntimeException("Inventory not found for product"));
         
-        inventory.setQuantity(movement.getNewStock());
-        inventory.setLastMovementId(movement.getId());
-        locationInventoryRepository.save(inventory);
+        // For TRANSFER movements, decrease source location inventory
+        if (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) {
+            Location fromLocation = movement.getTransfer().getFromLocation();
+            LocationInventory sourceInventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(fromLocation.getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Source inventory not found for product"));
+            
+            // Decrease source inventory by transfer quantity (use current quantity, not stale newStock)
+            int currentSourceQty = sourceInventory.getQuantity();
+            int transferQty = movement.getQuantity();
+            
+            if (currentSourceQty < transferQty) {
+                throw new RuntimeException("Insufficient stock at source location. Available: " + currentSourceQty + ", Required: " + transferQty);
+            }
+            
+            sourceInventory.setQuantity(currentSourceQty - transferQty);
+            sourceInventory.setLastMovementId(movement.getId());
+            locationInventoryRepository.save(sourceInventory);
+        } else {
+            // For non-transfer movements (ADJUSTMENT, SALE, etc.), use the pre-calculated newStock
+            LocationInventory inventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Inventory not found for product"));
+            
+            inventory.setQuantity(movement.getNewStock());
+            inventory.setLastMovementId(movement.getId());
+            locationInventoryRepository.save(inventory);
+        }
         
         // If this is a TRANSFER movement, also update the destination location
         if (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) {

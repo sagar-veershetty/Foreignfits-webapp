@@ -65,6 +65,12 @@ public class RolePermissionMapper {
             Permission.MANAGE_LOCATIONS.getPermission(),
             Permission.CROSS_LOCATION_ACCESS.getPermission(),
             
+            // Loyalty Program (full access)
+            Permission.VIEW_LOYALTY.getPermission(),
+            Permission.MANAGE_LOYALTY.getPermission(),
+            Permission.EARN_LOYALTY_POINTS.getPermission(),
+            Permission.REDEEM_LOYALTY_POINTS.getPermission(),
+            
             // Reports & System
             Permission.VIEW_REPORTS.getPermission(),
             Permission.EXPORT_DATA.getPermission(),
@@ -107,6 +113,8 @@ public class RolePermissionMapper {
     
     /**
      * Sales staff can create sales, view products, view sales history
+     * Can approve incoming stock transfers to their location
+     * Can access loyalty program features
      * Restricted to their assigned store location
      */
     private Set<String> getSalesPermissions() {
@@ -124,7 +132,14 @@ public class RolePermissionMapper {
             // Stock movements and transfers
             Permission.VIEW_STOCK_MOVEMENTS.getPermission(),
             Permission.CREATE_STOCK_MOVEMENT.getPermission(),
+            Permission.APPROVE_STOCK_MOVEMENT.getPermission(), // Sales can approve stock movements to their location
             Permission.REQUEST_STOCK_TRANSFER.getPermission(),
+            Permission.APPROVE_STOCK_TRANSFER.getPermission(), // Sales can approve transfers to their location
+            
+            // Loyalty Program
+            Permission.VIEW_LOYALTY.getPermission(), // Sales can view loyalty customer info
+            Permission.EARN_LOYALTY_POINTS.getPermission(), // Sales can earn points for customers
+            Permission.REDEEM_LOYALTY_POINTS.getPermission(), // Sales can redeem points for customers
             
             // Locations (view only)
             Permission.VIEW_LOCATIONS.getPermission()
