@@ -39,6 +39,21 @@ public class StockService {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + request.getProductId()));
         
+        // Get the user who is making the adjustment
+        User requestingUser = userRepository.findByEmail(createdBy)
+                .orElseThrow(() -> new RuntimeException("User not found: " + createdBy));
+        
+        // Validate location access: Only ADMIN can adjust stock at any location
+        // Other roles can only adjust stock at their own location
+        if (requestingUser.getRole() != User.UserRole.ADMIN) {
+            if (requestingUser.getLocation() == null) {
+                throw new RuntimeException("User must be assigned to a location to make stock adjustments");
+            }
+            if (!requestingUser.getLocation().getId().equals(product.getLocation().getId())) {
+                throw new RuntimeException("You can only adjust stock at your own location: " + requestingUser.getLocation().getName());
+            }
+        }
+        
         // Get current stock from LocationInventory
         LocationInventory inventory = locationInventoryRepository
                 .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
@@ -59,10 +74,6 @@ public class StockService {
         // Get INITIAL location (ID=0) for adjustments
         Location initialLocation = locationRepository.findById(0L)
                 .orElseThrow(() -> new RuntimeException("INITIAL location not found"));
-        
-        // Get the user who is making the adjustment
-        User requestingUser = userRepository.findByEmail(createdBy)
-                .orElseThrow(() -> new RuntimeException("User not found: " + createdBy));
         
         // Create StockTransfer for the adjustment
         StockTransfer transfer = new StockTransfer();

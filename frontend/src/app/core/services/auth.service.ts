@@ -254,6 +254,10 @@ export class AuthService {
     return this.hasPermission('create:stock_movement');
   }
 
+  canAdjustStock(): boolean {
+    return this.hasPermission('adjust:stock');
+  }
+
   canApproveStockMovements(): boolean {
     return this.hasPermission('approve:stock_movement');
   }

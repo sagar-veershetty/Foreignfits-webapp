@@ -486,13 +486,13 @@ export class AppService {
   adjustStock(adjustment: StockAdjustment): Observable<any> {
     const request = {
       productId: parseInt(adjustment.productId),
-      adjustmentType: adjustment.adjustmentType,
+      adjustmentType: adjustment.adjustmentType.toUpperCase(), // Convert to uppercase for backend
       quantity: adjustment.quantity,
       reason: adjustment.reason,
       reference: adjustment.reference || ''
     };
 
-    return this.http.post<any>(`${this.API_BASE_URL}/stock/adjustments`, request)
+    return this.http.post<any>(`${this.API_BASE_URL}/stock/adjust`, request)
       .pipe(
         tap(() => {
           // Refresh products and stock movements after adjustment

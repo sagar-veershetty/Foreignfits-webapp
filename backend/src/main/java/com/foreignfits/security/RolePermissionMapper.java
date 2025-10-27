@@ -45,6 +45,7 @@ public class RolePermissionMapper {
             Permission.VIEW_STOCK_MOVEMENTS.getPermission(),
             Permission.CREATE_STOCK_MOVEMENT.getPermission(), // Admin can create stock movements
             Permission.APPROVE_STOCK_MOVEMENT.getPermission(), // Admin can approve stock movements
+            Permission.ADJUST_STOCK.getPermission(), // Admin-only: can adjust stock at any location
             
             // Stock transfers (full access)
             Permission.REQUEST_STOCK_TRANSFER.getPermission(), // Admin can create transfers

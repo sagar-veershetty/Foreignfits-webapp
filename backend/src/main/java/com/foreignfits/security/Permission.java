@@ -23,6 +23,7 @@ public enum Permission {
     VIEW_STOCK_MOVEMENTS("view:stock_movements"),
     CREATE_STOCK_MOVEMENT("create:stock_movement"),
     APPROVE_STOCK_MOVEMENT("approve:stock_movement"), // Approve/reject stock movements
+    ADJUST_STOCK("adjust:stock"), // Admin-only: adjust stock quantities
     REQUEST_STOCK_TRANSFER("request:stock_transfer"),
     APPROVE_STOCK_TRANSFER("approve:stock_transfer"),
     COMPLETE_STOCK_TRANSFER("complete:stock_transfer"),

@@ -29,14 +29,16 @@ INSERT INTO users (id, name, email, password, role, location_id, is_active, crea
 (7, 'Pending Warehouse User', 'pending.warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', 2, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 
--- Products section removed - starting with clean slate
+-- Test Products for Admin Location (Supplier)
+INSERT INTO products (id, sku, name, category, size, color, cost, price, wholesale_price, wholesale_min_quantity, min_stock, barcode, description, location_id, created_by, is_approved, approved_by, approved_at, created_at, updated_at) VALUES
+(1, 'TEST-001', 'Test T-Shirt Blue', 'SHIRTS', 'M', 'Blue', 150.00, 299.00, 250.00, 5, 10, '1234567890123', 'Test product for admin location - Blue T-Shirt', 1, 'admin@foreignfits.com', true, 'admin@foreignfits.com', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
--- Product images section removed - starting with clean slate
-
--- Stock movements section removed - starting with clean slate
-
--- Sales data section removed - starting with clean slate
+-- Initial inventory at Supplier location (Admin's location)
+INSERT INTO location_inventory (id, location_id, product_sku, product_id, quantity, min_stock, max_stock, reorder_point, created_at, updated_at) VALUES
+(1, 1, 'TEST-001', 1, 100, 10, 500, 20, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- Ensure IDENTITY sequences continue after seeded IDs (H2 syntax)
 ALTER TABLE locations ALTER COLUMN id RESTART WITH 6;
 ALTER TABLE users ALTER COLUMN id RESTART WITH 8;
+ALTER TABLE products ALTER COLUMN id RESTART WITH 2;
+ALTER TABLE location_inventory ALTER COLUMN id RESTART WITH 2;

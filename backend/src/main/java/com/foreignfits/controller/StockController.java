@@ -87,15 +87,12 @@ public class StockController {
     }
     
     @PostMapping("/adjust")
-    @PreAuthorize("hasAuthority('create:stock_movement')")
+    @PreAuthorize("hasAuthority('adjust:stock')")
     public ResponseEntity<StockMovementDto> adjustStock(@Valid @RequestBody StockAdjustmentRequest request, Authentication authentication) {
         try {
             String email = authentication.getName();
-            String userName = userService.getUserByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"))
-                    .getName();
             
-            StockMovementDto movement = stockService.adjustStock(request, userName);
+            StockMovementDto movement = stockService.adjustStock(request, email);
             return ResponseEntity.ok(movement);
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
