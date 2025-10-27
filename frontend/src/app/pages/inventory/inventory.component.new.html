@@ -41,7 +41,7 @@
       </div>
       <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
         <p class="text-sm text-gray-600">Total Value</p>
-        <p class="text-2xl font-bold text-purple-600">₹{{ statsData.totalValue.toFixed(2) }}</p>
+        <p class="text-2xl font-bold text-purple-600">₹{{ (statsData.totalValue / 100).toFixed(2) }}</p>
       </div>
     </div>
 
@@ -84,16 +84,8 @@
       </div>
     </div>
 
-    <!-- Add Product and Generate Barcodes Buttons -->
-    <div class="flex justify-end gap-3 mb-4" *ngIf="authService.hasCrossLocationAccess()">
-      <button 
-        (click)="generateBarcodes()"
-        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-        </svg>
-        Generate Barcodes
-      </button>
+    <!-- Add Product Button -->
+    <div class="flex justify-end mb-4" *ngIf="authService.canCreateProduct()">
       <button 
         (click)="navigateToAddProduct()"
         class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2">
@@ -153,16 +145,16 @@
         <div class="grid grid-cols-2 gap-3 mb-3">
           <div>
             <p class="text-xs text-gray-600">Sale Price</p>
-            <p class="text-sm font-semibold text-green-600">₹{{ item.salePrice.toFixed(2) }}</p>
+            <p class="text-sm font-semibold text-green-600">₹{{ (item.salePrice / 100).toFixed(2) }}</p>
           </div>
           <div>
             <p class="text-xs text-gray-600">Cost</p>
-            <p class="text-sm font-semibold text-gray-700">₹{{ item.cost.toFixed(2) }}</p>
+            <p class="text-sm font-semibold text-gray-700">₹{{ (item.cost / 100).toFixed(2) }}</p>
           </div>
           <div *ngIf="item.wholesalePrice" class="col-span-2">
             <p class="text-xs text-gray-600">Wholesale</p>
             <p class="text-sm font-semibold text-blue-600">
-              ₹{{ item.wholesalePrice.toFixed(2) }} (Min: {{ item.wholesaleMinQuantity }})
+              ₹{{ (item.wholesalePrice / 100).toFixed(2) }} (Min: {{ item.wholesaleMinQuantity }})
             </p>
           </div>
         </div>

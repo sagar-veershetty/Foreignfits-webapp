@@ -1,28 +1,64 @@
+// Product = Organization-wide master data (no location or pricing)
+// For pricing and inventory, fetch LocationInventory data
 export interface Product {
   id: string;
   name: string;
   category: 'shirts' | 'pants' | 'dresses' | 'jackets' | 'shoes' | 'accessories';
   size: string;
   color: string;
-  price: number;
-  cost: number;
-  wholesalePrice: number;
-  wholesaleMinQuantity: number;
-  stock: number;
-  minStock: number;
   sku: string;
+  isManualSku?: boolean;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
-  barcode?: string;
   imageUrls?: string[];
-  locationId: string;
-  location?: Location;
   createdBy?: string;
   isApproved?: boolean;
   approvedBy?: string;
   approvedAt?: Date;
-  rejectionReason?: string;
+  
+  // DEPRECATED - Backend returns null, kept for backward compatibility
+  price?: number | null;
+  cost?: number | null;
+  wholesalePrice?: number | null;
+  wholesaleMinQuantity?: number | null;
+  stock?: number | null;
+  minStock?: number | null;
+  locationId?: string | null;
+  location?: Location | null;
+}
+
+// LocationInventory = Location-specific pricing and inventory tracking
+export interface LocationInventory {
+  id: string;
+  locationId: string;
+  locationName: string;
+  productSku: string;
+  productName: string;
+  quantity: number;
+  minStock: number;
+  maxStock: number;
+  reorderPoint: number;
+  
+  // Location-specific pricing
+  cost: number;
+  salePrice: number;
+  wholesalePrice?: number;
+  wholesaleMinQuantity?: number;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Barcode {
+  id: string;
+  barcodeNumber: string;
+  productSku: string;
+  productName: string;
+  locationName: string;
+  status: 'ACTIVE' | 'DAMAGED' | 'LOST' | 'SOLD';
+  remark?: string;
+  createdAt: Date;
 }
 
 export interface Location {
@@ -40,12 +76,33 @@ export interface Location {
   createdAt: Date;
 }
 
+export interface BarcodeInfo {
+  id: string;
+  barcodeNumber: string;
+  status: string;
+  remark?: string;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    size?: string;
+    color?: string;
+  };
+  currentLocation: {
+    id: string;
+    name: string;
+    type: string;
+  };
+  createdAt: Date;
+}
+
 export interface SaleItem {
   productId: string;
   product: Product;
   quantity: number;
   price: number;
   total: number;
+  barcodes?: string[]; // Scanned barcode numbers for this item
 }
 
 export interface Sale {
@@ -98,7 +155,6 @@ export interface StockMovement {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'; // Movement status
   approvedBy?: string;
   approvedAt?: Date;
-  rejectionReason?: string;
   
   // Transfer-specific fields - now ALL movements have these via transfer
   transferId?: string;
@@ -107,6 +163,7 @@ export interface StockMovement {
 }
 
 export interface StockAdjustment {
+  locationId: string;
   productId: string;
   adjustmentType: 'increase' | 'decrease' | 'set';
   quantity: number;

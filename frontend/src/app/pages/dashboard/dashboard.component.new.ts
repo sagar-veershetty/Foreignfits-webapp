@@ -49,39 +49,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const inventory = this.locationInventory();
     const sales = this.sales();
     const movements = this.stockMovements();
-    const isAllLocations = this.selectedLocationId() === '';
 
-    // If showing all locations, aggregate by product SKU
-    let aggregatedInventory = inventory;
-    let totalProducts = inventory.length;
-    
-    if (isAllLocations) {
-      // Group by product SKU and sum quantities
-      const productMap = new Map<string, LocationInventoryItem>();
-      inventory.forEach(item => {
-        const existing = productMap.get(item.productSku);
-        if (existing) {
-          // Aggregate quantities and use weighted average for prices
-          const totalQty = existing.quantity + item.quantity;
-          existing.quantity = totalQty;
-          existing.cost = ((existing.cost * existing.quantity) + (item.cost * item.quantity)) / totalQty;
-          existing.salePrice = ((existing.salePrice * existing.quantity) + (item.salePrice * item.quantity)) / totalQty;
-          // For minStock, use the sum across locations
-          existing.minStock = (existing.minStock || 0) + (item.minStock || 0);
-        } else {
-          productMap.set(item.productSku, { ...item });
-        }
-      });
-      aggregatedInventory = Array.from(productMap.values());
-      totalProducts = aggregatedInventory.length; // Unique products across all locations
-    }
-
-    const totalStock = aggregatedInventory.reduce((sum, item) => sum + item.quantity, 0);
-    const lowStockCount = aggregatedInventory.filter(item => 
+    const totalProducts = inventory.length;
+    const totalStock = inventory.reduce((sum, item) => sum + item.quantity, 0);
+    const lowStockCount = inventory.filter(item => 
       item.minStock && item.quantity <= item.minStock
     ).length;
     
-    const inventoryValue = aggregatedInventory.reduce((sum, item) => 
+    const inventoryValue = inventory.reduce((sum, item) => 
       sum + (item.quantity * item.cost), 0
     );
 
@@ -114,26 +89,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Low stock items
   lowStockItems = computed(() => {
     const inventory = this.locationInventory();
-    const isAllLocations = this.selectedLocationId() === '';
-    
-    let itemsToCheck = inventory;
-    
-    // If showing all locations, aggregate by product SKU
-    if (isAllLocations) {
-      const productMap = new Map<string, LocationInventoryItem>();
-      inventory.forEach(item => {
-        const existing = productMap.get(item.productSku);
-        if (existing) {
-          existing.quantity += item.quantity;
-          existing.minStock = (existing.minStock || 0) + (item.minStock || 0);
-        } else {
-          productMap.set(item.productSku, { ...item });
-        }
-      });
-      itemsToCheck = Array.from(productMap.values());
-    }
-    
-    return itemsToCheck
+    return inventory
       .filter(item => item.minStock && item.quantity <= item.minStock)
       .sort((a, b) => {
         const aPercent = a.minStock ? (a.quantity / a.minStock) : 1;
@@ -146,28 +102,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Top products by stock value
   topProductsByValue = computed(() => {
     const inventory = this.locationInventory();
-    const isAllLocations = this.selectedLocationId() === '';
-    
-    let itemsToRank = inventory;
-    
-    // If showing all locations, aggregate by product SKU
-    if (isAllLocations) {
-      const productMap = new Map<string, LocationInventoryItem>();
-      inventory.forEach(item => {
-        const existing = productMap.get(item.productSku);
-        if (existing) {
-          const totalQty = existing.quantity + item.quantity;
-          existing.quantity = totalQty;
-          // Use weighted average for sale price
-          existing.salePrice = ((existing.salePrice * existing.quantity) + (item.salePrice * item.quantity)) / totalQty;
-        } else {
-          productMap.set(item.productSku, { ...item });
-        }
-      });
-      itemsToRank = Array.from(productMap.values());
-    }
-    
-    return itemsToRank
+    return inventory
       .map(item => ({
         ...item,
         totalValue: item.quantity * item.salePrice
@@ -205,53 +140,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
   loadData(): void {
     this.isLoading.set(true);
 
-    this.appService.loadInitialData().subscribe({
-      next: () => {
-        const subscription = this.appService.appState$.subscribe(state => {
-          this.products.set(state.products || []);
-          this.sales.set(state.sales || []);
-          this.stockMovements.set(state.stockMovements || []);
-          this.locations.set(state.locations || []);
-
-          const currentUser = this.authService.getCurrentUser();
-          const isAdmin = this.authService.hasCrossLocationAccess();
-          const locs = state.locations || [];
-
-          if (isAdmin) {
-            const locationId = this.selectedLocationId();
-            if (locationId) {
-              this.loadLocationInventory(parseInt(locationId));
-            } else if (locs.length > 0) {
-              // Default to "All Locations" for admin
-              this.selectedLocationId.set('');
-              this.loadAllLocationInventory();
-            } else {
-              this.isLoading.set(false);
-            }
-          } else if (currentUser?.locationId) {
-            this.selectedLocationId.set(currentUser.locationId);
-            this.loadLocationInventory(parseInt(currentUser.locationId));
-          } else {
-            this.isLoading.set(false);
-          }
-
-          subscription.unsubscribe();
-        });
-      },
-      error: (error) => {
-        console.error('Failed to load initial data:', error);
-        this.isLoading.set(false);
-      }
+    // Load basic data from app state
+    this.appService.appState$.subscribe(state => {
+      this.products.set(state.products || []);
+      this.sales.set(state.sales || []);
+      this.stockMovements.set(state.stockMovements || []);
+      this.locations.set(state.locations || []);
     });
+
+    // Load location inventory based on user role
+    const currentUser = this.authService.getCurrentUser();
+    const isAdmin = this.authService.hasCrossLocationAccess();
+
+    if (isAdmin) {
+      // Admin: Load all locations inventory or selected location
+      const locationId = this.selectedLocationId();
+      if (locationId) {
+        this.loadLocationInventory(parseInt(locationId));
+      } else {
+        // Load first location by default or all if needed
+        const locs = this.locations();
+        if (locs.length > 0) {
+          this.selectedLocationId.set(locs[0].id);
+          this.loadLocationInventory(parseInt(locs[0].id));
+        }
+      }
+    } else if (currentUser?.locationId) {
+      // Regular user: Load only their location
+      this.selectedLocationId.set(currentUser.locationId);
+      this.loadLocationInventory(parseInt(currentUser.locationId));
+    }
+
+    this.isLoading.set(false);
   }
 
   loadLocationInventory(locationId: number): void {
-    this.isLoading.set(true);
-    
     this.appService.getLocationInventory(locationId).subscribe({
       next: (inventory) => {
+        // Map products to inventory items
         const productsMap = new Map(this.products().map(p => [p.sku, p]));
-        
         const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
           id: inv.id?.toString() || '',
           locationId: inv.locationId?.toString() || locationId.toString(),
@@ -268,14 +195,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
           wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
           product: productsMap.get(inv.productSku)
         }));
-        
         this.locationInventory.set(items);
-        this.isLoading.set(false);
       },
       error: (error) => {
         console.error('Failed to load location inventory:', error);
         this.locationInventory.set([]);
-        this.isLoading.set(false);
       }
     });
   }
@@ -300,47 +224,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   onLocationChange(): void {
     const locationId = this.selectedLocationId();
-    if (locationId === '' || locationId === null) {
-      // "All Locations" selected - load all inventory
-      this.loadAllLocationInventory();
-    } else if (locationId) {
+    if (locationId) {
       this.loadLocationInventory(parseInt(locationId));
     }
-  }
-
-  loadAllLocationInventory(): void {
-    this.isLoading.set(true);
-    
-    this.appService.getAllLocationInventory().subscribe({
-      next: (inventory) => {
-        const productsMap = new Map(this.products().map(p => [p.sku, p]));
-        
-        const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
-          id: inv.id?.toString() || '',
-          locationId: inv.locationId?.toString() || '',
-          locationName: inv.locationName || '',
-          productSku: inv.productSku || '',
-          productName: inv.productName || '',
-          quantity: inv.quantity || 0,
-          minStock: inv.minStock || 0,
-          maxStock: inv.maxStock || 0,
-          reorderPoint: inv.reorderPoint || 0,
-          cost: inv.cost || 0,
-          salePrice: inv.salePrice || 0,
-          wholesalePrice: inv.wholesalePrice || null,
-          wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
-          product: productsMap.get(inv.productSku)
-        }));
-        
-        this.locationInventory.set(items);
-        this.isLoading.set(false);
-      },
-      error: (error) => {
-        console.error('Failed to load all location inventory:', error);
-        this.locationInventory.set([]);
-        this.isLoading.set(false);
-      }
-    });
   }
 
   canSwitchLocation(): boolean {
@@ -362,18 +248,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // Helper getters for template access (avoid calling signals directly in complex expressions)
   get currentLocationName(): string {
     const locationId = this.selectedLocationId();
-    if (!locationId || locationId === '') {
-      return 'All Locations';
-    }
     const location = this.locations().find(l => l.id === locationId);
     return location?.name || 'My Location';
   }
 
   get statsData() {
-    const stats = this.stats();
-    console.log('Getting statsData:', stats);
-    console.log('Current locationInventory length:', this.locationInventory().length);
-    return stats;
+    return this.stats();
   }
 
   get lowStockItemsList() {

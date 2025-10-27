@@ -47,11 +47,7 @@ public class StockTransferService {
             throw new RuntimeException("Cannot transfer to the same location");
         }
         
-        // Check if product belongs to fromLocation and has sufficient stock
-        if (!product.getLocation().getId().equals(fromLocation.getId())) {
-            throw new RuntimeException("Product does not belong to the source location");
-        }
-        
+        // Products are now organization-wide - check inventory at source location instead
         // Check inventory at source location
         LocationInventory sourceInventory = locationInventoryRepository
                 .findByLocationIdAndProductSku(fromLocation.getId(), product.getSku())
@@ -96,7 +92,7 @@ public class StockTransferService {
         // This prevents showing products with 0 stock at warehouse before approval
         
         // Eagerly initialize all lazy relationships before converting to DTO
-        savedTransfer.getProduct().getLocation().getName();
+        // Product no longer has location - skip that initialization
         if (savedTransfer.getProduct().getImageUrls() != null) {
             savedTransfer.getProduct().getImageUrls().size();
         }
@@ -191,26 +187,20 @@ public class StockTransferService {
             productDto.setId(product.getId());
             productDto.setName(product.getName());
             productDto.setSku(product.getSku());
-            productDto.setBarcode(product.getBarcode());
+            // barcode removed - use Barcode table
             productDto.setCategory(product.getCategory());
             productDto.setSize(product.getSize());
             productDto.setColor(product.getColor());
-            productDto.setPrice(product.getPrice());
-            productDto.setCost(product.getCost());
-            productDto.setWholesalePrice(product.getWholesalePrice());
-            productDto.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
+            // Pricing moved to LocationInventory
+            productDto.setPrice(null);
+            productDto.setCost(null);
+            productDto.setWholesalePrice(null);
+            productDto.setWholesaleMinQuantity(null);
             
-            // Get stock from LocationInventory
-            if (product.getLocation() != null) {
-                LocationInventory inventory = locationInventoryRepository
-                        .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
-                        .orElse(null);
-                productDto.setStock(inventory != null ? inventory.getQuantity() : 0);
-            } else {
-                productDto.setStock(0);
-            }
+            // Stock not location-specific anymore - set to 0 (UI should query LocationInventory)
+            productDto.setStock(0);
             
-            productDto.setMinStock(product.getMinStock());
+            productDto.setMinStock(0); // Use LocationInventory for minStock
             productDto.setDescription(product.getDescription());
             productDto.setCreatedAt(product.getCreatedAt());
             productDto.setUpdatedAt(product.getUpdatedAt());
@@ -222,10 +212,8 @@ public class StockTransferService {
                 productDto.setImageUrls(null);
             }
             
-            // Convert product location
-            if (product.getLocation() != null) {
-                productDto.setLocation(convertLocationToDto(product.getLocation()));
-            }
+            // Product no longer has location
+            productDto.setLocation(null);
             
             dto.setProduct(productDto);
         }

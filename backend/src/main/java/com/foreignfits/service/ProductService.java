@@ -3,6 +3,7 @@ package com.foreignfits.service;
 import com.foreignfits.dto.LocationDto;
 import com.foreignfits.dto.ProductDto;
 import com.foreignfits.dto.request.CreateProductRequest;
+import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.LocationInventory;
 import com.foreignfits.entity.Product;
@@ -36,6 +37,7 @@ public class ProductService {
     private final LocationInventoryRepository locationInventoryRepository;
     private final StockTransferRepository stockTransferRepository;
     private final UserRepository userRepository;
+    private final BarcodeService barcodeService;
     
     public List<ProductDto> getAllProducts() {
         return productRepository.findAll().stream()
@@ -44,23 +46,12 @@ public class ProductService {
     }
     
     // User-based filtering:
-    // - Admin (cross-location access): sees ALL products from ALL locations
-    // - Other users: see products only from their assigned location
+    // Products are now organization-wide master data (no location_id on Product)
+    // All users see all products, but LocationInventory shows what's available at their location
     public List<ProductDto> getProductsForUser(User user) {
-        // Admin with cross-location access sees ALL products from ALL locations
-        if (user.getRole() == User.UserRole.ADMIN) {
-            return getAllProducts();
-        }
-        
-        // Non-admin users see products only from their location
-        if (user.getLocation() != null) {
-            return productRepository.findByLocationId(user.getLocation().getId()).stream()
-                    .map(this::convertToDto)
-                    .collect(Collectors.toList());
-        }
-        
-        // If no location assigned, return empty (should not happen for active users)
-        return List.of();
+        // All users see all products (organization-wide)
+        // UI can filter to show products with stock at user's location using LocationInventory
+        return getAllProducts();
     }
     
     public Optional<ProductDto> getProductById(Long id) {
@@ -73,11 +64,6 @@ public class ProductService {
                 .map(this::convertToDto);
     }
     
-    public Optional<ProductDto> getProductByBarcode(String barcode) {
-        return productRepository.findByBarcode(barcode)
-                .map(this::convertToDto);
-    }
-    
     public List<ProductDto> getProductsByCategory(Product.ProductCategory category) {
         return productRepository.findByCategory(category).stream()
                 .map(this::convertToDto)
@@ -85,7 +71,10 @@ public class ProductService {
     }
     
     public List<ProductDto> getProductsByLocation(Long locationId) {
-        return productRepository.findByLocationId(locationId).stream()
+        // Products are organization-wide - get products with inventory at this location
+        return locationInventoryRepository.findByLocationId(locationId).stream()
+                .map(inv -> inv.getProduct())
+                .distinct()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -113,11 +102,6 @@ public class ProductService {
             throw new RuntimeException("Product with SKU " + request.getSku() + " already exists");
         }
         
-        // Validate barcode uniqueness if provided
-        if (request.getBarcode() != null && productRepository.existsByBarcode(request.getBarcode())) {
-            throw new RuntimeException("Product with barcode " + request.getBarcode() + " already exists");
-        }
-        
         // Get location
         Location location = locationRepository.findById(request.getLocationId())
                 .orElseThrow(() -> new RuntimeException("Location not found with id: " + request.getLocationId()));
@@ -138,19 +122,16 @@ public class ProductService {
         product.setCategory(request.getCategory());
         product.setSize(request.getSize());
         product.setColor(request.getColor());
-        product.setPrice(request.getPrice());
-        product.setCost(request.getCost());
-        product.setWholesalePrice(request.getWholesalePrice());
-        product.setWholesaleMinQuantity(request.getWholesaleMinQuantity());
+        // Pricing removed from Product - now in LocationInventory
         
         // Stock is now tracked in LocationInventory table (not in Product)
+        // Min stock is also location-specific and stored in LocationInventory
         
-        product.setMinStock(request.getMinStock());
         product.setSku(request.getSku());
+        product.setIsManualSku(request.getIsManualSku() != null ? request.getIsManualSku() : false);
         product.setDescription(request.getDescription());
-        product.setBarcode(request.getBarcode());
         product.setImageUrls(request.getImageUrls());
-        product.setLocation(location);
+        // Location removed from Product - it's organization-wide master data
         product.setCreatedBy(createdBy);
         product.setIsApproved(true); // Product itself is approved immediately
         product.setApprovedBy(createdBy);
@@ -158,7 +139,7 @@ public class ProductService {
         
         Product savedProduct = productRepository.save(product);
         
-        // Create LocationInventory record for initial stock
+        // Create LocationInventory record for initial stock WITH PRICING
         int initialStock = isAdminAtSupplier ? request.getStock() : 0;
         LocationInventory inventory = new LocationInventory();
         inventory.setLocation(location);
@@ -168,6 +149,11 @@ public class ProductService {
         inventory.setMinStock(request.getMinStock());
         inventory.setMaxStock(request.getMinStock() * 5); // Default max stock
         inventory.setReorderPoint(request.getMinStock() * 2); // Default reorder point
+        // Set location-specific pricing
+        inventory.setCost(request.getCost());
+        inventory.setSalePrice(request.getPrice());
+        inventory.setWholesalePrice(request.getWholesalePrice());
+        inventory.setWholesaleMinQuantity(request.getWholesaleMinQuantity());
         locationInventoryRepository.save(inventory);
         
         // Create stock movement for the initial stock
@@ -225,6 +211,16 @@ public class ProductService {
             }
             
             stockMovementRepository.save(movement);
+            
+            // Generate unique barcodes for each unit of initial stock
+            if (isAdminAtSupplier) {
+                List<Barcode> generatedBarcodes = barcodeService.generateBarcodes(
+                    savedProduct, 
+                    location, 
+                    request.getStock()
+                );
+                System.out.println("Generated " + generatedBarcodes.size() + " barcodes for product " + savedProduct.getSku());
+            }
         }
         
         return convertToDto(savedProduct);
@@ -239,32 +235,20 @@ public class ProductService {
             throw new RuntimeException("Product with SKU " + request.getSku() + " already exists");
         }
         
-        // Validate barcode uniqueness if provided (excluding current product)
-        if (request.getBarcode() != null && 
-            !request.getBarcode().equals(product.getBarcode()) && 
-            productRepository.existsByBarcode(request.getBarcode())) {
-            throw new RuntimeException("Product with barcode " + request.getBarcode() + " already exists");
-        }
+        // barcode validation removed - use Barcode table instead
         
-        // Get location if changed
-        if (!product.getLocation().getId().equals(request.getLocationId())) {
-            Location location = locationRepository.findById(request.getLocationId())
-                    .orElseThrow(() -> new RuntimeException("Location not found with id: " + request.getLocationId()));
-            product.setLocation(location);
-        }
+        // Location removed from Product - update not needed
+        // Pricing should be updated via LocationInventory endpoint instead
         
         product.setName(request.getName());
         product.setCategory(request.getCategory());
         product.setSize(request.getSize());
         product.setColor(request.getColor());
-        product.setPrice(request.getPrice());
-        product.setCost(request.getCost());
-        product.setWholesalePrice(request.getWholesalePrice());
-        product.setWholesaleMinQuantity(request.getWholesaleMinQuantity());
-        product.setMinStock(request.getMinStock());
+        // Pricing removed from Product - use LocationInventory
+        // minStock removed - use LocationInventory
         product.setSku(request.getSku());
         product.setDescription(request.getDescription());
-        product.setBarcode(request.getBarcode());
+        // barcode removed - use Barcode table
         product.setImageUrls(request.getImageUrls());
         
         Product savedProduct = productRepository.save(product);
@@ -285,46 +269,31 @@ public class ProductService {
         dto.setCategory(product.getCategory());
         dto.setSize(product.getSize());
         dto.setColor(product.getColor());
-        dto.setPrice(product.getPrice());
-        dto.setCost(product.getCost());
-        dto.setWholesalePrice(product.getWholesalePrice());
-        dto.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
+        // Pricing removed from Product - now in LocationInventory
+        // NOTE: UI should fetch pricing from LocationInventory based on user's location
+        dto.setPrice(null); // Deprecated - use LocationInventory
+        dto.setCost(null); // Deprecated - use LocationInventory
+        dto.setWholesalePrice(null); // Deprecated - use LocationInventory
+        dto.setWholesaleMinQuantity(null); // Deprecated - use LocationInventory
         
-        // Get stock from LocationInventory
-        LocationInventory inventory = locationInventoryRepository
-                .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
-                .orElse(null);
-        dto.setStock(inventory != null ? inventory.getQuantity() : 0);
+        // Stock removed - get from LocationInventory for specific location
+        dto.setStock(0); // Deprecated - use LocationInventory for location-specific stock
         
-        dto.setMinStock(product.getMinStock());
+        // Min stock removed - now location-specific in LocationInventory
+        dto.setMinStock(0); // Deprecated - use LocationInventory for location-specific min stock
+        
         dto.setSku(product.getSku());
         dto.setDescription(product.getDescription());
-        dto.setBarcode(product.getBarcode());
         dto.setImageUrls(product.getImageUrls());
         dto.setCreatedBy(product.getCreatedBy());
         dto.setIsApproved(product.getIsApproved());
         dto.setApprovedBy(product.getApprovedBy());
         dto.setApprovedAt(product.getApprovedAt());
-        dto.setRejectionReason(product.getRejectionReason());
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
         
-        // Convert location
-        if (product.getLocation() != null) {
-            LocationDto locationDto = new LocationDto();
-            locationDto.setId(product.getLocation().getId());
-            locationDto.setName(product.getLocation().getName());
-            locationDto.setType(product.getLocation().getType());
-            locationDto.setAddress(product.getLocation().getAddress());
-            locationDto.setCity(product.getLocation().getCity());
-            locationDto.setState(product.getLocation().getState());
-            locationDto.setZipCode(product.getLocation().getZipCode());
-            locationDto.setPhone(product.getLocation().getPhone());
-            locationDto.setManager(product.getLocation().getManager());
-            locationDto.setCapacity(product.getLocation().getCapacity());
-            locationDto.setIsActive(product.getLocation().getIsActive());
-            dto.setLocation(locationDto);
-        }
+        // Location removed from Product - no longer location-specific
+        dto.setLocation(null); // Deprecated - products are organization-wide
         
         return dto;
     }

@@ -20,6 +20,9 @@ public class CreateSaleRequest {
     @Valid
     private List<SaleItemRequest> items;
     
+    @NotNull(message = "Location ID is required")
+    private Long locationId; // Location where sale is being made
+    
     @NotNull(message = "Payment method is required")
     private Sale.PaymentMethod paymentMethod;
     
@@ -40,6 +43,9 @@ public class CreateSaleRequest {
     // Manual getters and setters to ensure compatibility
     public List<SaleItemRequest> getItems() { return items; }
     public void setItems(List<SaleItemRequest> items) { this.items = items; }
+    
+    public Long getLocationId() { return locationId; }
+    public void setLocationId(Long locationId) { this.locationId = locationId; }
     
     public Sale.PaymentMethod getPaymentMethod() { return paymentMethod; }
     public void setPaymentMethod(Sale.PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }

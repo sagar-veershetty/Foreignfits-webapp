@@ -12,11 +12,20 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/inventory")
+@RequestMapping("/inventory")
 @RequiredArgsConstructor
 public class LocationInventoryController {
     
     private final LocationInventoryService inventoryService;
+    
+    /**
+     * Get all inventory across all locations (Admin only)
+     */
+    @GetMapping("/all")
+    @PreAuthorize("hasAuthority('view:inventory')")
+    public ResponseEntity<List<LocationInventoryDto>> getAllInventory() {
+        return ResponseEntity.ok(inventoryService.getAllInventory());
+    }
     
     /**
      * Get all inventory at a specific location
@@ -108,6 +117,29 @@ public class LocationInventoryController {
         
         LocationInventoryDto updated = inventoryService.setThresholds(
                 locationId, productSku, minStock, maxStock, reorderPoint);
+        return ResponseEntity.ok(updated);
+    }
+    
+    /**
+     * Update location-specific pricing for inventory
+     */
+    @PutMapping("/{id}/pricing")
+    @PreAuthorize("hasAuthority('manage:inventory')")
+    public ResponseEntity<LocationInventoryDto> updatePricing(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> pricing) {
+        
+        java.math.BigDecimal cost = pricing.get("cost") != null ? 
+            new java.math.BigDecimal(pricing.get("cost").toString()) : null;
+        java.math.BigDecimal salePrice = pricing.get("salePrice") != null ? 
+            new java.math.BigDecimal(pricing.get("salePrice").toString()) : null;
+        java.math.BigDecimal wholesalePrice = pricing.get("wholesalePrice") != null ? 
+            new java.math.BigDecimal(pricing.get("wholesalePrice").toString()) : null;
+        Integer wholesaleMinQuantity = pricing.get("wholesaleMinQuantity") != null ? 
+            (Integer) pricing.get("wholesaleMinQuantity") : null;
+        
+        LocationInventoryDto updated = inventoryService.updatePricing(
+                id, cost, salePrice, wholesalePrice, wholesaleMinQuantity);
         return ResponseEntity.ok(updated);
     }
 }

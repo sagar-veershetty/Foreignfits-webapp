@@ -127,55 +127,33 @@ export class InventoryComponent implements OnInit, OnDestroy {
   loadData(): void {
     this.isLoading.set(true);
 
-    // First, ensure initial data (products, locations, etc.) is loaded
-    this.appService.loadInitialData().subscribe({
-      next: () => {
-        // After initial data is loaded, subscribe to app state
-        const subscription = this.appService.appState$.subscribe(state => {
-          this.products.set(state.products || []);
-          this.locations.set(state.locations || []);
-
-          // After state is loaded, determine which location inventory to load
-          const currentUser = this.authService.getCurrentUser();
-          const isAdmin = this.authService.hasCrossLocationAccess();
-          const locs = state.locations || [];
-
-          if (isAdmin) {
-            // Admin: Load selected location or first available
-            const locationId = this.selectedLocationId();
-            if (locationId) {
-              this.loadLocationInventory(parseInt(locationId));
-            } else if (locs.length > 0) {
-              this.selectedLocationId.set(locs[0].id);
-              this.loadLocationInventory(parseInt(locs[0].id));
-            } else {
-              this.isLoading.set(false);
-            }
-          } else if (currentUser?.locationId) {
-            // Regular user: Load only their location
-            this.selectedLocationId.set(currentUser.locationId);
-            this.loadLocationInventory(parseInt(currentUser.locationId));
-          } else {
-            this.isLoading.set(false);
-          }
-
-          // Unsubscribe after first load
-          subscription.unsubscribe();
-        });
-      },
-      error: (error) => {
-        console.error('Failed to load initial data:', error);
-        this.isLoading.set(false);
-      }
+    // Load basic data from app state
+    this.appService.appState$.subscribe(state => {
+      this.products.set(state.products || []);
+      this.locations.set(state.locations || []);
     });
+
+    // Load location inventory
+    const currentUser = this.authService.getCurrentUser();
+    const isAdmin = this.authService.hasCrossLocationAccess();
+
+    if (isAdmin) {
+      const locationId = this.selectedLocationId();
+      if (locationId) {
+        this.loadLocationInventory(parseInt(locationId));
+      }
+    } else if (currentUser?.locationId) {
+      this.selectedLocationId.set(currentUser.locationId);
+      this.loadLocationInventory(parseInt(currentUser.locationId));
+    }
+
+    this.isLoading.set(false);
   }
 
   loadLocationInventory(locationId: number): void {
     this.isLoading.set(true);
-    console.log('Loading location inventory for location:', locationId);
     this.appService.getLocationInventory(locationId).subscribe({
       next: (inventory) => {
-        console.log('Received inventory data:', inventory);
         const productsMap = new Map(this.products().map(p => [p.sku, p]));
         const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
           id: inv.id?.toString() || '',
@@ -187,14 +165,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
           minStock: inv.minStock || 0,
           maxStock: inv.maxStock || 0,
           reorderPoint: inv.reorderPoint || 0,
-          cost: inv.cost || 0,  // Already in rupees from backend
-          salePrice: inv.salePrice || 0,  // Already in rupees from backend
-          wholesalePrice: inv.wholesalePrice || null,  // Already in rupees from backend
+          cost: inv.cost || 0,
+          salePrice: inv.salePrice || 0,
+          wholesalePrice: inv.wholesalePrice || null,
           wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
           product: productsMap.get(inv.productSku)
         }));
-        console.log('Mapped inventory items:', items);
-        console.log('Stats:', this.stats());
         this.locationInventory.set(items);
         this.isLoading.set(false);
       },
@@ -303,15 +279,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   printBarcode(item: LocationInventoryItem): void {
     if (item.product?.id) {
-      this.router.navigate(['/print-barcode'], { 
-        queryParams: { productId: item.product.id } 
-      });
+      this.router.navigate(['/inventory/print-barcode', item.product.id]);
     }
-  }
-
-  generateBarcodes(): void {
-    // Navigate to print-barcode without query params for bulk mode
-    this.router.navigate(['/print-barcode']);
   }
 
   navigateToAddProduct(): void {

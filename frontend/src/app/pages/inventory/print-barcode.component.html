@@ -3,8 +3,8 @@
 	<button class="close-btn" (click)="close()" title="Close">&times;</button>
 </div>
 
-<!-- Search and selection -->
-<div class="mb-4">
+<!-- Search and selection - Hidden in direct print mode -->
+<div class="mb-4" *ngIf="!directPrintMode">
 	<input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search by name, SKU, or barcode..." class="w-full px-3 py-2 border border-gray-300 rounded-lg" />
 	<div class="mt-2 flex gap-2">
 		<button type="button" (click)="selectAll()" class="px-3 py-1 rounded bg-blue-600 text-white">Select All Products</button>
@@ -12,8 +12,8 @@
 	</div>
 </div>
 
-<!-- Product list with checkboxes -->
-<div class="mb-6 max-h-48 overflow-y-auto border border-gray-100 rounded-lg bg-gray-50 p-2">
+<!-- Product list with checkboxes - Hidden in direct print mode -->
+<div class="mb-6 max-h-48 overflow-y-auto border border-gray-100 rounded-lg bg-gray-50 p-2" *ngIf="!directPrintMode">
 	<div *ngFor="let product of filteredProducts" class="flex items-center gap-2 py-1">
 		<input type="checkbox" [checked]="isSelected(product)" (change)="toggleProduct(product)" />
 		<span class="font-medium">{{ product.name }}</span>
@@ -26,12 +26,11 @@
 <div class="options mb-6">
 	<div>
 		<div class="font-semibold mb-2">Print Options</div>
-		<label><input type="checkbox" [(ngModel)]="showPrice" name="showPrice" /> Price</label><br>
 		<label><input type="checkbox" [(ngModel)]="showSize" name="showSize" /> Size</label><br>
 		<label><input type="checkbox" [(ngModel)]="showColor" name="showColor" /> Color</label><br>
 		<label><input type="checkbox" [(ngModel)]="showSKU" name="showSKU" /> SKU</label><br>
 		<label><input type="checkbox" [(ngModel)]="showCategory" name="showCategory" /> Category</label><br>
-		<label><input type="checkbox" [(ngModel)]="showLocation" name="showLocation" /> Location</label>
+		<label><input type="checkbox" [(ngModel)]="showBarcodeNumber" name="showBarcodeNumber" /> Barcode Number</label>
 	</div>
 	<div>
 		<div class="font-semibold mb-2">Print Settings</div>
@@ -64,7 +63,8 @@
 <!-- Main Print Barcode Stickers button at the bottom -->
   <div class="sticker-preview-grid responsive-sticker-grid" [ngClass]="getStickerSizeClass()">
       <ng-container *ngFor="let product of selectedProducts">
-        <ng-container *ngFor="let i of [].constructor(productQuantities[product.id] || 1)">
+        <!-- Get active barcodes for this product -->
+        <ng-container *ngFor="let barcode of (productBarcodes[product.id] || []).slice(0, productQuantities[product.id] || 1); let i = index">
           <div class="sticker-card-mock responsive-sticker-item"
             [ngStyle]="getStickerPreviewStyle()">
             <div class="sticker-brand-header" [ngStyle]="getFontStyle('brand')">FOREIGN FITS</div>
@@ -74,16 +74,14 @@
               <span *ngIf="showColor && product.color">- {{ product.color }}</span>
             </div>
             <div class="sticker-sku-mock" *ngIf="showSKU" [ngStyle]="getFontStyle('sku')">{{ product.sku }}</div>
-            <div class="sticker-category-mock" *ngIf="showCategory || showLocation" [ngStyle]="getFontStyle('category')">
+            <div class="sticker-category-mock" *ngIf="showCategory" [ngStyle]="getFontStyle('category')">
               <span *ngIf="showCategory">{{ product.category }}</span>
-              <span *ngIf="showLocation && product.location?.name">- {{ product.location?.name }}</span>
             </div>
-            <div class="sticker-price-mock" *ngIf="showPrice" [ngStyle]="getFontStyle('price')">₹{{ product.price.toFixed(2) }}</div>
             <div class="sticker-barcode-mock">
               <div class="barcode-bg">
-                <span [innerHTML]="renderBarcodeSvg(product)"></span>
+                <span [innerHTML]="renderBarcodeSvgWithNumber(barcode.barcodeNumber)"></span>
               </div>
-              <div class="barcode-value" [ngStyle]="getFontStyle('barcode')">{{ product.barcode || product.sku || product.id }}</div>
+              <div class="barcode-value" *ngIf="showBarcodeNumber" [ngStyle]="getFontStyle('barcode')">{{ barcode.barcodeNumber }}</div>
             </div>
           </div>
         </ng-container>
@@ -92,7 +90,7 @@
   </div>
 </div>
 
-<!-- Quantity controls and remove buttons below preview -->
+<!-- Barcode information and quantity controls below preview -->
 <div *ngIf="selectedProducts.length > 0" class="mb-6">
   <div class="flex flex-wrap gap-4 justify-start">
     <div *ngFor="let product of selectedProducts" class="bg-white border border-gray-200 rounded-lg p-4 flex flex-col items-start" style="min-width:220px; max-width:260px;">
@@ -104,11 +102,24 @@
 		</div>
 		<button type="button" (click)="toggleProduct(product)" class="text-red-500 text-xs ml-2">Remove</button>
 	  </div>
+	  
+	  <!-- Barcode status information -->
+	  <div *ngIf="productBarcodes[product.id]" class="mt-2 w-full text-xs bg-blue-50 border border-blue-200 rounded p-2">
+	    <div class="font-semibold text-blue-900 mb-1">Available Barcodes:</div>
+	    <div class="text-blue-700">
+	      <span class="font-medium">{{ getActiveBarcodeCount(product.id) }}</span> Active
+	      <span *ngIf="getInactiveBarcodeCount(product.id) > 0" class="ml-2 text-gray-600">
+	        ({{ getInactiveBarcodeCount(product.id) }} inactive)
+	      </span>
+	    </div>
+	  </div>
+	  <div *ngIf="loadingBarcodes[product.id]" class="mt-2 w-full text-xs text-gray-500 italic">Loading barcodes...</div>
+	  
 	  <div class="flex items-center mt-2 w-full justify-between">
-		<label class="text-xs mr-2">Sticker Quantity</label>
+		<label class="text-xs mr-2">Print Quantity</label>
 		<div class="flex items-center gap-1">
 		  <button type="button" (click)="productQuantities[product.id]=Math.max(1,(productQuantities[product.id]||1)-1)" class="px-2 py-1 rounded bg-gray-200">-</button>
-		  <input type="number" min="1" [(ngModel)]="productQuantities[product.id]" class="w-12 px-2 py-1 border border-gray-300 rounded text-center" />
+		  <input type="number" min="1" [max]="getActiveBarcodeCount(product.id) || 999" [(ngModel)]="productQuantities[product.id]" class="w-12 px-2 py-1 border border-gray-300 rounded text-center" />
 		  <button type="button" (click)="productQuantities[product.id]=(productQuantities[product.id]||1)+1" class="px-2 py-1 rounded bg-gray-200">+</button>
 		</div>
 	  </div>

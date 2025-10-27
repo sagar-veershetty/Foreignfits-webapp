@@ -5,6 +5,7 @@ import { catchError, tap, map } from 'rxjs/operators';
 import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment } from '../models';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
+import { Barcode } from '../models';
 
 export interface AppState {
   products: Product[];
@@ -200,6 +201,20 @@ export class AppService {
       );
   }
 
+  // Barcode methods
+  getBarcodesForProduct(productId: string, locationId: string): Observable<Barcode[]> {
+    return this.http.get<Barcode[]>(`${this.API_BASE_URL}/barcodes/product/${productId}/location/${locationId}`);
+  }
+
+  getBarcodeCount(productId: string, locationId: string): Observable<number> {
+    return this.http.get<{count: number}>(`${this.API_BASE_URL}/barcodes/count/product/${productId}/location/${locationId}`)
+      .pipe(map(res => res.count));
+  }
+
+  updateBarcodeRemark(barcodeId: string, status: string, remark: string): Observable<any> {
+    return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}`, { status, remark });
+  }
+
   private loadLocations(): Observable<Location[]> {
     // Use /locations endpoint to get ALL locations (including SUPPLIER)
     return this.http.get<any[]>(`${this.API_BASE_URL}/locations`)
@@ -289,10 +304,18 @@ export class AppService {
       );
   }
 
-  createProduct(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Observable<Product> {
+  /**
+   * Create a new product (organization-wide master data)
+   * Also creates initial LocationInventory with provided pricing
+   */
+  createProduct(
+    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
+    locationId: number,
+    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number }
+  ): Observable<Product> {
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
-    const request = this.convertProductToCreateRequest(product);
+    const request = this.convertProductToCreateRequest(product, locationId, pricing);
     return this.http.post<Product>(`${this.API_BASE_URL}/products`, request)
       .pipe(
         tap(apiProduct => {
@@ -315,10 +338,24 @@ export class AppService {
       );
   }
 
+  /**
+   * Update product master data (name, category, size, color, description, etc)
+   * NOTE: Does NOT update pricing - use updateLocationInventoryPricing() instead
+   */
   updateProduct(id: string, product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Observable<Product> {
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
-    const request = this.convertProductToCreateRequest(product);
+    // For updates, send only product master data (no pricing)
+    const request = {
+      name: product.name,
+      category: product.category.toUpperCase(),
+      size: product.size,
+      color: product.color,
+      sku: product.sku,
+      description: product.description,
+      imageUrls: product.imageUrls,
+    };
+    
     return this.http.put<Product>(`${this.API_BASE_URL}/products/${parseInt(id)}`, request)
       .pipe(
         tap(apiProduct => {
@@ -380,6 +417,17 @@ export class AppService {
     });
   }
 
+  // Barcode lookup
+  lookupBarcode(barcodeNumber: string): Observable<any> {
+    return this.http.get<any>(`${this.API_BASE_URL}/barcodes/lookup/${barcodeNumber}`)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to lookup barcode:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
   createSale(saleData: any, items: SaleItem[]): Observable<Sale> {
     const request = this.convertSaleToCreateRequest(saleData, items);
     return this.http.post<Sale>(`${this.API_BASE_URL}/sales`, request)
@@ -388,20 +436,14 @@ export class AppService {
           const sale = this.convertApiSaleToSale(apiSale);
           const currentState = this._appStateSubject.value;
           
-          // Update products stock locally
-          const updatedProducts = currentState.products.map(product => {
-            const saleItem = items.find(item => item.productId === product.id);
-            if (saleItem) {
-              return { ...product, stock: product.stock - saleItem.quantity };
-            }
-            return product;
-          });
+          // NOTE: Product.stock is deprecated (backend returns null)
+          // Inventory is now tracked in LocationInventory table
+          // No need for local stock updates - backend handles it
 
           this.updateAppState({
             ...currentState,
             sales: [...currentState.sales, sale],
             currentSale: [],
-            products: updatedProducts
           });
 
           // Refresh sales from backend to ensure dashboard stats are up-to-date
@@ -517,17 +559,21 @@ export class AppService {
       category: apiProduct.category.toLowerCase(),
       size: apiProduct.size,
       color: apiProduct.color,
-      price: apiProduct.price / 100,
-      cost: apiProduct.cost / 100,
-      wholesalePrice: apiProduct.wholesalePrice / 100,
-      wholesaleMinQuantity: apiProduct.wholesaleMinQuantity,
-      stock: apiProduct.stock,
-      minStock: apiProduct.minStock,
       sku: apiProduct.sku,
       description: apiProduct.description,
-      barcode: apiProduct.barcode,
       imageUrls: apiProduct.imageUrls || [],
-      locationId: apiProduct.location?.id.toString() || '',
+      createdAt: new Date(apiProduct.createdAt),
+      updatedAt: new Date(apiProduct.updatedAt),
+      
+      // DEPRECATED - Backend returns null, kept for backward compatibility
+      // For pricing/inventory, fetch LocationInventory data instead
+      price: apiProduct.price ? apiProduct.price / 100 : null,
+      cost: apiProduct.cost ? apiProduct.cost / 100 : null,
+      wholesalePrice: apiProduct.wholesalePrice ? apiProduct.wholesalePrice / 100 : null,
+      wholesaleMinQuantity: apiProduct.wholesaleMinQuantity || null,
+      stock: apiProduct.stock || null,
+      minStock: apiProduct.minStock || null,
+      locationId: apiProduct.location?.id.toString() || null,
       location: apiProduct.location ? {
         id: apiProduct.location.id.toString(),
         name: apiProduct.location.name,
@@ -541,9 +587,7 @@ export class AppService {
         capacity: apiProduct.location.capacity,
         isActive: apiProduct.location.isActive,
         createdAt: new Date(apiProduct.location.createdAt),
-      } : undefined,
-      createdAt: new Date(apiProduct.createdAt),
-      updatedAt: new Date(apiProduct.updatedAt),
+      } : null,
     };
   }
 
@@ -611,27 +655,36 @@ export class AppService {
       status: apiMovement.status || 'PENDING', // Map status field
       approvedBy: apiMovement.approvedBy,
       approvedAt: apiMovement.approvedAt ? new Date(apiMovement.approvedAt) : undefined,
-      rejectionReason: apiMovement.rejectionReason,
     };
   }
 
-  private convertProductToCreateRequest(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): any {
+  /**
+   * Convert product form data to create request
+   * NOTE: Now requires separate locationId and pricing parameters
+   * Product itself no longer contains location or pricing (organization-wide master)
+   */
+  private convertProductToCreateRequest(
+    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
+    locationId: number,
+    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number }
+  ): any {
     return {
       name: product.name,
       category: product.category.toUpperCase(),
       size: product.size,
       color: product.color,
-      price: Math.round(product.price * 100),
-      cost: Math.round(product.cost * 100),
-      wholesalePrice: Math.round(product.wholesalePrice * 100),
-      wholesaleMinQuantity: product.wholesaleMinQuantity,
-      stock: product.stock,
-      minStock: product.minStock,
       sku: product.sku,
       description: product.description,
-      barcode: product.barcode,
       imageUrls: product.imageUrls,
-      locationId: parseInt(product.locationId),
+      locationId: locationId,
+      // Initial pricing for first location
+      cost: Math.round(pricing.cost * 100),
+      salePrice: Math.round(pricing.salePrice * 100),
+      wholesalePrice: pricing.wholesalePrice ? Math.round(pricing.wholesalePrice * 100) : null,
+      wholesaleMinQuantity: pricing.wholesaleMinQuantity || null,
+      // Initial stock for first location
+      stock: product.stock || 0,
+      minStock: product.minStock || 0,
     };
   }
 
@@ -640,7 +693,9 @@ export class AppService {
       items: items.map(item => ({
         productId: parseInt(item.productId),
         quantity: item.quantity,
+        barcodeNumbers: item.barcodes || [] // Send scanned barcode numbers
       })),
+      locationId: saleData.locationId, // NEW: Required for new schema
       paymentMethod: saleData.paymentMethod.toUpperCase(),
       customerName: saleData.customerName,
       customerEmail: saleData.customerEmail,
@@ -674,8 +729,7 @@ export class AppService {
         location: locations[0],
         imageUrls: [
           'https://images.pexels.com/photos/1020585/pexels-photo-1020585.jpeg?auto=compress&cs=tinysrgb&w=400'
-        ],
-        barcode: '011234567890'
+        ]
       }
     ];
   }
@@ -760,5 +814,115 @@ export class AppService {
         })
       );
   }
+
+  // ==================== LocationInventory API ====================
+  
+  /**
+   * Get all inventory across all locations (Admin only)
+   */
+  getAllLocationInventory(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/all`)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load all location inventory:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+  
+  /**
+   * Get all location inventory records for a specific location
+   */
+  getLocationInventory(locationId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/location/${locationId}`)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load location inventory:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Get inventory for a specific product SKU across all locations
+   */
+  getInventoryByProductSku(sku: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/product/${sku}`)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load inventory by SKU:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Get inventory for specific location and product SKU
+   */
+  getInventoryByLocationAndSku(locationId: number, sku: string): Observable<any> {
+    return this.http.get<any>(`${this.API_BASE_URL}/inventory/location/${locationId}/product/${sku}`)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load inventory for location and SKU:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Update location-specific pricing
+   * Each location can set their own cost, salePrice, wholesalePrice, wholesaleMinQuantity
+   */
+  updateInventoryPricing(
+    inventoryId: number,
+    pricing: {
+      cost: number;
+      salePrice: number;
+      wholesalePrice?: number;
+      wholesaleMinQuantity?: number;
+    }
+  ): Observable<any> {
+    const request = {
+      cost: Math.round(pricing.cost * 100),
+      salePrice: Math.round(pricing.salePrice * 100),
+      wholesalePrice: pricing.wholesalePrice ? Math.round(pricing.wholesalePrice * 100) : null,
+      wholesaleMinQuantity: pricing.wholesaleMinQuantity || null,
+    };
+
+    return this.http.put<any>(`${this.API_BASE_URL}/inventory/${inventoryId}/pricing`, request)
+      .pipe(
+        tap(() => {
+          console.log('Location inventory pricing updated successfully');
+        }),
+        catchError(error => {
+          console.error('Failed to update inventory pricing:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Helper to convert LocationInventory API response
+   */
+  private convertApiLocationInventoryToDto(apiInv: any): any {
+    return {
+      id: apiInv.id.toString(),
+      locationId: apiInv.locationId.toString(),
+      locationName: apiInv.locationName,
+      productSku: apiInv.productSku,
+      productName: apiInv.productName,
+      quantity: apiInv.quantity,
+      minStock: apiInv.minStock,
+      maxStock: apiInv.maxStock,
+      reorderPoint: apiInv.reorderPoint,
+      cost: apiInv.cost ? apiInv.cost / 100 : 0,
+      salePrice: apiInv.salePrice ? apiInv.salePrice / 100 : 0,
+      wholesalePrice: apiInv.wholesalePrice ? apiInv.wholesalePrice / 100 : null,
+      wholesaleMinQuantity: apiInv.wholesaleMinQuantity || null,
+      createdAt: new Date(apiInv.createdAt),
+      updatedAt: new Date(apiInv.updatedAt),
+    };
+  }
 }
+
 

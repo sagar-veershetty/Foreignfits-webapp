@@ -16,6 +16,9 @@ public class StockAdjustmentRequest {
     @NotNull(message = "Product ID is required")
     private Long productId;
     
+    @NotNull(message = "Location ID is required")
+    private Long locationId; // Location where stock adjustment is being made
+    
     @NotNull(message = "Adjustment type is required")
     private AdjustmentType adjustmentType;
     
@@ -37,6 +40,9 @@ public class StockAdjustmentRequest {
     // Manual getters and setters to ensure compatibility
     public Long getProductId() { return productId; }
     public void setProductId(Long productId) { this.productId = productId; }
+    
+    public Long getLocationId() { return locationId; }
+    public void setLocationId(Long locationId) { this.locationId = locationId; }
     
     public AdjustmentType getAdjustmentType() { return adjustmentType; }
     public void setAdjustmentType(AdjustmentType adjustmentType) { this.adjustmentType = adjustmentType; }

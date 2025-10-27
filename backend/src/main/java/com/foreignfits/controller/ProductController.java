@@ -54,14 +54,6 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
     
-    @GetMapping("/barcode/{barcode}")
-    @PreAuthorize("hasAuthority('view:products')")
-    public ResponseEntity<ProductDto> getProductByBarcode(@PathVariable String barcode) {
-        return productService.getProductByBarcode(barcode)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-    
     @GetMapping("/category/{category}")
     public ResponseEntity<List<ProductDto>> getProductsByCategory(@PathVariable Product.ProductCategory category) {
         List<ProductDto> products = productService.getProductsByCategory(category);

@@ -4,6 +4,7 @@ import com.foreignfits.dto.LocationDto;
 import com.foreignfits.dto.ProductDto;
 import com.foreignfits.dto.StockMovementDto;
 import com.foreignfits.dto.request.StockAdjustmentRequest;
+import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.LocationInventory;
 import com.foreignfits.entity.Product;
@@ -34,10 +35,14 @@ public class StockService {
     private final LocationRepository locationRepository;
     private final StockTransferRepository stockTransferRepository;
     private final UserRepository userRepository;
+    private final BarcodeService barcodeService;
     
     public StockMovementDto adjustStock(StockAdjustmentRequest request, String createdBy) {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + request.getProductId()));
+        
+        Location location = locationRepository.findById(request.getLocationId())
+                .orElseThrow(() -> new RuntimeException("Location not found with id: " + request.getLocationId()));
         
         // Get the user who is making the adjustment
         User requestingUser = userRepository.findByEmail(createdBy)
@@ -49,15 +54,15 @@ public class StockService {
             if (requestingUser.getLocation() == null) {
                 throw new RuntimeException("User must be assigned to a location to make stock adjustments");
             }
-            if (!requestingUser.getLocation().getId().equals(product.getLocation().getId())) {
+            if (!requestingUser.getLocation().getId().equals(location.getId())) {
                 throw new RuntimeException("You can only adjust stock at your own location: " + requestingUser.getLocation().getName());
             }
         }
         
         // Get current stock from LocationInventory
         LocationInventory inventory = locationInventoryRepository
-                .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
-                .orElseThrow(() -> new RuntimeException("Inventory not found for product"));
+                .findByLocationIdAndProductSku(location.getId(), product.getSku())
+                .orElseThrow(() -> new RuntimeException("Inventory not found for product at this location"));
         
         int previousStock = inventory.getQuantity();
         int newStock = calculateNewStock(previousStock, request);
@@ -79,7 +84,7 @@ public class StockService {
         StockTransfer transfer = new StockTransfer();
         transfer.setProduct(product);
         transfer.setFromLocation(initialLocation); // Adjustments come from INITIAL
-        transfer.setToLocation(product.getLocation()); // Applied to product's location
+        transfer.setToLocation(location); // Applied to specified location
         transfer.setQuantity(Math.abs(calculateQuantityChange(previousStock, newStock, request.getAdjustmentType())));
         transfer.setReason(request.getReason());
         transfer.setReference(request.getReference());
@@ -127,9 +132,18 @@ public class StockService {
         // Update LocationInventory NOW that it's approved
         Product product = movement.getProduct();
         
+        // For TRANSFER movements, get from/to locations upfront
+        final Location fromLocation = (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) 
+            ? movement.getTransfer().getFromLocation() : null;
+        final Location toLocation = (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) 
+            ? movement.getTransfer().getToLocation() : null;
+        
         // For TRANSFER movements, decrease source location inventory
         if (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) {
-            Location fromLocation = movement.getTransfer().getFromLocation();
+            if (fromLocation == null || toLocation == null) {
+                throw new RuntimeException("Transfer locations not properly initialized");
+            }
+            
             LocationInventory sourceInventory = locationInventoryRepository
                     .findByLocationIdAndProductSku(fromLocation.getId(), product.getSku())
                     .orElseThrow(() -> new RuntimeException("Source inventory not found for product"));
@@ -146,10 +160,19 @@ public class StockService {
             sourceInventory.setLastMovementId(movement.getId());
             locationInventoryRepository.save(sourceInventory);
         } else {
-            // For non-transfer movements (ADJUSTMENT, SALE, etc.), use the pre-calculated newStock
+            // For non-transfer movements (ADJUSTMENT, SALE, etc.), get inventory at the location
+            // Since products don't have location, we need to find which location this applies to
+            // For adjustments, use the transfer's toLocation
+            Location adjustmentLocation = movement.getTransfer() != null ? 
+                movement.getTransfer().getToLocation() : null;
+            
+            if (adjustmentLocation == null) {
+                throw new RuntimeException("Cannot determine location for stock adjustment");
+            }
+            
             LocationInventory inventory = locationInventoryRepository
-                    .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
-                    .orElseThrow(() -> new RuntimeException("Inventory not found for product"));
+                    .findByLocationIdAndProductSku(adjustmentLocation.getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
             
             inventory.setQuantity(movement.getNewStock());
             inventory.setLastMovementId(movement.getId());
@@ -158,51 +181,46 @@ public class StockService {
         
         // If this is a TRANSFER movement, also update the destination location
         if (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) {
-            // Get destination location from transfer
-            Location toLocation = movement.getTransfer().getToLocation();
+            if (toLocation == null) {
+                throw new RuntimeException("Destination location not properly initialized");
+            }
             
-            // Ensure destination product exists (create if needed)
-            Product destinationProduct = productRepository.findByLocationIdAndSku(
-                    toLocation.getId(), 
-                    product.getSku()
-            ).orElseGet(() -> {
-                // Create product entry at destination location
-                Product newProduct = new Product();
-                newProduct.setName(product.getName());
-                newProduct.setSku(product.getSku());
-                newProduct.setBarcode(null); // Avoid unique constraint violation
-                newProduct.setCategory(product.getCategory());
-                newProduct.setSize(product.getSize());
-                newProduct.setColor(product.getColor());
-                newProduct.setPrice(product.getPrice());
-                newProduct.setCost(product.getCost());
-                newProduct.setWholesalePrice(product.getWholesalePrice());
-                newProduct.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
-                newProduct.setMinStock(product.getMinStock());
-                newProduct.setDescription(product.getDescription());
-                if (product.getImageUrls() != null) {
-                    newProduct.setImageUrls(new java.util.ArrayList<>(product.getImageUrls()));
-                }
-                newProduct.setLocation(toLocation);
-                newProduct.setCreatedBy(approvedBy);
-                newProduct.setIsApproved(true);
-                newProduct.setApprovedBy(approvedBy);
-                newProduct.setApprovedAt(java.time.LocalDateTime.now());
-                return productRepository.save(newProduct);
-            });
-            
-            // Find or create destination inventory
+            // NO LONGER CREATE DUPLICATE PRODUCT - Products are organization-wide
+            // Just ensure destination inventory exists with initial pricing from source
             LocationInventory destInventory = locationInventoryRepository
                     .findByLocationIdAndProductSku(toLocation.getId(), product.getSku())
                     .orElseGet(() -> {
+                        // Get source inventory for pricing reference (fromLocation should not be null here)
+                        LocationInventory sourceInv = null;
+                        if (fromLocation != null) {
+                            sourceInv = locationInventoryRepository
+                                    .findByLocationIdAndProductSku(fromLocation.getId(), product.getSku())
+                                    .orElse(null);
+                        }
+                        
                         LocationInventory newInv = new LocationInventory();
                         newInv.setLocation(toLocation);
                         newInv.setProductSku(product.getSku());
-                        newInv.setProduct(destinationProduct);
+                        newInv.setProduct(product); // Reference to the SAME product (not duplicate)
                         newInv.setQuantity(0);
-                        newInv.setMinStock(product.getMinStock());
-                        newInv.setMaxStock(product.getMinStock() * 5);
-                        newInv.setReorderPoint(product.getMinStock() * 2);
+                        // Use default minStock since Product no longer has it
+                        newInv.setMinStock(10);
+                        newInv.setMaxStock(50);
+                        newInv.setReorderPoint(20);
+                        
+                        // Copy pricing from source location if available, otherwise set defaults
+                        if (sourceInv != null) {
+                            newInv.setCost(sourceInv.getCost());
+                            newInv.setSalePrice(sourceInv.getSalePrice());
+                            newInv.setWholesalePrice(sourceInv.getWholesalePrice());
+                            newInv.setWholesaleMinQuantity(sourceInv.getWholesaleMinQuantity());
+                        } else {
+                            // Fallback defaults if no source pricing found
+                            newInv.setCost(new java.math.BigDecimal("0.00"));
+                            newInv.setSalePrice(new java.math.BigDecimal("0.00"));
+                            newInv.setWholesalePrice(null);
+                            newInv.setWholesaleMinQuantity(null);
+                        }
                         return newInv;
                     });
             
@@ -210,6 +228,28 @@ public class StockService {
             destInventory.setQuantity(destInventory.getQuantity() + movement.getQuantity());
             destInventory.setLastMovementId(movement.getId());
             locationInventoryRepository.save(destInventory);
+            
+            // Transfer barcodes from source to destination location
+            try {
+                if (fromLocation != null && toLocation != null) {
+                    List<Barcode> transferredBarcodes = barcodeService.transferBarcodes(
+                        product,
+                        fromLocation,
+                        toLocation,
+                        movement.getQuantity()
+                    );
+                    
+                    // Associate the transferred barcodes with this movement
+                    movement.setBarcodes(transferredBarcodes);
+                    
+                    System.out.println("Transferred " + transferredBarcodes.size() + " barcodes from " + 
+                        fromLocation.getName() + " to " + toLocation.getName());
+                }
+            } catch (Exception e) {
+                System.err.println("Warning: Barcode transfer failed: " + e.getMessage());
+                // Continue with approval even if barcode transfer fails
+                // This handles cases where barcodes don't exist yet (old products)
+            }
         }
         
         // Mark movement as approved
@@ -320,21 +360,19 @@ public class StockService {
             productDto.setCategory(product.getCategory());
             productDto.setSize(product.getSize());
             productDto.setColor(product.getColor());
-            productDto.setPrice(product.getPrice());
-            productDto.setCost(product.getCost());
-            productDto.setWholesalePrice(product.getWholesalePrice());
-            productDto.setWholesaleMinQuantity(product.getWholesaleMinQuantity());
+            // Pricing removed from Product - set to null
+            productDto.setPrice(null);
+            productDto.setCost(null);
+            productDto.setWholesalePrice(null);
+            productDto.setWholesaleMinQuantity(null);
             
-            // Get stock from LocationInventory
-            LocationInventory inventory = locationInventoryRepository
-                    .findByLocationIdAndProductSku(product.getLocation().getId(), product.getSku())
-                    .orElse(null);
-            productDto.setStock(inventory != null ? inventory.getQuantity() : 0);
+            // Stock not location-specific - set to 0
+            productDto.setStock(0);
             
-            productDto.setMinStock(product.getMinStock());
+            productDto.setMinStock(0); // Use LocationInventory for minStock
             productDto.setSku(product.getSku());
             productDto.setDescription(product.getDescription());
-            productDto.setBarcode(product.getBarcode());
+            // barcode removed - use Barcode table
             productDto.setImageUrls(product.getImageUrls());
             productDto.setCreatedAt(product.getCreatedAt());
             productDto.setUpdatedAt(product.getUpdatedAt());

@@ -36,6 +36,15 @@ public class LocationInventoryService {
     }
     
     /**
+     * Get all inventory across all locations
+     */
+    public List<LocationInventoryDto> getAllInventory() {
+        return inventoryRepository.findAll().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    /**
      * Get all inventory at a location
      */
     public List<LocationInventoryDto> getLocationInventory(Long locationId) {
@@ -189,9 +198,10 @@ public class LocationInventoryService {
         inventory.setProductSku(product.getSku());
         inventory.setProduct(product);
         inventory.setQuantity(0);
-        inventory.setMinStock(product.getMinStock() != null ? product.getMinStock() : 0);
+        // Use default minStock since Product no longer has it
+        inventory.setMinStock(10);
         inventory.setMaxStock(null);
-        inventory.setReorderPoint(product.getMinStock() != null ? product.getMinStock() : 0);
+        inventory.setReorderPoint(10);
         return inventoryRepository.save(inventory);
     }
     
@@ -207,6 +217,26 @@ public class LocationInventoryService {
         if (minStock != null) inventory.setMinStock(minStock);
         if (maxStock != null) inventory.setMaxStock(maxStock);
         if (reorderPoint != null) inventory.setReorderPoint(reorderPoint);
+        
+        return convertToDto(inventoryRepository.save(inventory));
+    }
+    
+    /**
+     * Update location-specific pricing for a product
+     * Each location can set their own cost and sale prices
+     */
+    public LocationInventoryDto updatePricing(Long inventoryId, 
+                                             java.math.BigDecimal cost,
+                                             java.math.BigDecimal salePrice,
+                                             java.math.BigDecimal wholesalePrice,
+                                             Integer wholesaleMinQuantity) {
+        LocationInventory inventory = inventoryRepository.findById(inventoryId)
+                .orElseThrow(() -> new RuntimeException("Inventory not found with id: " + inventoryId));
+        
+        if (cost != null) inventory.setCost(cost);
+        if (salePrice != null) inventory.setSalePrice(salePrice);
+        if (wholesalePrice != null) inventory.setWholesalePrice(wholesalePrice);
+        if (wholesaleMinQuantity != null) inventory.setWholesaleMinQuantity(wholesaleMinQuantity);
         
         return convertToDto(inventoryRepository.save(inventory));
     }
@@ -231,6 +261,13 @@ public class LocationInventoryService {
         dto.setMinStock(inventory.getMinStock());
         dto.setMaxStock(inventory.getMaxStock());
         dto.setReorderPoint(inventory.getReorderPoint());
+        
+        // Include pricing fields
+        dto.setCost(inventory.getCost());
+        dto.setSalePrice(inventory.getSalePrice());
+        dto.setWholesalePrice(inventory.getWholesalePrice());
+        dto.setWholesaleMinQuantity(inventory.getWholesaleMinQuantity());
+        
         dto.setLastRestockDate(inventory.getLastRestockDate());
         dto.setLastSaleDate(inventory.getLastSaleDate());
         dto.setLastMovementId(inventory.getLastMovementId());

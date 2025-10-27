@@ -9,7 +9,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -44,56 +43,30 @@ public class Product {
     @Column(nullable = false, length = 50)
     private String color;
     
-    @NotNull(message = "Price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
-    @Digits(integer = 10, fraction = 2, message = "Price format is invalid")
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
+    // Pricing moved to LocationInventory - each location sets their own costs/prices
+    // This follows industry standard (SAP, Oracle, NetSuite) where Product is master data
     
-    @NotNull(message = "Cost is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Cost must be greater than 0")
-    @Digits(integer = 10, fraction = 2, message = "Cost format is invalid")
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal cost;
-    
-    @NotNull(message = "Wholesale price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Wholesale price must be greater than 0")
-    @Digits(integer = 10, fraction = 2, message = "Wholesale price format is invalid")
-    @Column(name = "wholesale_price", nullable = false, precision = 12, scale = 2)
-    private BigDecimal wholesalePrice;
-    
-    @NotNull(message = "Wholesale minimum quantity is required")
-    @Min(value = 1, message = "Wholesale minimum quantity must be at least 1")
-    @Column(name = "wholesale_min_quantity", nullable = false)
-    private Integer wholesaleMinQuantity;
-    
-    // Stock is now tracked in LocationInventory table - removed from Product entity
-    
-    @NotNull(message = "Minimum stock is required")
-    @Min(value = 0, message = "Minimum stock cannot be negative")
-    @Column(name = "min_stock", nullable = false)
-    private Integer minStock;
+    // Stock tracking is in LocationInventory table
+    // Min stock is also location-specific and moved to LocationInventory
     
     @NotBlank(message = "SKU is required")
     @Size(max = 50, message = "SKU cannot exceed 50 characters")
     @Column(nullable = false, length = 50)
     private String sku;
     
+    @Column(name = "is_manual_sku", nullable = false)
+    private Boolean isManualSku = false; // True if SKU was manually entered, false if auto-generated
+    
     @Column(columnDefinition = "TEXT")
     private String description;
-    
-    @Size(max = 50, message = "Barcode cannot exceed 50 characters")
-    @Column(unique = true, length = 50)
-    private String barcode;
     
     @ElementCollection
     @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"))
     @Column(name = "image_url", columnDefinition = "TEXT")
     private List<String> imageUrls;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "location_id", nullable = false)
-    private Location location;
+    // Location removed - Product is now organization-wide master data
+    // Location-specific data (inventory, pricing) is in LocationInventory table
     
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<StockMovement> stockMovements;
@@ -112,9 +85,6 @@ public class Product {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
     
-    @Column(name = "rejection_reason", columnDefinition = "TEXT")
-    private String rejectionReason;
-    
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -122,6 +92,43 @@ public class Product {
     @LastModifiedDate
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    /**
+     * Generates a SKU from product attributes: Name(2) + Category(3) + Size + Color(3) + Random(4)
+     * Example: "BL-SHI-M-BLU-5729" for "Blue Shirt" M size
+     */
+    public static String generateSku(String name, ProductCategory category, String size, String color) {
+        // Extract 2 chars from name (uppercase, alphanumeric only)
+        String nameCode = extractAlphanumeric(name, 2).toUpperCase();
+        
+        // Extract 3 chars from category
+        String categoryCode = category.name().substring(0, Math.min(3, category.name().length())).toUpperCase();
+        
+        // Size as-is (cleaned)
+        String sizeCode = extractAlphanumeric(size, 10).toUpperCase();
+        
+        // Extract 3 chars from color
+        String colorCode = extractAlphanumeric(color, 3).toUpperCase();
+        
+        // Random 4 digits
+        String randomCode = String.format("%04d", (int)(Math.random() * 10000));
+        
+        return String.format("%s-%s-%s-%s-%s", nameCode, categoryCode, sizeCode, colorCode, randomCode);
+    }
+    
+    /**
+     * Helper method to extract alphanumeric characters from a string
+     */
+    private static String extractAlphanumeric(String input, int maxLength) {
+        if (input == null || input.isEmpty()) {
+            return "XX"; // Default fallback
+        }
+        String cleaned = input.replaceAll("[^a-zA-Z0-9]", "");
+        if (cleaned.isEmpty()) {
+            return "XX";
+        }
+        return cleaned.substring(0, Math.min(maxLength, cleaned.length()));
+    }
     
     public enum ProductCategory {
         SHIRTS, PANTS, DRESSES, JACKETS, SHOES, ACCESSORIES
@@ -143,37 +150,27 @@ public class Product {
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
     
-    public BigDecimal getPrice() { return price; }
-    public void setPrice(BigDecimal price) { this.price = price; }
-    
-    public BigDecimal getCost() { return cost; }
-    public void setCost(BigDecimal cost) { this.cost = cost; }
-    
-    public BigDecimal getWholesalePrice() { return wholesalePrice; }
-    public void setWholesalePrice(BigDecimal wholesalePrice) { this.wholesalePrice = wholesalePrice; }
-    
-    public Integer getWholesaleMinQuantity() { return wholesaleMinQuantity; }
-    public void setWholesaleMinQuantity(Integer wholesaleMinQuantity) { this.wholesaleMinQuantity = wholesaleMinQuantity; }
+    // Pricing getters/setters removed - use LocationInventory instead
     
     // Stock getters/setters removed - use LocationInventory instead
     
-    public Integer getMinStock() { return minStock; }
-    public void setMinStock(Integer minStock) { this.minStock = minStock; }
+    // minStock removed - use LocationInventory instead
     
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
     
+    public Boolean getIsManualSku() { return isManualSku; }
+    public void setIsManualSku(Boolean isManualSku) { this.isManualSku = isManualSku; }
+    
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     
-    public String getBarcode() { return barcode; }
-    public void setBarcode(String barcode) { this.barcode = barcode; }
+    // barcode removed - use Barcode table instead
     
     public List<String> getImageUrls() { return imageUrls; }
     public void setImageUrls(List<String> imageUrls) { this.imageUrls = imageUrls; }
     
-    public Location getLocation() { return location; }
-    public void setLocation(Location location) { this.location = location; }
+    // Location getters/setters removed - use LocationInventory to track per-location data
     
     public List<StockMovement> getStockMovements() { return stockMovements; }
     public void setStockMovements(List<StockMovement> stockMovements) { this.stockMovements = stockMovements; }
@@ -190,8 +187,7 @@ public class Product {
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
     
-    public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
+    // rejectionReason removed
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

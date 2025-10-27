@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -15,6 +16,7 @@ public class SaleItemDto {
     private Integer quantity;
     private BigDecimal price;
     private BigDecimal total;
+    private List<String> barcodes; // List of barcode numbers sold in this item
     
     // Manual getters and setters to ensure compatibility
     public Long getId() { return id; }
@@ -31,4 +33,7 @@ public class SaleItemDto {
     
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
+    
+    public List<String> getBarcodes() { return barcodes; }
+    public void setBarcodes(List<String> barcodes) { this.barcodes = barcodes; }
 }

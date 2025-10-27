@@ -26,14 +26,12 @@ public class ProductDto {
     private Integer minStock;
     private String sku;
     private String description;
-    private String barcode;
     private List<String> imageUrls;
     private LocationDto location;
     private String createdBy;
     private Boolean isApproved;
     private String approvedBy;
     private LocalDateTime approvedAt;
-    private String rejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
@@ -77,9 +75,6 @@ public class ProductDto {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     
-    public String getBarcode() { return barcode; }
-    public void setBarcode(String barcode) { this.barcode = barcode; }
-    
     public List<String> getImageUrls() { return imageUrls; }
     public void setImageUrls(List<String> imageUrls) { this.imageUrls = imageUrls; }
     
@@ -97,9 +92,6 @@ public class ProductDto {
     
     public LocalDateTime getApprovedAt() { return approvedAt; }
     public void setApprovedAt(LocalDateTime approvedAt) { this.approvedAt = approvedAt; }
-    
-    public String getRejectionReason() { return rejectionReason; }
-    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

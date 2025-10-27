@@ -25,6 +25,10 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   locations = signal<Location[]>([]);
   currentUser = signal<User | null>(null);
   
+  // Location inventory for filtering products
+  transferFromLocationInventory = signal<any[]>([]);
+  adjustmentLocationInventory = signal<any[]>([]);
+  
   // Filters
   filterType = signal<string>('all');
   filterDateRange = signal<string>('all');
@@ -33,6 +37,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   // Adjustment Form
   adjustmentForm = {
     productId: '',
+    locationId: '', // Add location for adjustment
     adjustmentType: 'increase' as 'increase' | 'decrease' | 'set',
     quantity: 0,
     reason: '',
@@ -52,6 +57,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   
   // Signal to track fromLocationId changes for reactive computed
   transferFromLocationId = signal<string>('');
+  adjustmentLocationId = signal<string>('');
   
   isLoading = signal<boolean>(false);
   successMessage = signal<string>('');
@@ -92,11 +98,26 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         const locationId = this.getUserLocationId() || '';
         this.transferForm.fromLocationId = locationId;
         this.transferFromLocationId.set(locationId); // Update signal to trigger computed
+        this.loadTransferLocationInventory(parseInt(locationId));
+      }
+      // Auto-set FROM location for sales users (can also transfer stock)
+      if (this.isSalesUser() && this.getUserLocationId()) {
+        const locationId = this.getUserLocationId() || '';
+        this.transferForm.fromLocationId = locationId;
+        this.transferFromLocationId.set(locationId); // Update signal to trigger computed
+        this.loadTransferLocationInventory(parseInt(locationId));
       }
       // Auto-set FROM location to SUPPLIER for admin users
       if (this.isAdmin()) {
         this.transferForm.fromLocationId = '1'; // SUPPLIER location ID
         this.transferFromLocationId.set('1'); // Update signal to trigger computed
+        this.loadTransferLocationInventory(1);
+        
+        // Auto-set adjustment location to admin's location
+        const adminLocationId = this.getUserLocationId() || '1';
+        this.adjustmentForm.locationId = adminLocationId;
+        this.adjustmentLocationId.set(adminLocationId);
+        this.loadAdjustmentLocationInventory(parseInt(adminLocationId));
       }
     }, 500);
   }
@@ -133,6 +154,10 @@ export class StockMovementComponent implements OnInit, OnDestroy {
 
   isWarehouseUser(): boolean {
     return this.currentUser()?.role === 'warehouse';
+  }
+
+  isSalesUser(): boolean {
+    return this.currentUser()?.role === 'sales';
   }
 
   getUserLocationId(): string | undefined {
@@ -245,6 +270,57 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     if (this.transferForm.fromLocationId === this.transferForm.toLocationId) {
       this.transferForm.toLocationId = '';
     }
+    
+    // Load inventory for the selected FROM location
+    if (this.transferForm.fromLocationId) {
+      this.loadTransferLocationInventory(parseInt(this.transferForm.fromLocationId));
+    } else {
+      this.transferFromLocationInventory.set([]);
+    }
+    
+    // Clear selected product as it may not be available at new location
+    this.transferForm.productId = '';
+  }
+
+  // Handle adjustment location change
+  onAdjustmentLocationChange() {
+    this.adjustmentLocationId.set(this.adjustmentForm.locationId);
+    
+    // Load inventory for the selected location
+    if (this.adjustmentForm.locationId) {
+      this.loadAdjustmentLocationInventory(parseInt(this.adjustmentForm.locationId));
+    } else {
+      this.adjustmentLocationInventory.set([]);
+    }
+    
+    // Clear selected product as it may not be available at new location
+    this.adjustmentForm.productId = '';
+  }
+
+  // Load inventory for transfer FROM location
+  loadTransferLocationInventory(locationId: number) {
+    this.appService.getLocationInventory(locationId).subscribe({
+      next: (inventory) => {
+        this.transferFromLocationInventory.set(inventory);
+      },
+      error: (error) => {
+        console.error('Failed to load transfer location inventory:', error);
+        this.transferFromLocationInventory.set([]);
+      }
+    });
+  }
+
+  // Load inventory for adjustment location
+  loadAdjustmentLocationInventory(locationId: number) {
+    this.appService.getLocationInventory(locationId).subscribe({
+      next: (inventory) => {
+        this.adjustmentLocationInventory.set(inventory);
+      },
+      error: (error) => {
+        console.error('Failed to load adjustment location inventory:', error);
+        this.adjustmentLocationInventory.set([]);
+      }
+    });
   }
 
   getSelectedProduct(): Product | undefined {
@@ -254,28 +330,38 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     return this.products().find(p => p.id === productId);
   }
 
-  // Get products filtered by user's location for stock transfer
+  // Get products available at the selected FROM location for transfer
   getTransferableProducts(): Product[] {
-    const user = this.currentUser();
+    const inventory = this.transferFromLocationInventory();
     const allProducts = this.products();
     
-    // Admin sees only products from SUPPLIER location (id=1)
-    if (this.isAdmin()) {
-      return allProducts.filter(p => p.locationId === '1');
+    if (!this.transferForm.fromLocationId || inventory.length === 0) {
+      return [];
     }
     
-    // Warehouse users only see products from their location
-    if (user?.locationId) {
-      return allProducts.filter(p => p.locationId === user.locationId);
+    // Only show products that have inventory at the FROM location
+    const availableSkus = new Set(inventory.map((inv: any) => inv.productSku));
+    return allProducts.filter(p => availableSkus.has(p.sku));
+  }
+
+  // Get products available at the selected location for adjustment
+  getAdjustableProducts(): Product[] {
+    const inventory = this.adjustmentLocationInventory();
+    const allProducts = this.products();
+    
+    if (!this.adjustmentForm.locationId || inventory.length === 0) {
+      return [];
     }
     
-    return [];
+    // Only show products that have inventory at the selected location
+    const availableSkus = new Set(inventory.map((inv: any) => inv.productSku));
+    return allProducts.filter(p => availableSkus.has(p.sku));
   }
 
   submitAdjustment() {
     this.clearMessages();
     
-    if (!this.adjustmentForm.productId || !this.adjustmentForm.quantity || !this.adjustmentForm.reason) {
+    if (!this.adjustmentForm.locationId || !this.adjustmentForm.productId || !this.adjustmentForm.quantity || !this.adjustmentForm.reason) {
       this.errorMessage.set('Please fill in all required fields');
       return;
     }
@@ -288,6 +374,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     
     this.appService.adjustStock({
+      locationId: this.adjustmentForm.locationId,
       productId: this.adjustmentForm.productId,
       adjustmentType: this.adjustmentForm.adjustmentType,
       quantity: this.adjustmentForm.quantity,
@@ -336,11 +423,9 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedProduct = this.getSelectedProduct();
-    if (selectedProduct && this.transferForm.quantity > selectedProduct.stock) {
-      this.errorMessage.set(`Insufficient stock. Available: ${selectedProduct.stock}`);
-      return;
-    }
+    // NOTE: Product.stock is deprecated (backend returns null)
+    // Stock validation will be done by backend via LocationInventory
+    // Remove client-side stock check
     
     this.isLoading.set(true);
     
@@ -374,6 +459,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   resetAdjustmentForm() {
     this.adjustmentForm = {
       productId: '',
+      locationId: '',
       adjustmentType: 'increase',
       quantity: 0,
       reason: '',
