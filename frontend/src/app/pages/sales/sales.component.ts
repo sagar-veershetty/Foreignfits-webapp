@@ -289,13 +289,21 @@ export class SalesComponent implements OnInit {
   }
 
   onBarcodeScan(code: string): void {
-    const state = this.appService.appStateBehaviorSubject.value;
+    // Set the search term to the scanned barcode
     this.searchTerm = code;
-    const product = state.products.find((p: Product) => p.barcode === code && p.stock > 0);
-    if (product) {
-      this.addToSale(product);
-      this.searchTerm = '';
-    }
+    
+    // Wait for Angular change detection to update the filtered products
+    setTimeout(() => {
+      const state = this.appService.appStateBehaviorSubject.value;
+      const filteredProducts = this.getFilteredProducts(state);
+      
+      // If exactly one product matches, auto-add it to sale
+      if (filteredProducts.length === 1) {
+        this.addToSale(filteredProducts[0]);
+        this.searchTerm = ''; // Clear search after adding
+      }
+      // If multiple products match, keep the search term so user can see and select
+    }, 0);
   }
 
   // Simple per-card image carousel helpers

@@ -197,8 +197,23 @@ public class SaleService {
                     request.getCustomerEmail()
                 );
                 
-                // Award points for purchase
-                int pointsEarned = loyaltyService.awardPointsForPurchase(loyaltyCustomer, savedSale, total);
+                // Handle points redemption BEFORE awarding new points
+                BigDecimal discount = BigDecimal.ZERO;
+                if (request.getPointsToRedeem() != null && request.getPointsToRedeem() > 0) {
+                    discount = loyaltyService.redeemPoints(loyaltyCustomer, request.getPointsToRedeem());
+                    savedSale.setPointsRedeemed(request.getPointsToRedeem());
+                    savedSale.setDiscountFromPoints(discount);
+                    
+                    // Update sale total after discount
+                    BigDecimal newTotal = total.subtract(discount);
+                    if (newTotal.compareTo(BigDecimal.ZERO) < 0) {
+                        newTotal = BigDecimal.ZERO;
+                    }
+                    savedSale.setTotal(newTotal);
+                }
+                
+                // Award points for purchase (based on final amount after discount)
+                int pointsEarned = loyaltyService.awardPointsForPurchase(loyaltyCustomer, savedSale, savedSale.getTotal());
                 savedSale.setPointsEarned(pointsEarned);
                 saleRepository.save(savedSale);
                 
