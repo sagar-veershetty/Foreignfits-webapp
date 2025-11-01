@@ -301,6 +301,8 @@ export class PrintBarcodeComponent implements OnInit {
     });
   }
 
+  productPrices: { [productId: string]: number } = {}; // Store sale prices for each product
+  
   // Load barcodes for a product when selected
   loadBarcodesForProduct(product: any) {
     if (!this.currentUserLocation) {
@@ -315,7 +317,7 @@ export class PrintBarcodeComponent implements OnInit {
     
     this.loadingBarcodes[product.id] = true;
     
-    // Load only barcodes - no need for location inventory since we removed price/location
+    // Load barcodes AND location inventory to get sale price
     this.appService.getBarcodesForProduct(product.id, this.currentUserLocation.id).subscribe({
       next: (barcodes: Barcode[]) => {
         this.productBarcodes[product.id] = barcodes;
@@ -323,6 +325,17 @@ export class PrintBarcodeComponent implements OnInit {
         
         // Update quantity to match actual barcode count
         this.productQuantities[product.id] = barcodes.filter(b => b.status === 'ACTIVE').length;
+        
+        // Load location inventory to get sale price
+        this.appService.getInventoryByLocationAndSku(this.currentUserLocation.id, product.sku).subscribe({
+          next: (inventory: any) => {
+            this.productPrices[product.id] = inventory?.salePrice || 0;
+          },
+          error: (err) => {
+            console.error('Failed to load price for product', product.sku, err);
+            this.productPrices[product.id] = 0;
+          }
+        });
       },
       error: (err) => {
         console.error('Failed to load barcodes for product', product.sku, err);
@@ -444,7 +457,8 @@ export class PrintBarcodeComponent implements OnInit {
         }
         const svgMarkup = new XMLSerializer().serializeToString(svg);
         
-        // Compose label HTML (match preview card) - no price or location
+        // Compose label HTML with price
+        const price = this.productPrices[product.id] || 0;
         let labelHtml = ''
           + '<div class="sticker-card-mock">'
           + '<div class="sticker-brand-header">FOREIGN FITS</div>'
@@ -455,8 +469,9 @@ export class PrintBarcodeComponent implements OnInit {
           + '</div>'
           + (this.showSKU ? '<div class="sticker-sku-mock">' + this.escapeHtml(sku) + '</div>' : '')
           + (this.showCategory ? '<div class="sticker-category-mock">' + this.escapeHtml(product.category) + '</div>' : '')
+          + '<div class="sticker-price-mock">₹' + price.toFixed(2) + '</div>'
           + '<div class="sticker-barcode-mock">'
-          + '<div class="barcode-bg">' + svgMarkup + '</div>'
+          + '<div class="barcode-no-bg">' + svgMarkup + '</div>'
           + (this.showBarcodeNumber ? '<div class="barcode-value">' + this.escapeHtml(code) + '</div>' : '')
           + '</div>'
           + '</div>';
@@ -601,8 +616,8 @@ export class PrintBarcodeComponent implements OnInit {
               align-items: center;
               justify-content: center;
             }
-            .barcode-bg {
-              background: none;
+            .barcode-no-bg {
+              background: transparent;
               border-radius: 0;
               box-shadow: none;
               padding: 0;

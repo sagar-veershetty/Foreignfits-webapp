@@ -1,10 +1,15 @@
 package com.foreignfits.controller;
 
 import com.foreignfits.dto.LocationInventoryDto;
+import com.foreignfits.entity.LocationInventory;
+import com.foreignfits.entity.User;
+import com.foreignfits.repository.LocationInventoryRepository;
 import com.foreignfits.service.LocationInventoryService;
+import com.foreignfits.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -17,6 +22,8 @@ import java.util.Map;
 public class LocationInventoryController {
     
     private final LocationInventoryService inventoryService;
+    private final UserService userService;
+    private final LocationInventoryRepository inventoryRepository;
     
     /**
      * Get all inventory across all locations (Admin only)
@@ -122,12 +129,32 @@ public class LocationInventoryController {
     
     /**
      * Update location-specific pricing for inventory
+     * SALES users can only update pricing for their assigned location
+     * ADMIN and WAREHOUSE can update pricing for any location
      */
     @PutMapping("/{id}/pricing")
     @PreAuthorize("hasAuthority('manage:inventory')")
-    public ResponseEntity<LocationInventoryDto> updatePricing(
+    public ResponseEntity<?> updatePricing(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> pricing) {
+            @RequestBody Map<String, Object> pricing,
+            org.springframework.security.core.Authentication authentication) {
+        
+        // Check if user has permission to update this inventory location
+        String email = authentication.getName();
+        User user = userService.getUserEntityByEmail(email)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Get the inventory to check its location
+        LocationInventory inventory = inventoryRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Inventory not found"));
+        
+        // SALES users can only update inventory at their assigned location
+        if (user.getRole() == User.UserRole.SALES) {
+            if (user.getLocation() == null || !user.getLocation().getId().equals(inventory.getLocation().getId())) {
+                return ResponseEntity.status(403)
+                    .body(Map.of("error", "You can only update pricing for your assigned location"));
+            }
+        }
         
         java.math.BigDecimal cost = pricing.get("cost") != null ? 
             new java.math.BigDecimal(pricing.get("cost").toString()) : null;

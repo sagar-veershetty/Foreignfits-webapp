@@ -677,10 +677,10 @@ export class AppService {
       description: product.description,
       imageUrls: product.imageUrls,
       locationId: locationId,
-      // Initial pricing for first location
-      cost: Math.round(pricing.cost * 100),
-      salePrice: Math.round(pricing.salePrice * 100),
-      wholesalePrice: pricing.wholesalePrice ? Math.round(pricing.wholesalePrice * 100) : null,
+      // Backend expects BigDecimal in rupees format, no need to multiply by 100
+      cost: pricing.cost,
+      salePrice: pricing.salePrice,
+      wholesalePrice: pricing.wholesalePrice || null,
       wholesaleMinQuantity: pricing.wholesaleMinQuantity || null,
       // Initial stock for first location
       stock: product.stock || 0,
@@ -882,10 +882,11 @@ export class AppService {
       wholesaleMinQuantity?: number;
     }
   ): Observable<any> {
+    // Backend expects BigDecimal in rupees format, no need to multiply by 100
     const request = {
-      cost: Math.round(pricing.cost * 100),
-      salePrice: Math.round(pricing.salePrice * 100),
-      wholesalePrice: pricing.wholesalePrice ? Math.round(pricing.wholesalePrice * 100) : null,
+      cost: pricing.cost,
+      salePrice: pricing.salePrice,
+      wholesalePrice: pricing.wholesalePrice || null,
       wholesaleMinQuantity: pricing.wholesaleMinQuantity || null,
     };
 
@@ -915,9 +916,10 @@ export class AppService {
       minStock: apiInv.minStock,
       maxStock: apiInv.maxStock,
       reorderPoint: apiInv.reorderPoint,
-      cost: apiInv.cost ? apiInv.cost / 100 : 0,
-      salePrice: apiInv.salePrice ? apiInv.salePrice / 100 : 0,
-      wholesalePrice: apiInv.wholesalePrice ? apiInv.wholesalePrice / 100 : null,
+      // Backend sends BigDecimal in rupees format, no need to divide by 100
+      cost: apiInv.cost || 0,
+      salePrice: apiInv.salePrice || 0,
+      wholesalePrice: apiInv.wholesalePrice || null,
       wholesaleMinQuantity: apiInv.wholesaleMinQuantity || null,
       createdAt: new Date(apiInv.createdAt),
       updatedAt: new Date(apiInv.updatedAt),

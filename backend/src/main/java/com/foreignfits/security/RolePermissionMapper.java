@@ -117,6 +117,7 @@ public class RolePermissionMapper {
      * Sales staff can create sales, view products, view sales history
      * Can approve incoming stock transfers to their location
      * Can access loyalty program features
+     * Can manage inventory/pricing at their assigned store location
      * Restricted to their assigned store location
      */
     private Set<String> getSalesPermissions() {
@@ -124,6 +125,7 @@ public class RolePermissionMapper {
             // Products (read-only)
             Permission.VIEW_PRODUCTS.getPermission(),
             Permission.VIEW_INVENTORY.getPermission(),
+            Permission.MANAGE_INVENTORY.getPermission(), // Sales can manage inventory at their location
             
             // Sales
             Permission.VIEW_SALES.getPermission(),

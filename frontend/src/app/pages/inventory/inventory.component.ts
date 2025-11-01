@@ -238,9 +238,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
   openEditModal(item: LocationInventoryItem): void {
     this.editingItem.set(item);
     this.editForm.set({
-      cost: item.cost / 100,
-      salePrice: item.salePrice / 100,
-      wholesalePrice: item.wholesalePrice ? item.wholesalePrice / 100 : 0,
+      // Values are already in rupees from backend, no need to divide
+      cost: item.cost,
+      salePrice: item.salePrice,
+      wholesalePrice: item.wholesalePrice || 0,
       wholesaleMinQuantity: item.wholesaleMinQuantity || 0,
       minStock: item.minStock,
       maxStock: item.maxStock,
