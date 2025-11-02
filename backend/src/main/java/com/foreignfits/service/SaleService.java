@@ -51,6 +51,8 @@ public class SaleService {
     }
     
     public SaleDto createSale(CreateSaleRequest request, Long soldById) {
+        System.out.println("Creating sale with salesPersonName: " + request.getSalesPersonName());
+        
         User soldBy = userRepository.findById(soldById)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + soldById));
         
@@ -161,6 +163,7 @@ public class SaleService {
         sale.setCustomerEmail(request.getCustomerEmail());
         sale.setCustomerPhone(request.getCustomerPhone());
         sale.setCustomerCountryCode(request.getCustomerCountryCode());
+        sale.setSalesPersonName(request.getSalesPersonName()); // ✅ Set the sales person name
         sale.setSoldBy(soldBy);
         sale.setLocation(saleLocation); // ✅ Set the location where sale was made
         
@@ -339,6 +342,7 @@ public class SaleService {
         dto.setPointsEarned(sale.getPointsEarned());
         dto.setPointsRedeemed(sale.getPointsRedeemed());
         dto.setDiscountFromPoints(sale.getDiscountFromPoints());
+        dto.setSalesPersonName(sale.getSalesPersonName());
         dto.setCreatedAt(sale.getCreatedAt());
         
         // Convert sold by user

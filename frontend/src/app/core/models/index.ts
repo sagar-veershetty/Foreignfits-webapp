@@ -136,6 +136,7 @@ export interface Sale {
   customerEmail?: string;
   customerPhone?: string;
   customerCountryCode?: string;
+  salesPersonName?: string;
   soldBy: string;
   soldById: string;
   location: Location;

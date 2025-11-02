@@ -26,6 +26,7 @@ export class SalesComponent implements OnInit {
   customerName = '';
   customerPhone = '';
   customerCountryCode = '+91'; // Default to India
+  salesPersonName = ''; // Sales person who assisted with the sale
   paymentMethod: 'cash' | 'card' | 'other' = 'cash';
   completedSale: Sale | null = null;
   showSuccessMessage = false;
@@ -301,7 +302,7 @@ export class SalesComponent implements OnInit {
       return;
     }
 
-    const saleData = {
+    const saleData: any = {
       locationId: parseInt(user.locationId), // NEW: Required for new schema
       paymentMethod: this.paymentMethod,
       customerName: this.customerName,
@@ -310,6 +311,13 @@ export class SalesComponent implements OnInit {
       pointsRedeemed: this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
       discountFromPoints: this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
     };
+
+    // Add salesPersonName only if it has a value
+    if (this.salesPersonName && this.salesPersonName.trim()) {
+      saleData.salesPersonName = this.salesPersonName.trim();
+    }
+
+    console.log('Sale Data being sent:', saleData);
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
@@ -342,6 +350,7 @@ export class SalesComponent implements OnInit {
         this.customerName = '';
         this.customerPhone = '';
         this.customerCountryCode = '+91';
+        this.salesPersonName = '';
         this.barcodeInput = '';
         this.loyaltyCustomer = null;
         this.pointsToEarn = null;

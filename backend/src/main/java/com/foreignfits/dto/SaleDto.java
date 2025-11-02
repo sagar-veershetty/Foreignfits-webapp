@@ -26,6 +26,7 @@ public class SaleDto {
     private Integer pointsEarned;
     private Integer pointsRedeemed;
     private BigDecimal discountFromPoints;
+    private String salesPersonName;
     private UserDto soldBy;
     private LocationDto location;
     private LocalDateTime createdAt;
@@ -69,6 +70,9 @@ public class SaleDto {
     
     public BigDecimal getDiscountFromPoints() { return discountFromPoints; }
     public void setDiscountFromPoints(BigDecimal discountFromPoints) { this.discountFromPoints = discountFromPoints; }
+    
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
     
     public UserDto getSoldBy() { return soldBy; }
     public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }

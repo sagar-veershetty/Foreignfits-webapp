@@ -131,6 +131,21 @@
             </div>
           </div>
 
+          <div>
+            <label class="block text-sm font-medium mb-1">
+              Sales Person Name (Optional)
+              <span class="text-xs text-gray-500 font-normal ml-1">- For incentive tracking</span>
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="salesPersonName" 
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+              placeholder="Enter sales person name" 
+              maxlength="100"
+            />
+            <p class="text-xs text-gray-500 mt-1">Track which team member assisted with this sale</p>
+          </div>
+
           <!-- Loyalty Info -->
           <div *ngIf="isLoadingLoyalty" class="text-sm text-blue-600">Loading loyalty info...</div>
           
@@ -189,6 +204,7 @@
 
 <!-- Receipt Modal -->
 <app-print-receipt *ngIf="showReceiptModal && receiptData" 
-                   [receipt]="receiptData" 
+                   [receipt]="receiptData"
+                   [show]="showReceiptModal"
                    (close)="onReceiptModalClose()">
 </app-print-receipt>

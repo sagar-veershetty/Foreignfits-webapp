@@ -72,6 +72,9 @@ public class Sale {
     @Column(name = "discount_from_points", precision = 12, scale = 2)
     private BigDecimal discountFromPoints;
     
+    @Column(name = "sales_person_name", length = 100)
+    private String salesPersonName;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sold_by_id", nullable = false)
     private User soldBy;
@@ -128,6 +131,9 @@ public class Sale {
     
     public BigDecimal getDiscountFromPoints() { return discountFromPoints; }
     public void setDiscountFromPoints(BigDecimal discountFromPoints) { this.discountFromPoints = discountFromPoints; }
+    
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
     
     public User getSoldBy() { return soldBy; }
     public void setSoldBy(User soldBy) { this.soldBy = soldBy; }

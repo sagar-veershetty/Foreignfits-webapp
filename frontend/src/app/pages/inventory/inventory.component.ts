@@ -141,15 +141,18 @@ export class InventoryComponent implements OnInit, OnDestroy {
           const locs = state.locations || [];
 
           if (isAdmin) {
-            // Admin: Load selected location or first available
+            // Admin: Load selected location or "all" by default
             const locationId = this.selectedLocationId();
             if (locationId) {
-              this.loadLocationInventory(parseInt(locationId));
-            } else if (locs.length > 0) {
-              this.selectedLocationId.set(locs[0].id);
-              this.loadLocationInventory(parseInt(locs[0].id));
+              if (locationId === 'all') {
+                this.loadAllInventory();
+              } else {
+                this.loadLocationInventory(parseInt(locationId));
+              }
             } else {
-              this.isLoading.set(false);
+              // Default to "all" for admin
+              this.selectedLocationId.set('all');
+              this.loadAllInventory();
             }
           } else if (currentUser?.locationId) {
             // Regular user: Load only their location
@@ -206,6 +209,41 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadAllInventory(): void {
+    this.isLoading.set(true);
+    console.log('Loading inventory for all locations');
+    this.appService.getAllLocationInventory().subscribe({
+      next: (inventory: any) => {
+        console.log('Received all inventory data:', inventory);
+        const productsMap = new Map(this.products().map(p => [p.sku, p]));
+        const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
+          id: inv.id?.toString() || '',
+          locationId: inv.locationId?.toString() || '',
+          locationName: inv.locationName || '',
+          productSku: inv.productSku || '',
+          productName: inv.productName || '',
+          quantity: inv.quantity || 0,
+          minStock: inv.minStock || 0,
+          maxStock: inv.maxStock || 0,
+          reorderPoint: inv.reorderPoint || 0,
+          cost: inv.cost || 0,
+          salePrice: inv.salePrice || 0,
+          wholesalePrice: inv.wholesalePrice || null,
+          wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
+          product: productsMap.get(inv.productSku)
+        }));
+        console.log('Mapped all inventory items:', items);
+        this.locationInventory.set(items);
+        this.isLoading.set(false);
+      },
+      error: (error: any) => {
+        console.error('Failed to load all inventory:', error);
+        this.locationInventory.set([]);
+        this.isLoading.set(false);
+      }
+    });
+  }
+
   setupLocationAutoSelect(): void {
     setTimeout(() => {
       const currentUser = this.authService.getCurrentUser();
@@ -215,10 +253,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
         this.selectedLocationId.set(currentUser.locationId);
         this.loadLocationInventory(parseInt(currentUser.locationId));
       } else if (isAdmin) {
-        const locs = this.locations();
-        if (locs.length > 0 && !this.selectedLocationId()) {
-          this.selectedLocationId.set(locs[0].id);
-          this.loadLocationInventory(parseInt(locs[0].id));
+        // Default to "all" locations for admins if not already selected
+        if (!this.selectedLocationId()) {
+          this.selectedLocationId.set('all');
+          this.loadAllInventory();
         }
       }
     }, 500);
@@ -227,7 +265,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
   onLocationChange(): void {
     const locationId = this.selectedLocationId();
     if (locationId) {
-      this.loadLocationInventory(parseInt(locationId));
+      if (locationId === 'all') {
+        this.loadAllInventory();
+      } else {
+        this.loadLocationInventory(parseInt(locationId));
+      }
     }
   }
 
@@ -237,15 +279,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   canGenerateBarcodes(): boolean {
     const user = this.authService.getCurrentUser();
+    // ADMIN and WAREHOUSE can generate barcodes for bulk printing
+    // But not in STORE locations (barcodes should be generated at warehouse)
     const userHasPermission = user?.role === 'admin' || user?.role === 'warehouse';
     
-    // Also check if current location is not a store
     const locationId = this.selectedLocationId();
     const location = this.locations().find(l => l.id === locationId);
     const isNotStore = location?.type !== 'store';
     
-    // ADMIN and WAREHOUSE can generate barcodes, but not in STORE locations
     return userHasPermission && isNotStore;
+  }
+
+  canPrintIndividualBarcode(): boolean {
+    // ADMIN, WAREHOUSE, and SALES users can print individual barcodes
+    // SALES users can print barcodes when prices are updated at their store
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin' || user?.role === 'warehouse' || user?.role === 'sales';
   }
 
   openEditModal(item: LocationInventoryItem): void {
@@ -315,6 +364,25 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return 'Good';
   }
 
+  getLocationBadgeClass(item: LocationInventoryItem): string {
+    const locationId = item.locationId;
+    const location = this.locations().find(l => l.id === locationId);
+    
+    if (!location) {
+      return 'bg-gray-50 text-gray-700'; // Default
+    }
+    
+    // Different colors for different location types
+    switch (location.type.toLowerCase()) {
+      case 'warehouse':
+        return 'bg-purple-50 text-purple-700 border border-purple-200';
+      case 'store':
+        return 'bg-blue-50 text-blue-700 border border-blue-200';
+      default:
+        return 'bg-gray-50 text-gray-700 border border-gray-200';
+    }
+  }
+
   printBarcode(item: LocationInventoryItem): void {
     if (item.product?.id) {
       this.router.navigate(['/print-barcode'], { 
@@ -335,6 +403,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
   // Helper getters for template access
   get currentLocationName(): string {
     const locationId = this.selectedLocationId();
+    if (locationId === 'all') {
+      return 'All Locations';
+    }
     const location = this.locations().find(l => l.id === locationId);
     return location?.name || 'My Location';
   }

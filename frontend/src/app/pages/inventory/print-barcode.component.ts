@@ -712,7 +712,7 @@ export class PrintBarcodeComponent implements OnInit {
               margin: 0 auto;
               display: block;
               background: #fff;
-              border-radius: 6px;
+              border-radius: 0;
               overflow: hidden;
             }
             .barcode-value {

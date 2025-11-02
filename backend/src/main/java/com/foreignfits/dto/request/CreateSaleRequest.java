@@ -40,6 +40,9 @@ public class CreateSaleRequest {
     
     private Integer pointsToRedeem; // Optional: points customer wants to redeem for discount
     
+    @Size(max = 100, message = "Sales person name cannot exceed 100 characters")
+    private String salesPersonName; // Optional: name of the sales person who assisted with the sale
+    
     // Manual getters and setters to ensure compatibility
     public List<SaleItemRequest> getItems() { return items; }
     public void setItems(List<SaleItemRequest> items) { this.items = items; }
@@ -64,4 +67,7 @@ public class CreateSaleRequest {
     
     public Integer getPointsToRedeem() { return pointsToRedeem; }
     public void setPointsToRedeem(Integer pointsToRedeem) { this.pointsToRedeem = pointsToRedeem; }
+    
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
 }

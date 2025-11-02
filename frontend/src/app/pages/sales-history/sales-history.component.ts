@@ -25,6 +25,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   fromDate?: string; // yyyy-MM-dd
   toDate?: string;   // yyyy-MM-dd
   locationFilter: string = 'all'; // Location filter for ADMIN
+  paymentFilter: string = 'all'; // Payment type filter (all, cash, card, other)
   searchQuery: string = ''; // Search by Bill ID
 
   // Sale details modal
@@ -133,6 +134,13 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
           : false;
         
         return billIdMatch || nameMatch || phoneMatch || fullPhoneMatch;
+      });
+    }
+    
+    // Filter by payment type
+    if (this.paymentFilter !== 'all') {
+      sales = sales.filter(sale => {
+        return sale.paymentMethod.toLowerCase() === this.paymentFilter.toLowerCase();
       });
     }
     
