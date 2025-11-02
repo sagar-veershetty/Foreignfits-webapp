@@ -40,6 +40,7 @@ public class SaleService {
     private final LocationRepository locationRepository;
     private final StockTransferRepository stockTransferRepository;
     private final BarcodeService barcodeService;
+    private final BarcodeHistoryService barcodeHistoryService;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST (inclusive)
     
@@ -193,6 +194,23 @@ public class SaleService {
             for (com.foreignfits.entity.Barcode barcode : item.getBarcodes()) {
                 barcode.setStatus("SOLD");
                 barcode.setRemark("Sold in Sale #" + savedSale.getId() + " at " + LocalDateTime.now());
+                
+                // Record barcode sale in history
+                try {
+                    barcodeHistoryService.recordHistory(
+                        barcode,
+                        "SOLD",
+                        saleLocation,
+                        saleLocation,
+                        null,
+                        "SALE",
+                        savedSale.getId(),
+                        "Sold in Sale #" + savedSale.getId(),
+                        soldBy.getEmail()
+                    );
+                } catch (Exception e) {
+                    System.err.println("Failed to record barcode sale history: " + e.getMessage());
+                }
             }
             System.out.println("Marked " + item.getBarcodes().size() + " barcodes as SOLD for product: " + product.getName());
             

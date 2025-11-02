@@ -61,6 +61,26 @@ export interface Barcode {
   createdAt: Date;
 }
 
+export interface BarcodeHistory {
+  id: number;
+  barcodeNumber: string;
+  barcodeId?: number;
+  productSku: string;
+  productName: string;
+  eventType: 'CREATED' | 'TRANSFERRED' | 'SOLD' | 'RETURNED' | 'DAMAGED' | 'LOST';
+  locationId?: number;
+  locationName?: string;
+  fromLocationId?: number;
+  fromLocationName?: string;
+  toLocationId?: number;
+  toLocationName?: string;
+  referenceType?: string;
+  referenceId?: number;
+  notes?: string;
+  performedBy?: string;
+  createdAt: Date;
+}
+
 export interface Location {
   id: string;
   name: string;

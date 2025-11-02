@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, throwError, forkJoin, of, interval, Subscription } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { catchError, tap, map } from 'rxjs/operators';
-import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment } from '../models';
+import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment, BarcodeHistory } from '../models';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { Barcode } from '../models';
@@ -213,6 +213,34 @@ export class AppService {
 
   updateBarcodeRemark(barcodeId: string, status: string, remark: string): Observable<any> {
     return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}`, { status, remark });
+  }
+
+  // Barcode History Methods
+  getBarcodeHistory(params?: {
+    barcodeNumber?: string;
+    locationId?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Observable<BarcodeHistory[]> {
+    let queryParams = new HttpParams();
+    if (params?.barcodeNumber) {
+      queryParams = queryParams.set('barcodeNumber', params.barcodeNumber);
+    }
+    if (params?.locationId) {
+      queryParams = queryParams.set('locationId', params.locationId.toString());
+    }
+    if (params?.startDate) {
+      queryParams = queryParams.set('startDate', params.startDate);
+    }
+    if (params?.endDate) {
+      queryParams = queryParams.set('endDate', params.endDate);
+    }
+    
+    return this.http.get<BarcodeHistory[]>(`${this.API_BASE_URL}/barcode-history`, { params: queryParams });
+  }
+
+  getBarcodeHistoryForBarcode(barcodeNumber: string): Observable<BarcodeHistory[]> {
+    return this.http.get<BarcodeHistory[]>(`${this.API_BASE_URL}/barcode-history/barcode/${barcodeNumber}`);
   }
 
   private loadLocations(): Observable<Location[]> {

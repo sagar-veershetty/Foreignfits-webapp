@@ -59,6 +59,12 @@ export class NavbarComponent {
       iconPath: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
     },
     { 
+      id: 'barcode-history', 
+      label: 'Barcode History', 
+      route: '/barcode-history',
+      iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+    { 
       id: 'approvals', 
       label: 'Approvals', 
       route: '/approvals',
@@ -109,6 +115,11 @@ export class NavbarComponent {
     // Stock Movement - available to users with view stock movements permission
     if (this.authService.canViewStockMovements()) {
       tabs.push(this.tabs.find(t => t.id === 'stock-movement')!);
+    }
+    
+    // Barcode History - available to users with view inventory permission
+    if (this.authService.canViewProducts()) {
+      tabs.push(this.tabs.find(t => t.id === 'barcode-history')!);
     }
     
     // Approvals - available to all authenticated users (role-based filtering inside component)

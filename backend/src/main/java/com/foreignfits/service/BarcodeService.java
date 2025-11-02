@@ -4,7 +4,9 @@ import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.Product;
 import com.foreignfits.repository.BarcodeRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,10 +15,15 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class BarcodeService {
     
     @Autowired
     private BarcodeRepository barcodeRepository;
+    
+    @Autowired
+    @Lazy
+    private BarcodeHistoryService barcodeHistoryService;
     
     /**
      * Generate unique barcodes for a product at a location
@@ -32,7 +39,25 @@ public class BarcodeService {
         for (int i = 0; i < quantity; i++) {
             String barcodeNumber = generateUniqueBarcodeNumber(product);
             Barcode barcode = new Barcode(barcodeNumber, product, location);
-            barcodes.add(barcodeRepository.save(barcode));
+            Barcode savedBarcode = barcodeRepository.save(barcode);
+            barcodes.add(savedBarcode);
+            
+            // Record barcode creation in history
+            try {
+                barcodeHistoryService.recordHistory(
+                    savedBarcode,
+                    "CREATED",
+                    location,
+                    null,
+                    null,
+                    "MANUAL",
+                    null,
+                    "Barcode created for product " + product.getName(),
+                    "System"
+                );
+            } catch (Exception e) {
+                log.error("Failed to record barcode history for creation", e);
+            }
         }
         
         return barcodes;
@@ -92,7 +117,25 @@ public class BarcodeService {
         for (int i = 0; i < quantity; i++) {
             Barcode barcode = availableBarcodes.get(i);
             barcode.setCurrentLocation(toLocation);
-            transferredBarcodes.add(barcodeRepository.save(barcode));
+            Barcode savedBarcode = barcodeRepository.save(barcode);
+            transferredBarcodes.add(savedBarcode);
+            
+            // Record barcode transfer in history
+            try {
+                barcodeHistoryService.recordHistory(
+                    savedBarcode,
+                    "TRANSFERRED",
+                    toLocation,
+                    fromLocation,
+                    toLocation,
+                    "STOCK_MOVEMENT",
+                    null,
+                    String.format("Transferred from %s to %s", fromLocation.getName(), toLocation.getName()),
+                    "System"
+                );
+            } catch (Exception e) {
+                log.error("Failed to record barcode history for transfer", e);
+            }
         }
         
         return transferredBarcodes;
