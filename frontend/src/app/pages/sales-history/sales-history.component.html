@@ -71,6 +71,9 @@
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Bill ID
             </th>
+            <th *ngIf="isAdmin()" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Location
+            </th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Customer
             </th>
@@ -90,7 +93,7 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr *ngIf="getFilteredSales(appState).length === 0">
-            <td colspan="7" class="px-6 py-12 text-center">
+            <td [attr.colspan]="isAdmin() ? 8 : 7" class="px-6 py-12 text-center">
               <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="height: 30px;">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
@@ -109,6 +112,11 @@
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-mono text-purple-600 font-medium">
                 #{{ sale.id.slice(0, 8).toUpperCase() }}
+              </div>
+            </td>
+            <td *ngIf="isAdmin()" class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-700">
+                {{ sale.location?.name || '—' }}
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -143,7 +151,7 @@
         </tbody>
         <tfoot class="bg-gray-50 border-t border-gray-200">
           <tr>
-            <td class="px-6 py-3" colspan="4"></td>
+            <td class="px-6 py-3" [attr.colspan]="isAdmin() ? 5 : 4"></td>
             <td class="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-700">
               {{ getFilteredItemsCount(appState) }} items
             </td>
@@ -217,6 +225,10 @@
         <div class="bg-gray-50 p-3 rounded-lg">
           <p class="text-xs text-gray-500 mb-1">Sold By</p>
           <p class="text-sm font-semibold text-gray-900">{{ selectedSale.soldBy || 'N/A' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Location</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.location?.name || 'N/A' }}</p>
         </div>
       </div>
 

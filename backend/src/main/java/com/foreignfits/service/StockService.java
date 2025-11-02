@@ -294,8 +294,15 @@ public class StockService {
     
     // User-based filtering methods - returns only movements user has access to
     public List<StockMovementDto> getStockMovementsForUser(User user) {
-        // ALL users (including admin) follow the same rule:
-        // See movements at their location OR created by them
+        // ADMIN can see ALL stock movements across all locations
+        if (user.getRole() == User.UserRole.ADMIN) {
+            return stockMovementRepository.findAllByOrderByCreatedAtDesc()
+                    .stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+        }
+        
+        // Other users (SALES, WAREHOUSE) see movements at their location OR created by them
         if (user.getLocation() != null) {
             return stockMovementRepository.findByLocationIdOrCreatedByOrderByCreatedAtDesc(
                     user.getLocation().getId(),
@@ -310,8 +317,15 @@ public class StockService {
     }
     
     public List<StockMovementDto> getPendingStockMovementsForUser(User user) {
-        // ALL users (including admin) follow the same rule:
-        // See pending movements at their location OR created by them
+        // ADMIN can see ALL pending stock movements across all locations
+        if (user.getRole() == User.UserRole.ADMIN) {
+            return stockMovementRepository.findPendingOrderByCreatedAtDesc()
+                    .stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+        }
+        
+        // Other users (SALES, WAREHOUSE) see pending movements at their location OR created by them
         if (user.getLocation() != null) {
             return stockMovementRepository.findPendingByLocationIdOrCreatedByOrderByCreatedAtDesc(
                     user.getLocation().getId(),

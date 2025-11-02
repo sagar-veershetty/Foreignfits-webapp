@@ -161,6 +161,7 @@ public class SaleService {
         sale.setCustomerPhone(request.getCustomerPhone());
         sale.setCustomerCountryCode(request.getCustomerCountryCode());
         sale.setSoldBy(soldBy);
+        sale.setLocation(saleLocation); // ✅ Set the location where sale was made
         
         Sale savedSale = saleRepository.save(sale);
         
@@ -330,6 +331,15 @@ public class SaleService {
             userDto.setEmail(sale.getSoldBy().getEmail());
             userDto.setRole(sale.getSoldBy().getRole());
             dto.setSoldBy(userDto);
+        }
+        
+        // Convert location
+        if (sale.getLocation() != null) {
+            LocationDto locationDto = new LocationDto();
+            locationDto.setId(sale.getLocation().getId());
+            locationDto.setName(sale.getLocation().getName());
+            locationDto.setType(sale.getLocation().getType());
+            dto.setLocation(locationDto);
         }
         
         // Convert sale items

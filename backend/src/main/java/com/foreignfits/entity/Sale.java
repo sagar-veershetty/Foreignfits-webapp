@@ -76,6 +76,11 @@ public class Sale {
     @JoinColumn(name = "sold_by_id", nullable = false)
     private User soldBy;
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = false)
+    @NotNull(message = "Location is required")
+    private Location location;
+    
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -126,6 +131,9 @@ public class Sale {
     
     public User getSoldBy() { return soldBy; }
     public void setSoldBy(User soldBy) { this.soldBy = soldBy; }
+    
+    public Location getLocation() { return location; }
+    public void setLocation(Location location) { this.location = location; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

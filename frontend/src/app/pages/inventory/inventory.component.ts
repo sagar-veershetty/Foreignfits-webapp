@@ -235,6 +235,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return this.authService.hasCrossLocationAccess();
   }
 
+  canGenerateBarcodes(): boolean {
+    const user = this.authService.getCurrentUser();
+    // ADMIN and WAREHOUSE can generate barcodes, but not SALES (store users)
+    return user?.role === 'admin' || user?.role === 'warehouse';
+  }
+
   openEditModal(item: LocationInventoryItem): void {
     this.editingItem.set(item);
     this.editForm.set({

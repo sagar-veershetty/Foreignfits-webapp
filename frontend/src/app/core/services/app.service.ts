@@ -611,6 +611,20 @@ export class AppService {
       customerCountryCode: apiSale.customerCountryCode,
       soldBy: apiSale.soldBy.name,
       soldById: apiSale.soldBy.id.toString(),
+      location: {
+        id: apiSale.location.id.toString(),
+        name: apiSale.location.name,
+        type: apiSale.location.type.toLowerCase(),
+        address: apiSale.location.address || '',
+        city: apiSale.location.city || '',
+        state: apiSale.location.state || '',
+        zipCode: apiSale.location.zipCode || '',
+        phone: apiSale.location.phone,
+        manager: apiSale.location.manager,
+        capacity: apiSale.location.capacity,
+        isActive: apiSale.location.isActive !== false,
+        createdAt: apiSale.location.createdAt ? new Date(apiSale.location.createdAt) : new Date()
+      },
       createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
     };
   }

@@ -118,6 +118,7 @@ export interface Sale {
   customerCountryCode?: string;
   soldBy: string;
   soldById: string;
+  location: Location;
   createdAt: Date;
   pointsEarned?: number;
   pointsRedeemed?: number;

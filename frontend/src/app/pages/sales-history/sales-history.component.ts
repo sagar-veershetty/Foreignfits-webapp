@@ -103,15 +103,15 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     // Filter by user's location for SALES users (they can only see their location's sales)
     if (user?.role === 'sales' && user?.locationId) {
       sales = sales.filter(sale => {
-        // Check if any item in the sale belongs to the user's location
-        return sale.items?.some(item => item.product.locationId === user.locationId);
+        // Check if the sale was made at the user's location
+        return sale.location?.id?.toString() === user.locationId?.toString();
       });
     }
     // Filter by location (ADMIN only - for location dropdown selection)
     else if (this.isAdmin() && this.locationFilter !== 'all') {
       sales = sales.filter(sale => {
-        // Check if any item in the sale belongs to the selected location
-        return sale.items?.some(item => item.product.locationId?.toString() === this.locationFilter);
+        // Check if the sale was made at the selected location
+        return sale.location?.id?.toString() === this.locationFilter;
       });
     }
     

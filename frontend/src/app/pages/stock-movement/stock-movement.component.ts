@@ -88,7 +88,17 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       .subscribe((event: any) => {
         if (event.url.includes('/stock-movement')) {
           console.log('Stock Movement: Refreshing data on navigation');
-          this.loadData();
+          // Force reload from backend to get fresh data
+          this.appService.loadInitialData().subscribe({
+            next: () => {
+              console.log('Stock Movement: Data refreshed successfully');
+              this.loadData();
+            },
+            error: (e) => {
+              console.error('Stock Movement: Failed to refresh data', e);
+              this.loadData(); // Still load from cache if refresh fails
+            }
+          });
         }
       });
     

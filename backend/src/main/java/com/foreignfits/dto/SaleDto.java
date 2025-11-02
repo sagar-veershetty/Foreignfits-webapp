@@ -27,6 +27,7 @@ public class SaleDto {
     private Integer pointsRedeemed;
     private BigDecimal discountFromPoints;
     private UserDto soldBy;
+    private LocationDto location;
     private LocalDateTime createdAt;
     
     // Manual getters and setters to ensure compatibility
@@ -71,6 +72,9 @@ public class SaleDto {
     
     public UserDto getSoldBy() { return soldBy; }
     public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }
+    
+    public LocationDto getLocation() { return location; }
+    public void setLocation(LocationDto location) { this.location = location; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

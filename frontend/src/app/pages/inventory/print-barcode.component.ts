@@ -252,6 +252,7 @@ export class PrintBarcodeComponent implements OnInit {
   productBarcodes: { [productId: string]: Barcode[] } = {}; // Store actual barcodes for each product
   loadingBarcodes: { [productId: string]: boolean } = {}; // Track loading state
   currentUserLocation: any = null;
+  locationInventory: any[] = []; // Store location-specific inventory
   
   ngOnInit() {
     const user = this.authService.getCurrentUser();
@@ -261,6 +262,7 @@ export class PrintBarcodeComponent implements OnInit {
       if (params['productId']) {
         this.directProductId = params['productId'];
         this.directPrintMode = true;
+        console.log('Direct print mode enabled for product:', this.directProductId);
       }
     });
     
@@ -268,14 +270,6 @@ export class PrintBarcodeComponent implements OnInit {
     this.appService.loadInitialData().subscribe({
       next: () => {
         console.log('Products reloaded for print-barcode page');
-        
-        // If in direct print mode, auto-select the product
-        if (this.directPrintMode && this.directProductId) {
-          const product = this.products.find(p => p.id === this.directProductId);
-          if (product) {
-            this.toggleProduct(product);
-          }
-        }
       },
       error: (err) => {
         console.error('Failed to reload products:', err);
@@ -283,22 +277,87 @@ export class PrintBarcodeComponent implements OnInit {
     });
     
     this.appService.appState$.subscribe((state: AppState) => {
-      this.products = state.products || [];
-      this.filterProducts();
+      const allProducts = state.products || [];
+      
+      console.log('=== Print Barcode ngOnInit Debug ===');
+      console.log('User:', user);
+      console.log('User locationId:', user?.locationId);
+      console.log('All products from state:', allProducts.length);
+      console.log('State locations:', state.locations?.length);
+      console.log('Direct print mode:', this.directPrintMode);
+      console.log('Direct product ID:', this.directProductId);
       
       // Get user location from state
       if (user?.locationId && state.locations) {
         this.currentUserLocation = state.locations.find(loc => loc.id === user.locationId!.toString());
-      }
-      
-      // Auto-select product in direct print mode after products are loaded
-      if (this.directPrintMode && this.directProductId && this.selectedProducts.length === 0) {
-        const product = this.products.find(p => p.id === this.directProductId);
-        if (product) {
-          this.toggleProduct(product);
-        }
+        console.log('Current user location:', this.currentUserLocation);
+        
+        // Load location inventory to get products at this location
+        this.appService.getLocationInventory(parseInt(user.locationId)).subscribe({
+          next: (inventory) => {
+            this.locationInventory = inventory;
+            console.log('Location inventory received:', inventory.length, 'items');
+            
+            // Build products list from location inventory (same approach as inventory page)
+            const productsMap = new Map(allProducts.map(p => [p.sku, p]));
+            console.log('Products map size:', productsMap.size);
+            
+            // Map location inventory to products
+            this.products = inventory
+              .map((inv: any) => {
+                const product = productsMap.get(inv.productSku);
+                if (!product) {
+                  console.log('Product not found for SKU:', inv.productSku);
+                }
+                return product;
+              })
+              .filter((p: any) => p); // Filter out null/undefined
+            
+            console.log('Total location inventory items:', inventory.length);
+            console.log('Products at location:', this.products.length);
+            
+            this.filterProducts();
+            console.log('Filtered products count:', this.filteredProducts.length);
+            
+            // Auto-select product after filtering is complete
+            this.autoSelectProductIfNeeded();
+          },
+          error: (err) => {
+            console.error('Failed to load location inventory:', err);
+            // Fallback: show all products
+            this.products = allProducts;
+            console.log('Fallback: showing all products:', this.products.length);
+            this.filterProducts();
+            
+            // Auto-select product even if inventory loading failed
+            this.autoSelectProductIfNeeded();
+          }
+        });
+      } else {
+        // Admin without location filter, show all products
+        console.log('No user location - showing all products');
+        this.products = allProducts;
+        console.log('All products:', this.products.length);
+        this.filterProducts();
+        
+        // Auto-select product after filtering
+        this.autoSelectProductIfNeeded();
       }
     });
+  }
+  
+  // Helper method to auto-select product in direct print mode
+  private autoSelectProductIfNeeded(): void {
+    if (this.directPrintMode && this.directProductId && this.selectedProducts.length === 0) {
+      console.log('Attempting to auto-select product:', this.directProductId);
+      const product = this.products.find(p => p.id === this.directProductId);
+      if (product) {
+        console.log('Product found, selecting:', product.name);
+        this.toggleProduct(product);
+      } else {
+        console.warn('Product not found with ID:', this.directProductId);
+      }
+    }
   }
 
   productPrices: { [productId: string]: number } = {}; // Store sale prices for each product
@@ -357,11 +416,25 @@ export class PrintBarcodeComponent implements OnInit {
 
   filterProducts() {
     const term = this.searchTerm.trim().toLowerCase();
-    this.filteredProducts = this.products.filter((p: any) =>
-      p.name?.toLowerCase().includes(term) ||
-      p.sku?.toLowerCase().includes(term) ||
-      (p.barcode && p.barcode.includes(term))
-    );
+    
+    console.log('=== Filter Products Debug ===');
+    console.log('Total products:', this.products.length);
+    console.log('Search term:', term);
+    
+    // Filter products based on search term only
+    // (approval and location filtering already done when building products list)
+    this.filteredProducts = this.products.filter((p: any) => {
+      // Check if product matches search term (or show all if no search term)
+      if (!term) {
+        return true;
+      }
+      
+      return p.name?.toLowerCase().includes(term) ||
+        p.sku?.toLowerCase().includes(term) ||
+        (p.barcode && p.barcode.includes(term));
+    });
+    
+    console.log('Filtered products:', this.filteredProducts.length);
   }
   searchTerm: string = '';
   onSearchChange() {
