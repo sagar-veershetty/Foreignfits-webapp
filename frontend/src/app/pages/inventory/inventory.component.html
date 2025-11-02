@@ -167,7 +167,7 @@
             Edit Pricing
           </button>
           <button 
-            *ngIf="item.product"
+            *ngIf="item.product && canGenerateBarcodes()"
             (click)="printBarcode(item)"
             class="px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -237,8 +237,15 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   canGenerateBarcodes(): boolean {
     const user = this.authService.getCurrentUser();
-    // ADMIN and WAREHOUSE can generate barcodes, but not SALES (store users)
-    return user?.role === 'admin' || user?.role === 'warehouse';
+    const userHasPermission = user?.role === 'admin' || user?.role === 'warehouse';
+    
+    // Also check if current location is not a store
+    const locationId = this.selectedLocationId();
+    const location = this.locations().find(l => l.id === locationId);
+    const isNotStore = location?.type !== 'store';
+    
+    // ADMIN and WAREHOUSE can generate barcodes, but not in STORE locations
+    return userHasPermission && isNotStore;
   }
 
   openEditModal(item: LocationInventoryItem): void {

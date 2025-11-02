@@ -51,9 +51,17 @@ public class BarcodeHistoryController {
                 if (role == User.UserRole.ADMIN) {
                     history = barcodeHistoryService.getHistoryByBarcodeNumber(barcodeNumber);
                 } else {
-                    // Warehouse/Store can only see history if barcode was at their location
+                    // Warehouse/Store can see complete history if barcode is/was at their location
                     Long filterLocationId = locationId != null ? locationId : userLocationId;
-                    history = barcodeHistoryService.getHistoryByBarcodeNumberAndLocation(barcodeNumber, filterLocationId);
+                    List<BarcodeHistoryDto> locationSpecificHistory = 
+                        barcodeHistoryService.getHistoryByBarcodeNumberAndLocation(barcodeNumber, filterLocationId);
+                    
+                    // If barcode touched this location, show complete history
+                    if (!locationSpecificHistory.isEmpty()) {
+                        history = barcodeHistoryService.getHistoryByBarcodeNumber(barcodeNumber);
+                    } else {
+                        history = locationSpecificHistory; // Empty list
+                    }
                 }
             }
             // If date range is specified
@@ -73,9 +81,10 @@ public class BarcodeHistoryController {
                 if (role == User.UserRole.ADMIN) {
                     history = barcodeHistoryService.getAllHistory();
                 } else {
-                    // Warehouse/Store see only their location's history
+                    // Warehouse/Store see complete history for all barcodes at their location
+                    // This includes creation and all transfers even from other locations
                     Long filterLocationId = locationId != null ? locationId : userLocationId;
-                    history = barcodeHistoryService.getHistoryByLocation(filterLocationId);
+                    history = barcodeHistoryService.getCompleteHistoryForBarcodesAtLocation(filterLocationId);
                 }
             }
             

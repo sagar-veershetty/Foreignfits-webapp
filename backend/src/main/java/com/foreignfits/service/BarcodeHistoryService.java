@@ -121,6 +121,31 @@ public class BarcodeHistoryService {
             .collect(Collectors.toList());
     }
     
+    /**
+     * Get complete history for all barcodes currently at a location
+     * This includes creation history and all transfer history even if from other locations
+     */
+    @Transactional(readOnly = true)
+    public List<BarcodeHistoryDto> getCompleteHistoryForBarcodesAtLocation(Long locationId) {
+        // Get all history records where the barcode touched this location
+        List<BarcodeHistory> locationHistory = barcodeHistoryRepository.findByAnyLocationId(locationId);
+        
+        // Extract unique barcode numbers
+        List<String> barcodeNumbers = locationHistory.stream()
+            .map(BarcodeHistory::getBarcodeNumber)
+            .distinct()
+            .collect(Collectors.toList());
+        
+        // For each barcode, get complete history
+        return barcodeNumbers.stream()
+            .flatMap(barcodeNumber -> 
+                barcodeHistoryRepository.findByBarcodeNumberOrderByCreatedAtDesc(barcodeNumber).stream()
+            )
+            .map(this::toDto)
+            .distinct() // Remove any duplicates
+            .collect(Collectors.toList());
+    }
+    
     private BarcodeHistoryDto toDto(BarcodeHistory history) {
         BarcodeHistoryDto dto = new BarcodeHistoryDto();
         dto.setId(history.getId());

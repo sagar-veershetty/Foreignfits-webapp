@@ -485,8 +485,8 @@ export class PrintBarcodeComponent implements OnInit {
   showSKU = true;
   showSize = true;
   showColor = true;
-  showCategory = false;
-  showBarcodeNumber = false; // NEW: Show barcode number on sticker
+  showCategory = true;
+  showBarcodeNumber = true; // Show barcode number on sticker
   directPrintMode = false; // NEW: Direct print mode (no product selection UI)
   directProductId: string | null = null; // NEW: Product ID for direct print
   router = inject(Router);
