@@ -251,6 +251,7 @@ export class PrintBarcodeComponent implements OnInit {
   route = inject(ActivatedRoute);
   productBarcodes: { [productId: string]: Barcode[] } = {}; // Store actual barcodes for each product
   loadingBarcodes: { [productId: string]: boolean } = {}; // Track loading state
+  barcodeTransferStatuses: { [productId: string]: any[] } = {}; // Store transfer status for each product
   currentUserLocation: any = null;
   locationInventory: any[] = []; // Store location-specific inventory
   
@@ -395,6 +396,17 @@ export class PrintBarcodeComponent implements OnInit {
             this.productPrices[product.id] = 0;
           }
         });
+        
+        // Load transfer statuses for the barcodes
+        this.appService.getBarcodeTransferStatus(product.id, this.currentUserLocation.id).subscribe({
+          next: (statuses: any[]) => {
+            this.barcodeTransferStatuses[product.id] = statuses;
+          },
+          error: (err) => {
+            console.error('Failed to load transfer statuses for product', product.sku, err);
+            this.barcodeTransferStatuses[product.id] = [];
+          }
+        });
       },
       error: (err) => {
         console.error('Failed to load barcodes for product', product.sku, err);
@@ -412,6 +424,65 @@ export class PrintBarcodeComponent implements OnInit {
   getInactiveBarcodeCount(productId: string): number {
     const barcodes = this.productBarcodes[productId];
     return barcodes ? barcodes.filter(b => b.status !== 'ACTIVE').length : 0;
+  }
+
+  getPendingTransferCount(productId: string): number {
+    const statuses = this.barcodeTransferStatuses[productId];
+    return statuses ? statuses.filter(s => s.status === 'PENDING_TRANSFER').length : 0;
+  }
+
+  getPendingTransferInfo(productId: string): string {
+    const statuses = this.barcodeTransferStatuses[productId];
+    if (!statuses) return '';
+    
+    const pendingStatuses = statuses.filter(s => s.status === 'PENDING_TRANSFER');
+    if (pendingStatuses.length === 0) return '';
+    
+    // Group by destination location
+    const destinations = new Map<string, number>();
+    pendingStatuses.forEach(s => {
+      const dest = s.pendingTransferTo || 'Unknown';
+      destinations.set(dest, (destinations.get(dest) || 0) + 1);
+    });
+    
+    // Build display string
+    const parts: string[] = [];
+    destinations.forEach((count, dest) => {
+      parts.push(`${count} to ${dest}`);
+    });
+    
+    return parts.join(', ');
+  }
+
+  getBarcodeTransferStatus(productId: string, barcodeNumber: string): string {
+    const statuses = this.barcodeTransferStatuses[productId];
+    if (!statuses) return '';
+    
+    const status = statuses.find(s => s.barcodeNumber === barcodeNumber);
+    if (!status || status.status !== 'PENDING_TRANSFER') return '';
+    
+    return `In Transfer to ${status.pendingTransferTo}`;
+  }
+
+  getAvailableBarcodeCount(productId: string): number {
+    const barcodes = this.productBarcodes[productId];
+    if (!barcodes) return 0;
+    
+    const transferStatuses = this.barcodeTransferStatuses[productId] || [];
+    
+    // Count ACTIVE barcodes, optionally excluding those in pending transfer
+    return barcodes.filter(b => {
+      if (b.status !== 'ACTIVE') return false;
+      
+      // If excludeInTransferBarcodes is enabled, filter out barcodes in pending transfer
+      if (this.excludeInTransferBarcodes) {
+        const status = transferStatuses.find(s => s.barcodeNumber === b.barcodeNumber);
+        return !status || status.status !== 'PENDING_TRANSFER';
+      }
+      
+      // Otherwise, count all active barcodes
+      return true;
+    }).length;
   }
 
   filterProducts() {
@@ -487,6 +558,7 @@ export class PrintBarcodeComponent implements OnInit {
   showColor = true;
   showCategory = true;
   showBarcodeNumber = true; // Show barcode number on sticker
+  excludeInTransferBarcodes = true; // Exclude barcodes in pending transfer from print
   directPrintMode = false; // NEW: Direct print mode (no product selection UI)
   directProductId: string | null = null; // NEW: Product ID for direct print
   router = inject(Router);
@@ -508,9 +580,23 @@ export class PrintBarcodeComponent implements OnInit {
       
       // Get actual barcodes from database for this product
       const productBarcodes = this.productBarcodes[product.id] || [];
-      const activeBarcodes = productBarcodes.filter(b => b.status === 'ACTIVE');
       
-      // Use the quantity specified or the number of active barcodes available
+      // Filter barcodes based on status and transfer setting
+      const transferStatuses = this.barcodeTransferStatuses[product.id] || [];
+      const activeBarcodes = productBarcodes.filter(b => {
+        if (b.status !== 'ACTIVE') return false;
+        
+        // If excludeInTransferBarcodes is enabled, filter out barcodes in pending transfer
+        if (this.excludeInTransferBarcodes) {
+          const status = transferStatuses.find(s => s.barcodeNumber === b.barcodeNumber);
+          return !status || status.status !== 'PENDING_TRANSFER';
+        }
+        
+        // Otherwise, include all active barcodes
+        return true;
+      });
+      
+      // Use the quantity specified or the number of available barcodes
       const quantityToPrint = Math.min(
         this.productQuantities[product.id] || 1,
         activeBarcodes.length

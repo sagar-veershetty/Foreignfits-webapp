@@ -3,6 +3,7 @@ package com.foreignfits.controller;
 import com.foreignfits.dto.StockTransferDto;
 import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateStockTransferRequest;
+import com.foreignfits.dto.request.CreateBarcodeTransferRequest;
 import com.foreignfits.entity.StockTransfer;
 import com.foreignfits.entity.User;
 import com.foreignfits.security.JwtTokenProvider;
@@ -27,6 +28,41 @@ public class StockTransferController {
     private final StockTransferService stockTransferService;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserService userService;
+    
+    /**
+     * Validate a single barcode for transfer
+     * Returns detailed validation result with current status
+     * Accessible by: Warehouse, Sales
+     */
+    @GetMapping("/validate-barcode")
+    @PreAuthorize("hasAuthority('request:stock_transfer')")
+    public ResponseEntity<?> validateBarcode(
+            @RequestParam String barcodeNumber,
+            @RequestParam Long fromLocationId,
+            Authentication authentication) {
+        try {
+            // Get current user to check location restrictions
+            String email = authentication.getName();
+            UserDto currentUser = userService.getUserByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // Validate user can transfer from this location
+            if ((currentUser.getRole() == User.UserRole.WAREHOUSE || currentUser.getRole() == User.UserRole.SALES) 
+                && currentUser.getLocationId() != null) {
+                if (!fromLocationId.equals(currentUser.getLocationId())) {
+                    return ResponseEntity.badRequest()
+                            .body("You can only validate barcodes from your assigned location");
+                }
+            }
+            
+            com.foreignfits.dto.response.BarcodeValidationResult result = 
+                stockTransferService.validateSingleBarcode(barcodeNumber, fromLocationId);
+            
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
     
     /**
      * Create a new stock transfer request
@@ -59,6 +95,50 @@ public class StockTransferController {
             // Create PENDING transfer with TRANSFER movement (requires destination approval)
             StockTransferDto transfer = stockTransferService.createTransfer(request, userId);
             return ResponseEntity.status(HttpStatus.CREATED).body(transfer);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+    
+    /**
+     * Create a barcode-based stock transfer request
+     * Used by warehouse and store users who scan barcodes
+     * Accessible by: Warehouse, Sales
+     */
+    @PostMapping("/barcodes")
+    @PreAuthorize("hasAuthority('request:stock_transfer')")
+    public ResponseEntity<?> createBarcodeTransfer(
+            @Valid @RequestBody CreateBarcodeTransferRequest request,
+            @RequestHeader("Authorization") String token,
+            Authentication authentication) {
+        try {
+            String jwt = token.substring(7);
+            Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
+            
+            // Get current user to check location restrictions
+            String email = authentication.getName();
+            UserDto currentUser = userService.getUserByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            
+            // WAREHOUSE/SALES users can only transfer FROM their assigned location
+            if ((currentUser.getRole() == User.UserRole.WAREHOUSE || currentUser.getRole() == User.UserRole.SALES) 
+                && currentUser.getLocationId() != null) {
+                if (!request.getFromLocationId().equals(currentUser.getLocationId())) {
+                    return ResponseEntity.badRequest()
+                            .body("You can only transfer products FROM your assigned location: " + 
+                                  currentUser.getLocationName());
+                }
+            }
+            
+            // Create transfer based on scanned barcodes
+            com.foreignfits.dto.response.BarcodeValidationResult result = 
+                stockTransferService.createBarcodeTransfer(request, userId);
+            
+            if (result.isSuccess()) {
+                return ResponseEntity.status(HttpStatus.CREATED).body(result);
+            } else {
+                return ResponseEntity.badRequest().body(result);
+            }
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
