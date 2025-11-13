@@ -10,17 +10,21 @@ import com.foreignfits.entity.LocationInventory;
 import com.foreignfits.entity.Product;
 import com.foreignfits.entity.StockMovement;
 import com.foreignfits.entity.StockTransfer;
+import com.foreignfits.entity.TransferBarcode;
 import com.foreignfits.entity.User;
+import com.foreignfits.repository.BarcodeRepository;
 import com.foreignfits.repository.LocationInventoryRepository;
 import com.foreignfits.repository.LocationRepository;
 import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.repository.StockMovementRepository;
 import com.foreignfits.repository.StockTransferRepository;
+import com.foreignfits.repository.TransferBarcodeRepository;
 import com.foreignfits.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,6 +40,9 @@ public class StockService {
     private final StockTransferRepository stockTransferRepository;
     private final UserRepository userRepository;
     private final BarcodeService barcodeService;
+    private final TransferBarcodeRepository transferBarcodeRepository;
+    private final BarcodeRepository barcodeRepository;
+    private final BarcodeHistoryService barcodeHistoryService;
     
     public StockMovementDto adjustStock(StockAdjustmentRequest request, String createdBy) {
         Product product = productRepository.findById(request.getProductId())
@@ -232,18 +239,54 @@ public class StockService {
             // Transfer barcodes from source to destination location
             try {
                 if (fromLocation != null && toLocation != null) {
-                    List<Barcode> transferredBarcodes = barcodeService.transferBarcodes(
-                        product,
-                        fromLocation,
-                        toLocation,
-                        movement.getQuantity()
-                    );
+                    List<Barcode> transferredBarcodes;
+                    
+                    // Check if this is a barcode-based transfer (has specific barcodes in TransferBarcode table)
+                    List<TransferBarcode> specificBarcodes = transferBarcodeRepository
+                            .findByTransferId(movement.getTransfer().getId());
+                    
+                    if (!specificBarcodes.isEmpty()) {
+                        // Transfer the SPECIFIC barcodes that were scanned
+                        transferredBarcodes = new ArrayList<>();
+                        for (TransferBarcode tb : specificBarcodes) {
+                            Barcode barcode = tb.getBarcode();
+                            barcode.setCurrentLocation(toLocation);
+                            barcodeRepository.save(barcode);
+                            transferredBarcodes.add(barcode);
+                            
+                            // Record barcode history for transfer
+                            try {
+                                barcodeHistoryService.recordHistory(
+                                    barcode,
+                                    "TRANSFERRED",
+                                    null,
+                                    fromLocation,
+                                    toLocation,
+                                    "TRANSFER",
+                                    movement.getTransfer().getId(),
+                                    "Barcode-based transfer approved",
+                                    approvedBy
+                                );
+                            } catch (Exception e) {
+                                System.err.println("Warning: Failed to record barcode history: " + e.getMessage());
+                            }
+                        }
+                        System.out.println("Transferred " + transferredBarcodes.size() + " SPECIFIC barcodes from " + 
+                            fromLocation.getName() + " to " + toLocation.getName());
+                    } else {
+                        // Regular quantity-based transfer - transfer any active barcodes
+                        transferredBarcodes = barcodeService.transferBarcodes(
+                            product,
+                            fromLocation,
+                            toLocation,
+                            movement.getQuantity()
+                        );
+                        System.out.println("Transferred " + transferredBarcodes.size() + " barcodes (quantity-based) from " + 
+                            fromLocation.getName() + " to " + toLocation.getName());
+                    }
                     
                     // Associate the transferred barcodes with this movement
                     movement.setBarcodes(transferredBarcodes);
-                    
-                    System.out.println("Transferred " + transferredBarcodes.size() + " barcodes from " + 
-                        fromLocation.getName() + " to " + toLocation.getName());
                 }
             } catch (Exception e) {
                 System.err.println("Warning: Barcode transfer failed: " + e.getMessage());
@@ -276,6 +319,14 @@ public class StockService {
         movement.setRejectionReason(rejectionReason);
         movement.setApprovedBy(rejectedBy); // Track who rejected it
         stockMovementRepository.save(movement);
+        
+        // If this movement has an associated transfer, mark it as CANCELLED
+        // This allows the barcodes to be used in new transfers
+        if (movement.getTransfer() != null) {
+            StockTransfer transfer = movement.getTransfer();
+            transfer.setStatus(StockTransfer.TransferStatus.CANCELLED);
+            stockTransferRepository.save(transfer);
+        }
         
         // Note: Stock is NOT updated for rejected movements
     }

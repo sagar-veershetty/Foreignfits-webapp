@@ -44,7 +44,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     reference: ''
   };
   
-  // Transfer Form
+  // Transfer Form (Admin - quantity-based)
   transferForm = {
     productId: '',
     fromLocationId: '',
@@ -54,6 +54,20 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     reference: '',
     notes: ''
   };
+  
+  // Barcode Transfer Form (Warehouse/Store - barcode-based)
+  barcodeTransferForm = {
+    fromLocationId: '',
+    toLocationId: '',
+    barcodeNumbers: [] as string[],
+    reason: '',
+    reference: '',
+    notes: ''
+  };
+  
+  // Barcode scan input
+  currentBarcodeInput = signal<string>('');
+  scannedBarcodes = signal<Array<{barcode: string, productName?: string, status: 'valid' | 'invalid' | 'pending'}>>([]);
   
   // Signal to track fromLocationId changes for reactive computed
   transferFromLocationId = signal<string>('');
@@ -614,5 +628,219 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       return 'Pending';
     }
     return movement.status === 'APPROVED' ? 'Approved' : 'Rejected';
+  }
+  
+  // Barcode Transfer Methods (for Warehouse/Store users)
+  
+  addBarcode() {
+    const barcodeInput = this.currentBarcodeInput().trim();
+    if (!barcodeInput) {
+      this.errorMessage.set('Please enter a barcode');
+      return;
+    }
+    
+    // Check if barcode already scanned
+    const existing = this.scannedBarcodes().find(b => b.barcode === barcodeInput);
+    if (existing) {
+      this.errorMessage.set('Barcode already added to list');
+      setTimeout(() => this.clearMessages(), 3000);
+      this.currentBarcodeInput.set('');
+      return;
+    }
+    
+    // Get user's location for validation
+    const user = this.currentUser();
+    if (!user?.locationId) {
+      this.errorMessage.set('User location not found');
+      return;
+    }
+    
+    // Validate barcode with backend BEFORE adding to list
+    this.appService.validateBarcodeForTransfer(barcodeInput, parseInt(user.locationId)).subscribe({
+      next: (result: any) => {
+        if (result.success) {
+          // Barcode is valid - lookup product details and add to list
+          this.appService.lookupBarcode(barcodeInput).subscribe({
+            next: (response: any) => {
+              const newBarcodes = [...this.scannedBarcodes(), { 
+                barcode: barcodeInput, 
+                productName: response.productName || response.product?.name || 'Unknown',
+                status: 'valid' as const 
+              }];
+              this.scannedBarcodes.set(newBarcodes);
+              this.successMessage.set('Barcode added successfully');
+              setTimeout(() => this.clearMessages(), 2000);
+            },
+            error: (error) => {
+              console.error('Product lookup error:', error);
+              // Still add it if validation passed, but without product name
+              const newBarcodes = [...this.scannedBarcodes(), { 
+                barcode: barcodeInput, 
+                productName: 'Unknown Product',
+                status: 'valid' as const 
+              }];
+              this.scannedBarcodes.set(newBarcodes);
+            }
+          });
+        } else {
+          // Validation failed - show detailed error message
+          let errorMsg = result.message || 'Barcode validation failed';
+          
+          if (result.errors && result.errors.length > 0) {
+            const error = result.errors[0];
+            
+            // Use the full error message from backend which has complete details
+            if (error.message) {
+              errorMsg = error.message;
+            } else {
+              // Fallback to constructing message if backend doesn't provide it
+              switch (error.errorType) {
+                case 'NOT_FOUND':
+                  errorMsg = `Barcode not found in system`;
+                  break;
+                case 'WRONG_LOCATION':
+                  errorMsg = `Barcode not at your location. Currently at: ${error.currentLocation}`;
+                  break;
+                case 'ALREADY_PENDING':
+                  errorMsg = `Already in pending transfer #${error.pendingTransferId}`;
+                  break;
+                case 'NOT_ACTIVE':
+                  errorMsg = `Barcode is not active`;
+                  break;
+                case 'ALREADY_TRANSFERRED':
+                  errorMsg = `Already transferred to ${error.currentLocation}`;
+                  break;
+                default:
+                  errorMsg = error.message || errorMsg;
+              }
+            }
+          }
+          
+          this.errorMessage.set(errorMsg);
+          setTimeout(() => this.clearMessages(), 5000);
+        }
+      },
+      error: (error) => {
+        console.error('Barcode validation error:', error);
+        const errorMsg = error.error?.message || error.message || 'Failed to validate barcode';
+        this.errorMessage.set(errorMsg);
+        setTimeout(() => this.clearMessages(), 5000);
+      }
+    });
+    
+    this.currentBarcodeInput.set('');
+  }
+  
+  removeBarcode(barcode: string) {
+    this.scannedBarcodes.set(this.scannedBarcodes().filter(b => b.barcode !== barcode));
+  }
+  
+  clearBarcodes() {
+    this.scannedBarcodes.set([]);
+    this.currentBarcodeInput.set('');
+  }
+  
+  submitBarcodeTransfer() {
+    this.clearMessages();
+    
+    const validBarcodes = this.scannedBarcodes().filter(b => b.status === 'valid');
+    
+    if (validBarcodes.length === 0) {
+      this.errorMessage.set('Please scan at least one valid barcode');
+      return;
+    }
+    
+    if (!this.barcodeTransferForm.toLocationId || 
+        !this.barcodeTransferForm.reason || 
+        !this.barcodeTransferForm.reason.trim()) {
+      this.errorMessage.set('Please fill in all required fields');
+      return;
+    }
+    
+    // Set FROM location based on user
+    const user = this.currentUser();
+    if (!user?.locationId) {
+      this.errorMessage.set('User location not found');
+      return;
+    }
+    
+    this.barcodeTransferForm.fromLocationId = user.locationId;
+    
+    if (this.barcodeTransferForm.fromLocationId === this.barcodeTransferForm.toLocationId) {
+      this.errorMessage.set('Source and destination locations must be different');
+      return;
+    }
+    
+    this.isLoading.set(true);
+    
+    // Call new barcode transfer endpoint
+    this.appService.createBarcodeStockTransfer({
+      fromLocationId: parseInt(this.barcodeTransferForm.fromLocationId),
+      toLocationId: parseInt(this.barcodeTransferForm.toLocationId),
+      barcodeNumbers: validBarcodes.map(b => b.barcode),
+      reason: this.barcodeTransferForm.reason,
+      reference: this.barcodeTransferForm.reference || '',
+      notes: this.barcodeTransferForm.notes || ''
+    }).subscribe({
+      next: (result: any) => {
+        this.isLoading.set(false);
+        
+        if (result.success) {
+          this.successMessage.set(`Transfer created successfully with ${validBarcodes.length} barcode(s)!`);
+          this.resetBarcodeTransferForm();
+          
+          setTimeout(() => {
+            this.clearMessages();
+            this.setActiveTab('movements');
+          }, 2000);
+        } else {
+          // Show detailed error messages for each barcode
+          let errorMsg = result.message || 'Some barcodes cannot be transferred';
+          if (result.errors && result.errors.length > 0) {
+            errorMsg += ':\n\n';
+            result.errors.forEach((err: any) => {
+              switch (err.errorType) {
+                case 'ALREADY_PENDING':
+                  errorMsg += `• ${err.barcodeNumber}: Already in pending transfer #${err.pendingTransferId} (${err.currentLocation})\n`;
+                  break;
+                case 'WRONG_LOCATION':
+                  errorMsg += `• ${err.barcodeNumber}: Not at your location (currently at: ${err.currentLocation})\n`;
+                  break;
+                case 'NOT_FOUND':
+                  errorMsg += `• ${err.barcodeNumber}: Barcode not found in system\n`;
+                  break;
+                case 'NOT_ACTIVE':
+                  errorMsg += `• ${err.barcodeNumber}: ${err.message}\n`;
+                  break;
+                default:
+                  errorMsg += `• ${err.barcodeNumber}: ${err.message}\n`;
+              }
+            });
+          }
+          this.errorMessage.set(errorMsg);
+        }
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Failed to create barcode transfer. Please try again.');
+        console.error('Barcode transfer error:', error);
+      }
+    });
+  }
+  
+  resetBarcodeTransferForm() {
+    this.barcodeTransferForm = {
+      fromLocationId: '',
+      toLocationId: '',
+      barcodeNumbers: [],
+      reason: '',
+      reference: '',
+      notes: ''
+    };
+    this.clearBarcodes();
+  }
+  
+  getTotalScannedQuantity(): number {
+    return this.scannedBarcodes().filter(b => b.status === 'valid').length;
   }
 }

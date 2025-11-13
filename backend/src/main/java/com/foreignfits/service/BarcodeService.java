@@ -1,9 +1,12 @@
 package com.foreignfits.service;
 
+import com.foreignfits.dto.BarcodeTransferStatusDto;
 import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.Product;
+import com.foreignfits.entity.TransferBarcode;
 import com.foreignfits.repository.BarcodeRepository;
+import com.foreignfits.repository.TransferBarcodeRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -12,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -20,6 +24,9 @@ public class BarcodeService {
     
     @Autowired
     private BarcodeRepository barcodeRepository;
+    
+    @Autowired
+    private TransferBarcodeRepository transferBarcodeRepository;
     
     @Autowired
     @Lazy
@@ -212,7 +219,52 @@ public class BarcodeService {
             barcode.setRemark("Sold - " + java.time.LocalDateTime.now());
             soldBarcodes.add(barcodeRepository.save(barcode));
         }
-        
+
         return soldBarcodes;
+    }
+    
+    public List<BarcodeTransferStatusDto> getTransferStatusForBarcodes(List<String> barcodeNumbers) {
+        List<BarcodeTransferStatusDto> statuses = new ArrayList<>();
+        
+        for (String barcodeNumber : barcodeNumbers) {
+            Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(barcodeNumber);
+            
+            if (barcodeOpt.isEmpty()) {
+                continue; // Skip non-existent barcodes
+            }
+            
+            Barcode barcode = barcodeOpt.get();
+            BarcodeTransferStatusDto dto = new BarcodeTransferStatusDto();
+            dto.setBarcodeNumber(barcodeNumber);
+            dto.setCurrentLocation(barcode.getCurrentLocation() != null ? 
+                barcode.getCurrentLocation().getName() : null);
+            
+            // Check if barcode is SOLD
+            if ("SOLD".equals(barcode.getStatus())) {
+                dto.setStatus("SOLD");
+                statuses.add(dto);
+                continue;
+            }
+            
+            // Check if barcode is in a pending transfer
+            Optional<TransferBarcode> pendingTransferOpt = 
+                transferBarcodeRepository.findPendingTransferByBarcodeNumber(barcodeNumber);
+            
+            if (pendingTransferOpt.isPresent()) {
+                TransferBarcode transferBarcode = pendingTransferOpt.get();
+                dto.setStatus("PENDING_TRANSFER");
+                dto.setPendingTransferId(transferBarcode.getTransfer().getId());
+                dto.setPendingTransferFrom(transferBarcode.getTransfer().getFromLocation().getName());
+                dto.setPendingTransferTo(transferBarcode.getTransfer().getToLocation().getName());
+            } else if ("ACTIVE".equals(barcode.getStatus())) {
+                dto.setStatus("AVAILABLE");
+            } else {
+                dto.setStatus("TRANSFERRED"); // For any other status
+            }
+            
+            statuses.add(dto);
+        }
+        
+        return statuses;
     }
 }

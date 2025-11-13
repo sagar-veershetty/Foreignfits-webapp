@@ -3,6 +3,7 @@ package com.foreignfits.controller;
 import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.Product;
+import com.foreignfits.repository.BarcodeRepository;
 import com.foreignfits.repository.LocationRepository;
 import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.service.BarcodeService;
@@ -25,6 +26,7 @@ public class BarcodeController {
     private final BarcodeService barcodeService;
     private final ProductRepository productRepository;
     private final LocationRepository locationRepository;
+    private final BarcodeRepository barcodeRepository;
     
     /**
      * Get all barcodes for a product at a specific location
@@ -149,5 +151,30 @@ public class BarcodeController {
         response.put("remark", barcode.getRemark());
         
         return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get transfer status for barcodes of a product at a location
+     */
+    @GetMapping("/transfer-status/product/{productId}/location/{locationId}")
+    @PreAuthorize("hasAnyAuthority('view:inventory', 'view:products')")
+    public ResponseEntity<?> getBarcodeTransferStatus(
+            @PathVariable Long productId,
+            @PathVariable Long locationId
+    ) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+        
+        Location location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
+        
+        // Get all barcodes for this product at this location
+        List<Barcode> barcodes = barcodeRepository.findByProductAndCurrentLocation(product, location);
+        
+        List<String> barcodeNumbers = barcodes.stream()
+                .map(Barcode::getBarcodeNumber)
+                .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(barcodeService.getTransferStatusForBarcodes(barcodeNumbers));
     }
 }

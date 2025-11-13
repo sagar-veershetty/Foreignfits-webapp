@@ -518,7 +518,7 @@ export class AppService {
     }
   }
 
-  // Stock Transfer API
+  // Stock Transfer API (Admin - quantity-based)
   createStockTransfer(transferRequest: {
     productId: string;
     fromLocationId: string;
@@ -550,6 +550,59 @@ export class AppService {
           return throwError(() => error);
         })
       );
+  }
+  
+  // Validate a single barcode before adding to transfer list
+  validateBarcodeForTransfer(barcodeNumber: string, fromLocationId: number): Observable<any> {
+    return this.http.get<any>(`${this.API_BASE_URL}/stock-transfers/validate-barcode`, {
+      params: {
+        barcodeNumber: barcodeNumber,
+        fromLocationId: fromLocationId.toString()
+      }
+    });
+  }
+
+  // Barcode Stock Transfer API (Warehouse/Store - barcode-based)
+  createBarcodeStockTransfer(transferRequest: {
+    fromLocationId: number;
+    toLocationId: number;
+    barcodeNumbers: string[];
+    reason: string;
+    reference?: string;
+    notes?: string;
+  }): Observable<any> {
+    const request = {
+      fromLocationId: transferRequest.fromLocationId,
+      toLocationId: transferRequest.toLocationId,
+      barcodeNumbers: transferRequest.barcodeNumbers,
+      reason: transferRequest.reason,
+      reference: transferRequest.reference || '',
+      notes: transferRequest.notes || ''
+    };
+
+    return this.http.post<any>(`${this.API_BASE_URL}/stock-transfers/barcodes`, request)
+      .pipe(
+        tap(() => {
+          // Refresh products and stock movements after transfer
+          this.loadProducts().subscribe();
+          this.loadStockMovements().subscribe();
+        }),
+        catchError(error => {
+          console.error('Barcode stock transfer failed:', error);
+          return throwError(() => error);
+        })
+      );
+  }
+
+  getBarcodeTransferStatus(productId: number, locationId: number): Observable<any> {
+    return this.http.get<any>(
+      `${this.API_BASE_URL}/barcodes/transfer-status/product/${productId}/location/${locationId}`
+    ).pipe(
+      catchError(error => {
+        console.error('Failed to get barcode transfer status:', error);
+        return throwError(() => error);
+      })
+    );
   }
 
   // Stock Adjustment API
