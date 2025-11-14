@@ -233,28 +233,19 @@ export class AddProductComponent implements OnInit {
     // Force reload if locations are empty
     const currentState = this.appService.appStateBehaviorSubject.value;
     if (!currentState.locations || currentState.locations.length === 0) {
-      console.log('Locations empty, forcing data reload...');
       this.appService.loadInitialData().subscribe({
         next: () => {
-          console.log('Initial data loaded successfully');
           const state = this.appService.appStateBehaviorSubject.value;
-          console.log('Locations after load:', state.locations);
           // Auto-set location to SUPPLIER for admin users after data loads
           if (this.isAdmin()) {
             this.formData.locationId = '1'; // SUPPLIER location ID
-            console.log('Admin detected - locationId set to:', this.formData.locationId);
           }
-        },
-        error: (err) => {
-          console.error('Failed to load initial data:', err);
         }
       });
     } else {
-      console.log('Locations already loaded:', currentState.locations);
       // Auto-set location to SUPPLIER for admin users
       if (this.isAdmin()) {
         this.formData.locationId = '1'; // SUPPLIER location ID
-        console.log('Admin detected - locationId set to:', this.formData.locationId);
       }
     }
     
@@ -264,7 +255,6 @@ export class AddProductComponent implements OnInit {
         // Double-check locationId is set for admin
         if (!this.formData.locationId) {
           this.formData.locationId = '1';
-          console.log('Setting locationId in appState subscription:', this.formData.locationId);
         }
       }
     });
@@ -306,14 +296,9 @@ export class AddProductComponent implements OnInit {
   onSubmit(): void {
     const appState = this.appService.appStateBehaviorSubject.value;
     
-    console.log('Form submission - locationId:', this.formData.locationId);
-    console.log('Is Admin:', this.isAdmin());
-    console.log('Available locations:', appState.locations);
-    
     // Check if locations are loaded
     if (!appState.locations || appState.locations.length === 0) {
       alert('Loading location data. Please wait a moment and try again.');
-      console.error('Locations not loaded yet!');
       // Trigger data load
       this.appService.loadInitialData().subscribe();
       return;
@@ -322,7 +307,6 @@ export class AddProductComponent implements OnInit {
     // For admin users, ensure locationId is set to SUPPLIER (ID=1)
     if (this.isAdmin() && !this.formData.locationId) {
       this.formData.locationId = '1';
-      console.log('Admin locationId was empty, set to:', this.formData.locationId);
     }
     
     const selectedLocation = appState.locations.find((loc: Location) => 
@@ -331,10 +315,7 @@ export class AddProductComponent implements OnInit {
       this.formData.locationId === loc.id.toString()
     );
     
-    console.log('Selected location:', selectedLocation);
-    
     if (!selectedLocation) {
-      console.error('Location not found! locationId:', this.formData.locationId);
       alert('Please select a location for the product');
       return;
     }
@@ -350,7 +331,6 @@ export class AddProductComponent implements OnInit {
           this.router.navigate(['/inventory']);
         },
         error: (err) => {
-          console.error('Update product failed', err);
           alert('Failed to update product. Please try again.');
         }
       });
@@ -408,14 +388,12 @@ export class AddProductComponent implements OnInit {
             this.router.navigate(['/dashboard']);
           },
           error: (err) => {
-            console.error('Create product failed', err);
             alert('Failed to add product. Please try again.');
           }
         });
       },
       error: (err) => {
         this.isCheckingSku = false;
-        console.error('Validation check failed', err);
         alert('Could not validate SKU. Please try again.');
       }
     });

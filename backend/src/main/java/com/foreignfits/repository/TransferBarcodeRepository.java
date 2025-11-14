@@ -15,10 +15,10 @@ public interface TransferBarcodeRepository extends JpaRepository<TransferBarcode
     List<TransferBarcode> findByTransferId(Long transferId);
     
     @Query("SELECT tb FROM TransferBarcode tb WHERE tb.barcodeNumber = :barcodeNumber " +
-           "AND tb.transfer.status = 'PENDING'")
+           "AND tb.transfer.status NOT IN ('COMPLETED', 'CANCELLED')")
     Optional<TransferBarcode> findPendingTransferByBarcodeNumber(@Param("barcodeNumber") String barcodeNumber);
     
     @Query("SELECT tb FROM TransferBarcode tb WHERE tb.barcodeNumber IN :barcodeNumbers " +
-           "AND tb.transfer.status = 'PENDING'")
+           "AND tb.transfer.status NOT IN ('COMPLETED', 'CANCELLED')")
     List<TransferBarcode> findPendingTransfersByBarcodeNumbers(@Param("barcodeNumbers") List<String> barcodeNumbers);
 }

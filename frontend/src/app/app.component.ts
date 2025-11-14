@@ -22,8 +22,6 @@ import { map, filter } from 'rxjs/operators';
 export class AppComponent implements OnInit {
   onBarcodeScanned(barcode: string) {
     // TODO: Implement global barcode handling logic here
-    // For now, just log it
-    console.log('Barcode scanned:', barcode);
     // You can route, search, or dispatch actions as needed
   }
   isAuthenticated$: Observable<boolean>;

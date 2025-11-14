@@ -36,7 +36,6 @@ export class LoyaltyService {
         tierExpiryDate: customer.tierExpiryDate ? new Date(customer.tierExpiryDate) : undefined
       })),
       catchError(error => {
-        console.error('Error fetching loyalty customer:', error);
         return of(null);
       })
     );
@@ -57,7 +56,6 @@ export class LoyaltyService {
         expiryDate: t.expiryDate ? new Date(t.expiryDate) : undefined
       }))),
       catchError(error => {
-        console.error('Error fetching transactions:', error);
         return of([]);
       })
     );
@@ -75,7 +73,6 @@ export class LoyaltyService {
 
     return this.http.get<PointsCalculation>(`${this.apiUrl}/calculate-points`, { params }).pipe(
       catchError(error => {
-        console.error('Error calculating points:', error);
         return of(null);
       })
     );
@@ -89,7 +86,6 @@ export class LoyaltyService {
 
     return this.http.get<DiscountCalculation>(`${this.apiUrl}/calculate-discount`, { params }).pipe(
       catchError(error => {
-        console.error('Error calculating discount:', error);
         return of(null);
       })
     );
@@ -101,7 +97,6 @@ export class LoyaltyService {
   getProgramInfo(): Observable<LoyaltyProgramInfo | null> {
     return this.http.get<LoyaltyProgramInfo>(`${this.apiUrl}/program-info`).pipe(
       catchError(error => {
-        console.error('Error fetching program info:', error);
         return of(null);
       })
     );

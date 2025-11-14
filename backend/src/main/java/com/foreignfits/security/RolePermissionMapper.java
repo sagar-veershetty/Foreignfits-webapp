@@ -19,6 +19,7 @@ public class RolePermissionMapper {
             case ADMIN -> getAdminPermissions();
             case WAREHOUSE -> getWarehousePermissions();
             case SALES -> getSalesPermissions();
+            case SALES_MANAGER -> getSalesManagerPermissions();
         };
     }
     
@@ -76,7 +77,15 @@ public class RolePermissionMapper {
             // Reports & System
             Permission.VIEW_REPORTS.getPermission(),
             Permission.EXPORT_DATA.getPermission(),
-            Permission.MANAGE_SETTINGS.getPermission()
+            Permission.MANAGE_SETTINGS.getPermission(),
+            
+            // Expense Management (Admin has full access)
+            "view:expenses",
+            "create:expense",
+            "edit:expense",
+            "delete:expense",
+            "approve:expense",
+            "view:expense_reports"
         );
     }
     
@@ -118,6 +127,7 @@ public class RolePermissionMapper {
      * Can approve incoming stock transfers to their location
      * Can access loyalty program features
      * Can manage inventory/pricing at their assigned store location
+     * Can manage expenses at their assigned store location
      * Restricted to their assigned store location
      */
     private Set<String> getSalesPermissions() {
@@ -145,8 +155,59 @@ public class RolePermissionMapper {
             Permission.EARN_LOYALTY_POINTS.getPermission(), // Sales can earn points for customers
             Permission.REDEEM_LOYALTY_POINTS.getPermission(), // Sales can redeem points for customers
             
+            // Expense Management (same as Sales Manager)
+            "view:expenses",
+            "create:expense",
+            "edit:expense",
+            "delete:expense",
+            "approve:expense",
+            "view:expense_reports",
+            
             // Locations (view only)
             Permission.VIEW_LOCATIONS.getPermission()
+        );
+    }
+    
+    /**
+     * Sales Manager can manage expenses, view sales analytics, and perform all sales operations
+     * Has similar permissions to sales staff but with added expense management capabilities
+     * Restricted to their assigned location
+     */
+    private Set<String> getSalesManagerPermissions() {
+        return Set.of(
+            // Products (read-only)
+            Permission.VIEW_PRODUCTS.getPermission(),
+            Permission.VIEW_INVENTORY.getPermission(),
+            Permission.MANAGE_INVENTORY.getPermission(),
+            
+            // Sales
+            Permission.VIEW_SALES.getPermission(),
+            Permission.CREATE_SALE.getPermission(),
+            Permission.VIEW_SALES_HISTORY.getPermission(),
+            Permission.VIEW_SALES_ANALYTICS.getPermission(),
+            
+            // Stock movements and transfers
+            Permission.VIEW_STOCK_MOVEMENTS.getPermission(),
+            Permission.CREATE_STOCK_MOVEMENT.getPermission(),
+            Permission.APPROVE_STOCK_MOVEMENT.getPermission(),
+            Permission.REQUEST_STOCK_TRANSFER.getPermission(),
+            Permission.APPROVE_STOCK_TRANSFER.getPermission(),
+            
+            // Loyalty Program
+            Permission.VIEW_LOYALTY.getPermission(),
+            Permission.EARN_LOYALTY_POINTS.getPermission(),
+            Permission.REDEEM_LOYALTY_POINTS.getPermission(),
+            
+            // Locations (view only)
+            Permission.VIEW_LOCATIONS.getPermission(),
+            
+            // Expense Management (Sales Manager specific)
+            "view:expenses",
+            "create:expense",
+            "edit:expense",
+            "delete:expense",
+            "approve:expense",
+            "view:expense_reports"
         );
     }
     

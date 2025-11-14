@@ -48,9 +48,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     // Ensure initial data is loaded (especially important after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Sales History: initial data load failed', e)
-        });
+        this.appService.loadInitialData().subscribe();
       }
     });
     
@@ -59,10 +57,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         if (event.url.includes('/sales-history')) {
-          console.log('Sales History: Refreshing data on navigation');
-          this.appService.loadInitialData().subscribe({
-            error: (e) => console.error('Sales History: data refresh failed', e)
-          });
+          this.appService.loadInitialData().subscribe();
         }
       });
   }
@@ -89,6 +84,31 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       other: 'px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800'
     };
     return classes[method as keyof typeof classes] || classes.other;
+  }
+
+  /**
+   * Check if a sale has split payments
+   */
+  hasSplitPayment(sale: Sale): boolean {
+    return !!(sale.payments && sale.payments.length > 1);
+  }
+
+  /**
+   * Format split payment display
+   */
+  formatSplitPayment(sale: Sale): string {
+    if (!sale.payments || sale.payments.length === 0) {
+      return sale.paymentMethod.toUpperCase();
+    }
+    
+    if (sale.payments.length === 1) {
+      return sale.payments[0].paymentMethod;
+    }
+    
+    // Multiple payments - show as "CASH ₹500 + CARD ₹500"
+    return sale.payments
+      .map(p => `${p.paymentMethod} ₹${p.amount.toFixed(0)}`)
+      .join(' + ');
   }
 
   setFilter(mode: 'all' | 'today' | 'week' | 'range'): void {
@@ -140,6 +160,13 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     // Filter by payment type
     if (this.paymentFilter !== 'all') {
       sales = sales.filter(sale => {
+        // For split payments, check if any payment method matches the filter
+        if (sale.payments && sale.payments.length > 0) {
+          return sale.payments.some(payment => 
+            payment.paymentMethod.toLowerCase() === this.paymentFilter.toLowerCase()
+          );
+        }
+        // For single payments, check the paymentMethod field
         return sale.paymentMethod.toLowerCase() === this.paymentFilter.toLowerCase();
       });
     }
@@ -186,7 +213,26 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   }
 
   getFilteredRevenue(appState: AppState): number {
-    return this.getFilteredSales(appState).reduce((sum, s) => sum + (s.total || 0), 0);
+    const filteredSales = this.getFilteredSales(appState);
+    
+    // If a payment filter is active, sum only the amounts paid by that method
+    if (this.paymentFilter !== 'all') {
+      return filteredSales.reduce((sum, sale) => {
+        // For split payments, get the amount for the filtered payment method
+        if (sale.payments && sale.payments.length > 0) {
+          const matchingPayments = sale.payments.filter(p => 
+            p.paymentMethod.toLowerCase() === this.paymentFilter.toLowerCase()
+          );
+          const paymentTotal = matchingPayments.reduce((pSum, p) => pSum + p.amount, 0);
+          return sum + paymentTotal;
+        }
+        // For single payments, include the full total
+        return sum + (sale.total || 0);
+      }, 0);
+    }
+    
+    // If no payment filter, sum all sale totals
+    return filteredSales.reduce((sum, s) => sum + (s.total || 0), 0);
   }
 
   viewSaleDetails(sale: Sale): void {

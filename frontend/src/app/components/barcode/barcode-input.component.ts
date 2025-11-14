@@ -125,7 +125,7 @@ export class BarcodeInputComponent {
   }
 
   onCamerasFound(cameras: any[]) {
-    console.log('Cameras found:', cameras);
+    // Cameras found callback
   }
 
   onTorchCompatible(isCompatible: boolean) {

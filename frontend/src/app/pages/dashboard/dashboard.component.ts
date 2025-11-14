@@ -207,7 +207,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.appService.loadInitialData().subscribe({
       next: () => {
-        const subscription = this.appService.appState$.subscribe(state => {
+        let subscription: any;
+        subscription = this.appService.appState$.subscribe(state => {
           this.products.set(state.products || []);
           this.sales.set(state.sales || []);
           this.stockMovements.set(state.stockMovements || []);
@@ -235,11 +236,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.isLoading.set(false);
           }
 
-          subscription.unsubscribe();
+          if (subscription) {
+            subscription.unsubscribe();
+          }
         });
       },
       error: (error) => {
-        console.error('Failed to load initial data:', error);
         this.isLoading.set(false);
       }
     });
@@ -273,7 +275,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('Failed to load location inventory:', error);
         this.locationInventory.set([]);
         this.isLoading.set(false);
       }
@@ -336,7 +337,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('Failed to load all location inventory:', error);
         this.locationInventory.set([]);
         this.isLoading.set(false);
       }
@@ -371,8 +371,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get statsData() {
     const stats = this.stats();
-    console.log('Getting statsData:', stats);
-    console.log('Current locationInventory length:', this.locationInventory().length);
     return stats;
   }
 

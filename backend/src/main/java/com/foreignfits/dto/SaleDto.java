@@ -15,10 +15,11 @@ import java.util.List;
 public class SaleDto {
     private Long id;
     private List<SaleItemDto> items;
+    private List<SalePaymentDto> payments; // Support for split payments
     private BigDecimal subtotal;
     private BigDecimal tax;
     private BigDecimal total;
-    private Sale.PaymentMethod paymentMethod;
+    private Sale.PaymentMethod paymentMethod; // Keep for backward compatibility
     private String customerName;
     private String customerEmail;
     private String customerPhone;
@@ -37,6 +38,9 @@ public class SaleDto {
     
     public List<SaleItemDto> getItems() { return items; }
     public void setItems(List<SaleItemDto> items) { this.items = items; }
+    
+    public List<SalePaymentDto> getPayments() { return payments; }
+    public void setPayments(List<SalePaymentDto> payments) { this.payments = payments; }
     
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }

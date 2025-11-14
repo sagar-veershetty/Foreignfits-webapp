@@ -33,6 +33,14 @@ export class SalesComponent implements OnInit {
   successMessage = '';
   isProcessingBarcode = false;
   
+  // Split payment support
+  payments: Array<{
+    paymentMethod: 'CASH' | 'CARD' | 'OTHER';
+    amount: number;
+    reference: string;
+  }> = [];
+  useSplitPayment = false;
+  
   // Loyalty points properties
   loyaltyCustomer: LoyaltyCustomer | null = null;
   pointsToEarn: PointsCalculation | null = null;
@@ -52,9 +60,7 @@ export class SalesComponent implements OnInit {
     // Ensure initial data is loaded (especially important after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Sales: initial data load failed', e)
-        });
+        this.appService.loadInitialData().subscribe();
       }
     });
   }
@@ -177,7 +183,6 @@ export class SalesComponent implements OnInit {
       this.barcodeInput = '';
 
     } catch (error: any) {
-      console.error('Failed to process barcode:', error);
       alert(error?.error?.message || 'Failed to process barcode. Please try again.');
       this.barcodeInput = '';
     } finally {
@@ -302,9 +307,9 @@ export class SalesComponent implements OnInit {
       return;
     }
 
+    // Build sale data with either single payment or split payments
     const saleData: any = {
-      locationId: parseInt(user.locationId), // NEW: Required for new schema
-      paymentMethod: this.paymentMethod,
+      locationId: parseInt(user.locationId),
       customerName: this.customerName,
       customerPhone: this.customerPhone,
       customerCountryCode: this.customerCountryCode,
@@ -312,12 +317,33 @@ export class SalesComponent implements OnInit {
       discountFromPoints: this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
     };
 
+    // Add payment information
+    if (this.useSplitPayment) {
+      // Validate split payments
+      const total = this.getTotal(appState);
+      const paid = this.getTotalPayments();
+      
+      if (Math.abs(total - paid) >= 0.01) {
+        alert(`Payment total (₹${paid.toFixed(2)}) does not match sale total (₹${total.toFixed(2)}). Please adjust payment amounts.`);
+        return;
+      }
+
+      if (this.payments.length === 0 || this.payments.some(p => p.amount <= 0)) {
+        alert('Please enter valid payment amounts for all payment methods.');
+        return;
+      }
+
+      // Send payments array for split payment
+      saleData.payments = this.payments;
+    } else {
+      // Send single paymentMethod for backward compatibility
+      saleData.paymentMethod = this.paymentMethod;
+    }
+
     // Add salesPersonName only if it has a value
     if (this.salesPersonName && this.salesPersonName.trim()) {
       saleData.salesPersonName = this.salesPersonName.trim();
     }
-
-    console.log('Sale Data being sent:', saleData);
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
@@ -332,6 +358,17 @@ export class SalesComponent implements OnInit {
         const subtotal = this.getSubtotal(appState);
         const tax = this.getTax(appState);
         const total = this.getTotal(appState);
+        
+        // Format payment method for receipt
+        let paymentMethodLabel = '';
+        if (this.useSplitPayment) {
+          paymentMethodLabel = this.payments
+            .map(p => `${p.paymentMethod} ₹${p.amount.toFixed(2)}`)
+            .join(' + ');
+        } else {
+          paymentMethodLabel = this.paymentMethod.toUpperCase();
+        }
+        
         this.receiptData = {
           number: sale.id || 'N/A',
           date: now.toLocaleDateString('en-GB'),
@@ -342,7 +379,7 @@ export class SalesComponent implements OnInit {
           taxLabel: '5% GST (included)',
           tax,
           total,
-          paymentMethod: this.paymentMethod.toUpperCase()
+          paymentMethod: paymentMethodLabel
         };
         this.showReceiptModal = true;
         
@@ -356,6 +393,8 @@ export class SalesComponent implements OnInit {
         this.pointsToEarn = null;
         this.pointsToRedeem = 0;
         this.discountFromPoints = 0;
+        this.payments = [];
+        this.useSplitPayment = false;
       },
       error: (err) => {
         const status = err?.status;
@@ -390,5 +429,68 @@ export class SalesComponent implements OnInit {
 
   closeSuccessMessage(): void {
     this.showSuccessMessage = false;
+  }
+
+  /**
+   * Toggle between single payment and split payment mode
+   */
+  toggleSplitPayment(): void {
+    this.useSplitPayment = !this.useSplitPayment;
+    if (this.useSplitPayment && this.payments.length === 0) {
+      // Initialize with one payment row
+      this.addPaymentRow();
+    }
+  }
+
+  /**
+   * Add a new payment row
+   */
+  addPaymentRow(): void {
+    this.payments.push({
+      paymentMethod: 'CASH',
+      amount: 0,
+      reference: ''
+    });
+  }
+
+  /**
+   * Remove a payment row
+   */
+  removePaymentRow(index: number): void {
+    this.payments.splice(index, 1);
+  }
+
+  /**
+   * Calculate total amount of all payments
+   */
+  getTotalPayments(): number {
+    return this.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  }
+
+  /**
+   * Calculate remaining balance (sale total - payments)
+   */
+  getRemainingBalance(appState: AppState): number {
+    const total = this.getTotal(appState);
+    const paid = this.getTotalPayments();
+    return Math.max(0, total - paid);
+  }
+
+  /**
+   * Check if sale can be completed (all payments entered)
+   */
+  canCompleteSale(appState: AppState): boolean {
+    if (appState.currentSale.length === 0) return false;
+    
+    if (this.useSplitPayment) {
+      // For split payment, check that payments sum to total and all amounts are valid
+      const total = this.getTotal(appState);
+      const paid = this.getTotalPayments();
+      const hasValidPayments = this.payments.length > 0 && 
+                               this.payments.every(p => p.amount > 0);
+      return hasValidPayments && Math.abs(total - paid) < 0.01; // Allow small rounding differences
+    }
+    
+    return true; // Single payment mode is always valid if cart has items
   }
 }

@@ -52,7 +52,7 @@ export class AuthService {
             // Update localStorage with permissions
             localStorage.setItem('foreignfits_user', JSON.stringify(user));
           } catch (e) {
-            console.warn('Could not extract permissions from token', e);
+            // Could not extract permissions from token
           }
         }
         
@@ -101,7 +101,7 @@ export class AuthService {
       );
   }
 
-  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse', locationId: number | null = null): Observable<any> {
+  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse'|'sales_manager', locationId: number | null = null): Observable<any> {
     this.updateAuthState({ ...this.authStateSubject.value, isLoading: true, error: null });
 
     let body = new HttpParams()
@@ -147,7 +147,7 @@ export class AuthService {
         appService.resetDataLoadedFlag();
       });
     } catch (error) {
-      console.warn('Could not reset app data on logout:', error);
+      // Could not reset app data on logout
     }
     
     this.router.navigate(['/']);

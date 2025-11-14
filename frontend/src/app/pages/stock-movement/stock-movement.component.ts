@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
@@ -77,6 +77,13 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   successMessage = signal<string>('');
   errorMessage = signal<string>('');
 
+  // Camera scanner
+  @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
+  showCameraScanner = signal<boolean>(false);
+  cameraScannerError = signal<string>('');
+  private mediaStream: MediaStream | null = null;
+  private scanningInterval: any = null;
+
   constructor(
     private appService: AppService,
     public authService: AuthService,
@@ -90,9 +97,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     // Ensure initial data is loaded (especially important after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Stock Movement: initial data load failed', e)
-        });
+        this.appService.loadInitialData().subscribe();
       }
     });
     
@@ -101,15 +106,12 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         if (event.url.includes('/stock-movement')) {
-          console.log('Stock Movement: Refreshing data on navigation');
           // Force reload from backend to get fresh data
           this.appService.loadInitialData().subscribe({
             next: () => {
-              console.log('Stock Movement: Data refreshed successfully');
               this.loadData();
             },
             error: (e) => {
-              console.error('Stock Movement: Failed to refresh data', e);
               this.loadData(); // Still load from cache if refresh fails
             }
           });
@@ -147,9 +149,13 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    // Cleanup subscriptions
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+    
+    // Cleanup camera resources
+    this.closeCameraScanner();
   }
 
   loadData() {
@@ -328,7 +334,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         this.transferFromLocationInventory.set(inventory);
       },
       error: (error) => {
-        console.error('Failed to load transfer location inventory:', error);
         this.transferFromLocationInventory.set([]);
       }
     });
@@ -341,7 +346,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         this.adjustmentLocationInventory.set(inventory);
       },
       error: (error) => {
-        console.error('Failed to load adjustment location inventory:', error);
         this.adjustmentLocationInventory.set([]);
       }
     });
@@ -418,7 +422,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.isLoading.set(false);
         this.errorMessage.set(error.error?.message || 'Failed to record stock adjustment. Please try again.');
-        console.error('Stock adjustment error:', error);
       }
     });
   }
@@ -475,7 +478,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.isLoading.set(false);
         this.errorMessage.set(error.error?.message || 'Failed to create stock transfer. Please try again.');
-        console.error('Stock transfer error:', error);
       }
     });
   }
@@ -549,7 +551,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         this.pendingMovements.set(movements);
       },
       error: (err: any) => {
-        console.error('Error loading pending movements:', err);
         this.errorMessage.set('Failed to load pending movements');
       }
     });
@@ -593,7 +594,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
           this.loadData();
         },
         error: (err: any) => {
-          console.error('Error approving movement:', err);
           this.errorMessage.set('Failed to approve stock movement');
         }
       });
@@ -609,7 +609,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
           this.loadPendingMovements();
         },
         error: (err: any) => {
-          console.error('Error rejecting movement:', err);
           this.errorMessage.set('Failed to reject stock movement');
         }
       });
@@ -672,7 +671,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
               setTimeout(() => this.clearMessages(), 2000);
             },
             error: (error) => {
-              console.error('Product lookup error:', error);
               // Still add it if validation passed, but without product name
               const newBarcodes = [...this.scannedBarcodes(), { 
                 barcode: barcodeInput, 
@@ -721,7 +719,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         }
       },
       error: (error) => {
-        console.error('Barcode validation error:', error);
         const errorMsg = error.error?.message || error.message || 'Failed to validate barcode';
         this.errorMessage.set(errorMsg);
         setTimeout(() => this.clearMessages(), 5000);
@@ -823,7 +820,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.isLoading.set(false);
         this.errorMessage.set(error.error?.message || 'Failed to create barcode transfer. Please try again.');
-        console.error('Barcode transfer error:', error);
       }
     });
   }
@@ -842,5 +838,111 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   
   getTotalScannedQuantity(): number {
     return this.scannedBarcodes().filter(b => b.status === 'valid').length;
+  }
+
+  async openCameraScanner() {
+    try {
+      this.cameraScannerError.set('');
+      this.showCameraScanner.set(true);
+      
+      // Wait for video element to be available in the DOM
+      setTimeout(async () => {
+        try {
+          // Request camera access with rear camera preference for mobile
+          this.mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: 'environment', // Use rear camera on mobile
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+          
+          if (this.videoElement && this.videoElement.nativeElement) {
+            this.videoElement.nativeElement.srcObject = this.mediaStream;
+            this.startBarcodeDetection();
+          }
+        } catch (error: any) {
+          if (error.name === 'NotAllowedError') {
+            this.cameraScannerError.set('Camera permission denied. Please enable camera access in browser settings.');
+          } else if (error.name === 'NotFoundError') {
+            this.cameraScannerError.set('No camera found on this device.');
+          } else {
+            this.cameraScannerError.set('Unable to access camera. Error: ' + error.message);
+          }
+        }
+      }, 100);
+    } catch (error) {
+      this.cameraScannerError.set('Failed to initialize camera scanner.');
+    }
+  }
+
+  closeCameraScanner() {
+    // Stop barcode detection interval
+    if (this.scanningInterval) {
+      clearInterval(this.scanningInterval);
+      this.scanningInterval = null;
+    }
+
+    // Stop all media tracks to release camera
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+
+    // Reset video element
+    if (this.videoElement && this.videoElement.nativeElement) {
+      this.videoElement.nativeElement.srcObject = null;
+    }
+
+    // Close modal and clear errors
+    this.showCameraScanner.set(false);
+    this.cameraScannerError.set('');
+  }
+
+  private startBarcodeDetection() {
+    // For now, we'll use a simple approach with canvas to capture frames
+    // You can install a barcode detection library like @zxing/library for better results
+    
+    const video = this.videoElement.nativeElement;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      this.cameraScannerError.set('Canvas not supported in this browser.');
+      return;
+    }
+
+    // Scan for barcodes every 500ms to reduce CPU usage
+    this.scanningInterval = setInterval(() => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Get image data for barcode detection
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Try to detect barcode using a library
+        // For now, showing a message that barcode detection library is needed
+        // Uncomment and install @zxing/library for actual detection:
+        /*
+        import { BrowserMultiFormatReader } from '@zxing/library';
+        const codeReader = new BrowserMultiFormatReader();
+        codeReader.decodeFromImageData(imageData).then(result => {
+          if (result && result.getText()) {
+            const barcode = result.getText();
+            this.addBarcode(barcode);
+            this.closeCameraScanner();
+          }
+        }).catch(err => {
+          // No barcode detected in this frame, continue scanning
+        });
+        */
+      }
+    }, 500);
+
+    // Show a temporary message about barcode library
+    // Camera scanner active. Install @zxing/library for barcode detection.
+    // Run: npm install @zxing/library --save
   }
 }

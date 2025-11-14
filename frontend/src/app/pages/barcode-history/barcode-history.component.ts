@@ -57,7 +57,6 @@ export class BarcodeHistoryComponent implements OnInit {
         this.isLoading.set(false);
       },
       error: (error) => {
-        console.error('Error loading barcode history:', error);
         this.isLoading.set(false);
       }
     });

@@ -263,71 +263,40 @@ export class PrintBarcodeComponent implements OnInit {
       if (params['productId']) {
         this.directProductId = params['productId'];
         this.directPrintMode = true;
-        console.log('Direct print mode enabled for product:', this.directProductId);
       }
     });
     
     // Force reload of products and locations
-    this.appService.loadInitialData().subscribe({
-      next: () => {
-        console.log('Products reloaded for print-barcode page');
-      },
-      error: (err) => {
-        console.error('Failed to reload products:', err);
-      }
-    });
+    this.appService.loadInitialData().subscribe();
     
     this.appService.appState$.subscribe((state: AppState) => {
       const allProducts = state.products || [];
       
-      console.log('=== Print Barcode ngOnInit Debug ===');
-      console.log('User:', user);
-      console.log('User locationId:', user?.locationId);
-      console.log('All products from state:', allProducts.length);
-      console.log('State locations:', state.locations?.length);
-      console.log('Direct print mode:', this.directPrintMode);
-      console.log('Direct product ID:', this.directProductId);
-      
       // Get user location from state
       if (user?.locationId && state.locations) {
         this.currentUserLocation = state.locations.find(loc => loc.id === user.locationId!.toString());
-        console.log('Current user location:', this.currentUserLocation);
         
         // Load location inventory to get products at this location
         this.appService.getLocationInventory(parseInt(user.locationId)).subscribe({
           next: (inventory) => {
             this.locationInventory = inventory;
-            console.log('Location inventory received:', inventory.length, 'items');
             
             // Build products list from location inventory (same approach as inventory page)
             const productsMap = new Map(allProducts.map(p => [p.sku, p]));
-            console.log('Products map size:', productsMap.size);
             
             // Map location inventory to products
             this.products = inventory
-              .map((inv: any) => {
-                const product = productsMap.get(inv.productSku);
-                if (!product) {
-                  console.log('Product not found for SKU:', inv.productSku);
-                }
-                return product;
-              })
+              .map((inv: any) => productsMap.get(inv.productSku))
               .filter((p: any) => p); // Filter out null/undefined
             
-            console.log('Total location inventory items:', inventory.length);
-            console.log('Products at location:', this.products.length);
-            
             this.filterProducts();
-            console.log('Filtered products count:', this.filteredProducts.length);
             
             // Auto-select product after filtering is complete
             this.autoSelectProductIfNeeded();
           },
-          error: (err) => {
-            console.error('Failed to load location inventory:', err);
+          error: () => {
             // Fallback: show all products
             this.products = allProducts;
-            console.log('Fallback: showing all products:', this.products.length);
             this.filterProducts();
             
             // Auto-select product even if inventory loading failed
@@ -336,9 +305,7 @@ export class PrintBarcodeComponent implements OnInit {
         });
       } else {
         // Admin without location filter, show all products
-        console.log('No user location - showing all products');
         this.products = allProducts;
-        console.log('All products:', this.products.length);
         this.filterProducts();
         
         // Auto-select product after filtering
@@ -350,13 +317,9 @@ export class PrintBarcodeComponent implements OnInit {
   // Helper method to auto-select product in direct print mode
   private autoSelectProductIfNeeded(): void {
     if (this.directPrintMode && this.directProductId && this.selectedProducts.length === 0) {
-      console.log('Attempting to auto-select product:', this.directProductId);
       const product = this.products.find(p => p.id === this.directProductId);
       if (product) {
-        console.log('Product found, selecting:', product.name);
         this.toggleProduct(product);
-      } else {
-        console.warn('Product not found with ID:', this.directProductId);
       }
     }
   }
@@ -366,7 +329,6 @@ export class PrintBarcodeComponent implements OnInit {
   // Load barcodes for a product when selected
   loadBarcodesForProduct(product: any) {
     if (!this.currentUserLocation) {
-      console.warn('No user location available');
       return;
     }
     
@@ -380,19 +342,20 @@ export class PrintBarcodeComponent implements OnInit {
     // Load barcodes AND location inventory to get sale price
     this.appService.getBarcodesForProduct(product.id, this.currentUserLocation.id).subscribe({
       next: (barcodes: Barcode[]) => {
-        this.productBarcodes[product.id] = barcodes;
+        // Filter to only store ACTIVE barcodes (exclude SOLD, DAMAGED, LOST, etc.)
+        const activeBarcodes = barcodes.filter(b => b.status === 'ACTIVE');
+        this.productBarcodes[product.id] = activeBarcodes;
         this.loadingBarcodes[product.id] = false;
         
-        // Update quantity to match actual barcode count
-        this.productQuantities[product.id] = barcodes.filter(b => b.status === 'ACTIVE').length;
+        // Update quantity to match actual ACTIVE barcode count
+        this.productQuantities[product.id] = activeBarcodes.length;
         
         // Load location inventory to get sale price
         this.appService.getInventoryByLocationAndSku(this.currentUserLocation.id, product.sku).subscribe({
           next: (inventory: any) => {
             this.productPrices[product.id] = inventory?.salePrice || 0;
           },
-          error: (err) => {
-            console.error('Failed to load price for product', product.sku, err);
+          error: () => {
             this.productPrices[product.id] = 0;
           }
         });
@@ -402,14 +365,12 @@ export class PrintBarcodeComponent implements OnInit {
           next: (statuses: any[]) => {
             this.barcodeTransferStatuses[product.id] = statuses;
           },
-          error: (err) => {
-            console.error('Failed to load transfer statuses for product', product.sku, err);
+          error: () => {
             this.barcodeTransferStatuses[product.id] = [];
           }
         });
       },
-      error: (err) => {
-        console.error('Failed to load barcodes for product', product.sku, err);
+      error: () => {
         this.loadingBarcodes[product.id] = false;
         this.productBarcodes[product.id] = [];
       }
@@ -470,27 +431,22 @@ export class PrintBarcodeComponent implements OnInit {
     
     const transferStatuses = this.barcodeTransferStatuses[productId] || [];
     
-    // Count ACTIVE barcodes, optionally excluding those in pending transfer
+    // All barcodes in productBarcodes are already ACTIVE (filtered when loaded)
+    // Optionally exclude those in pending transfer
     return barcodes.filter(b => {
-      if (b.status !== 'ACTIVE') return false;
-      
       // If excludeInTransferBarcodes is enabled, filter out barcodes in pending transfer
       if (this.excludeInTransferBarcodes) {
         const status = transferStatuses.find(s => s.barcodeNumber === b.barcodeNumber);
         return !status || status.status !== 'PENDING_TRANSFER';
       }
       
-      // Otherwise, count all active barcodes
+      // Otherwise, count all (already ACTIVE) barcodes
       return true;
     }).length;
   }
 
   filterProducts() {
     const term = this.searchTerm.trim().toLowerCase();
-    
-    console.log('=== Filter Products Debug ===');
-    console.log('Total products:', this.products.length);
-    console.log('Search term:', term);
     
     // Filter products based on search term only
     // (approval and location filtering already done when building products list)
@@ -504,8 +460,6 @@ export class PrintBarcodeComponent implements OnInit {
         p.sku?.toLowerCase().includes(term) ||
         (p.barcode && p.barcode.includes(term));
     });
-    
-    console.log('Filtered products:', this.filteredProducts.length);
   }
   searchTerm: string = '';
   onSearchChange() {
@@ -581,30 +535,29 @@ export class PrintBarcodeComponent implements OnInit {
       // Get actual barcodes from database for this product
       const productBarcodes = this.productBarcodes[product.id] || [];
       
-      // Filter barcodes based on status and transfer setting
+      // All barcodes in productBarcodes are already ACTIVE (filtered when loaded)
+      // Optionally filter out barcodes in pending transfer
       const transferStatuses = this.barcodeTransferStatuses[product.id] || [];
-      const activeBarcodes = productBarcodes.filter(b => {
-        if (b.status !== 'ACTIVE') return false;
-        
+      const availableBarcodes = productBarcodes.filter(b => {
         // If excludeInTransferBarcodes is enabled, filter out barcodes in pending transfer
         if (this.excludeInTransferBarcodes) {
           const status = transferStatuses.find(s => s.barcodeNumber === b.barcodeNumber);
           return !status || status.status !== 'PENDING_TRANSFER';
         }
         
-        // Otherwise, include all active barcodes
+        // Otherwise, include all (already ACTIVE) barcodes
         return true;
       });
       
       // Use the quantity specified or the number of available barcodes
       const quantityToPrint = Math.min(
         this.productQuantities[product.id] || 1,
-        activeBarcodes.length
+        availableBarcodes.length
       );
       
       // Print each individual barcode
       for (let i = 0; i < quantityToPrint; i++) {
-        const barcode = activeBarcodes[i];
+        const barcode = availableBarcodes[i];
         const code = barcode?.barcodeNumber || product.sku || product.id;
         
         // Render barcode SVG

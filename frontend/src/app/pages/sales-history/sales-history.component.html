@@ -1,15 +1,15 @@
-<div class="space-y-6" *ngIf="appState$ | async as appState">
+<div class="space-y-4 sm:space-y-6 p-3 sm:p-0" *ngIf="appState$ | async as appState">
   <!-- Header -->
-  <div class="bg-gradient-to-r from-purple-600 to-indigo-700 p-8 rounded-xl shadow-lg">
+  <div class="bg-gradient-to-r from-purple-600 to-indigo-700 p-4 sm:p-8 rounded-xl shadow-lg">
     <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold mb-2">Sales History</h1>
-        <p class="text-purple-100 text-lg">Foreign Fits - Global Fashion</p>
-        <p class="text-purple-200 text-sm mt-1">Complete sales transaction history</p>
+      <div class="flex-1 min-w-0">
+        <h1 class="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-white">Sales History</h1>
+        <p class="text-purple-100 text-sm sm:text-lg truncate">Foreign Fits - Global Fashion</p>
+        <p class="text-purple-200 text-xs sm:text-sm mt-1 hidden sm:block">Complete sales transaction history</p>
       </div>
-      <div class="text-right">
-        <div class="p-3 bg-purple-500 rounded-full">
-          <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="flex-shrink-0">
+        <div class="p-2 sm:p-3 bg-purple-500 rounded-full">
+          <svg class="h-6 w-6 sm:h-8 sm:w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
         </div>
@@ -20,59 +20,123 @@
   <!-- Sales Table -->
   <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
     <!-- Filters toolbar -->
-    <div class="p-4 border-b border-gray-100 flex flex-col md:flex-row md:items-center gap-3">
+    <div class="p-3 sm:p-4 border-b border-gray-100 space-y-3">
       <!-- Search by Bill ID -->
-      <div class="relative flex-1 max-w-md">
+      <div class="relative w-full">
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
         </div>
         <input 
           type="text" 
           [(ngModel)]="searchQuery"
-          placeholder="Search by Bill ID, Customer Name, or Mobile Number..."
-          class="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          placeholder="Search by Bill ID, Customer, Mobile..."
+          class="pl-9 sm:pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
         />
       </div>
       
-      <div class="flex items-center gap-2">
-        <button (click)="setFilter('all')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">All</button>
-        <button (click)="setFilter('today')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='today' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">Today</button>
-        <button (click)="setFilter('week')" [class]="'px-3 py-1.5 rounded-lg text-sm ' + (filterMode==='week' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')">This Week</button>
+      <!-- Filter buttons row -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1">
+        <button (click)="setFilter('all')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">All</button>
+        <button (click)="setFilter('today')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='today' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">Today</button>
+        <button (click)="setFilter('week')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='week' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">This Week</button>
       </div>
       
-      <!-- Location Filter (ADMIN only) -->
-      <select 
-        *ngIf="isAdmin()" 
-        [(ngModel)]="locationFilter"
-        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-      >
-        <option value="all">All Stores</option>
-        <option *ngFor="let location of getStoreLocations(appState)" [value]="location.id">
-          {{ location.name }}
-        </option>
-      </select>
+      <!-- Dropdowns row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        <!-- Location Filter (ADMIN only) -->
+        <select 
+          *ngIf="isAdmin()" 
+          [(ngModel)]="locationFilter"
+          class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full"
+        >
+          <option value="all">All Stores</option>
+          <option *ngFor="let location of getStoreLocations(appState)" [value]="location.id">
+            {{ location.name }}
+          </option>
+        </select>
+        
+        <!-- Payment Type Filter -->
+        <select 
+          [(ngModel)]="paymentFilter"
+          class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full"
+        >
+          <option value="all">All Payments</option>
+          <option value="cash">💵 Cash</option>
+          <option value="card">💳 Card</option>
+          <option value="other">📱 Other</option>
+        </select>
+      </div>
       
-      <!-- Payment Type Filter -->
-      <select 
-        [(ngModel)]="paymentFilter"
-        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-      >
-        <option value="all">All Payments</option>
-        <option value="cash">💵 Cash</option>
-        <option value="card">💳 Card</option>
-        <option value="other">📱 Other</option>
-      </select>
-      
-      <div class="flex items-center gap-2">
-        <input type="date" [(ngModel)]="fromDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" placeholder="dd/mm/yyyy" />
-        <span class="text-gray-400">to</span>
-        <input type="date" [(ngModel)]="toDate" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm" placeholder="dd/mm/yyyy" />
-        <button (click)="setFilter('range')" class="px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700">Apply</button>
+      <!-- Date range filter -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <input type="date" [(ngModel)]="fromDate" class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1" placeholder="From date" />
+        <span class="text-gray-400 text-center sm:px-2">to</span>
+        <input type="date" [(ngModel)]="toDate" class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1" placeholder="To date" />
+        <button (click)="setFilter('range')" class="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white active:bg-blue-700 touch-manipulation">Apply</button>
       </div>
     </div>
-    <div class="overflow-auto max-h-[60vh]">
+    
+    <!-- Mobile Card View -->
+    <div class="block lg:hidden">
+      <div *ngIf="getFilteredSales(appState).length === 0" class="p-6 text-center">
+        <svg class="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <p class="text-gray-500 text-sm">No sales found.</p>
+      </div>
+      
+      <div class="divide-y divide-gray-200">
+        <div *ngFor="let sale of getFilteredSales(appState)" 
+             (click)="viewSaleDetails(sale)"
+             class="p-4 active:bg-blue-50 transition-colors cursor-pointer touch-manipulation">
+          <div class="flex justify-between items-start mb-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-purple-600 mb-1">#{{ sale.id.slice(0, 8) }}</p>
+              <p class="text-xs text-gray-500">{{ sale.createdAt | date:'MMM d, y h:mm a' }}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-lg font-bold text-gray-900">₹{{ sale.total.toFixed(2) }}</p>
+              <p class="text-xs text-gray-500">{{ sale.items.length || 0 }} item(s)</p>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div *ngIf="sale.customerName">
+              <p class="text-gray-500">Customer</p>
+              <p class="font-medium text-gray-900 truncate">{{ sale.customerName }}</p>
+            </div>
+            <div *ngIf="sale.customerPhone">
+              <p class="text-gray-500">Mobile</p>
+              <p class="font-medium text-gray-900">{{ sale.customerPhone }}</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Payment</p>
+              <div *ngIf="!hasSplitPayment(sale)">
+                <span [class]="getPaymentMethodClass(sale.paymentMethod) + ' text-xs'">
+                  {{ sale.paymentMethod.toUpperCase() }}
+                </span>
+              </div>
+              <div *ngIf="hasSplitPayment(sale)" class="space-y-1">
+                <div *ngFor="let payment of sale.payments">
+                  <span [class]="getPaymentMethodClass(payment.paymentMethod.toLowerCase()) + ' text-xs'">
+                    {{ payment.paymentMethod }} ₹{{ payment.amount.toFixed(0) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div *ngIf="isAdmin() && sale.location">
+              <p class="text-gray-500">Location</p>
+              <p class="font-medium text-gray-900 text-xs truncate">{{ sale.location.name }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Desktop Table View -->
+    <div class="hidden lg:block overflow-auto max-h-[60vh]">
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
           <tr>
@@ -163,9 +227,18 @@
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <span [class]="getPaymentMethodClass(sale.paymentMethod)">
+              <!-- Single payment -->
+              <span *ngIf="!hasSplitPayment(sale)" [class]="getPaymentMethodClass(sale.paymentMethod)">
                 {{ sale.paymentMethod.toUpperCase() }}
               </span>
+              <!-- Split payment -->
+              <div *ngIf="hasSplitPayment(sale)" class="text-xs">
+                <div *ngFor="let payment of sale.payments" class="mb-1">
+                  <span [class]="getPaymentMethodClass(payment.paymentMethod.toLowerCase())">
+                    {{ payment.paymentMethod }} ₹{{ payment.amount.toFixed(2) }}
+                  </span>
+                </div>
+              </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-bold text-green-600">
@@ -189,25 +262,43 @@
         </tfoot>
       </table>
     </div>
+    
+    <!-- Mobile Footer Summary -->
+    <div class="block lg:hidden border-t border-gray-200 bg-gray-50 p-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <p class="text-xs text-gray-500">Total Sales</p>
+          <p class="text-lg font-bold text-gray-900">{{ getFilteredCount(appState) }}</p>
+        </div>
+        <div class="text-center">
+          <p class="text-xs text-gray-500">Items</p>
+          <p class="text-lg font-bold text-gray-900">{{ getFilteredItemsCount(appState) }}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-gray-500">Revenue</p>
+          <p class="text-lg font-bold text-green-700">₹{{ getFilteredRevenue(appState) | number:'1.2-2' }}</p>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- Sale Details Modal -->
 <div *ngIf="showSaleDetails && selectedSale" 
-     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4"
      (click)="closeSaleDetails()">
   <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" 
        (click)="$event.stopPropagation()">
     
     <!-- Modal Header -->
-    <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-4 flex justify-between items-center rounded-t-xl">
-      <div>
-        <h2 class="text-2xl font-bold">Sale Details</h2>
-        <p class="text-purple-100 text-sm">Bill #{{ selectedSale.id.slice(0, 8).toUpperCase() }}</p>
+    <div class="sticky top-0 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center rounded-t-xl z-10">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-lg sm:text-2xl font-bold truncate">Sale Details</h2>
+        <p class="text-purple-100 text-xs sm:text-sm truncate">Bill #{{ selectedSale.id.slice(0, 8).toUpperCase() }}</p>
       </div>
       <button (click)="closeSaleDetails()" 
-              class="text-white hover:bg-purple-500 rounded-lg p-2 transition-colors">
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              class="text-white hover:bg-purple-500 rounded-lg p-2 transition-colors flex-shrink-0 ml-2 touch-manipulation active:scale-95">
+        <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
@@ -249,7 +340,8 @@
         </div>
         <div class="bg-gray-50 p-3 rounded-lg">
           <p class="text-xs text-gray-500 mb-1">Payment Method</p>
-          <span class="inline-block px-2 py-1 rounded-full text-xs font-medium"
+          <!-- Single payment -->
+          <span *ngIf="!hasSplitPayment(selectedSale)" class="inline-block px-2 py-1 rounded-full text-xs font-medium"
                 [class.bg-green-100]="selectedSale.paymentMethod === 'cash'"
                 [class.text-green-700]="selectedSale.paymentMethod === 'cash'"
                 [class.bg-blue-100]="selectedSale.paymentMethod === 'card'"
@@ -258,6 +350,21 @@
                 [class.text-purple-700]="selectedSale.paymentMethod === 'other'">
             {{ selectedSale.paymentMethod | uppercase }}
           </span>
+          <!-- Split payment breakdown -->
+          <div *ngIf="hasSplitPayment(selectedSale)" class="space-y-2">
+            <div *ngFor="let payment of selectedSale.payments" class="flex justify-between items-center">
+              <span class="inline-block px-2 py-1 rounded-full text-xs font-medium"
+                    [class.bg-green-100]="payment.paymentMethod.toLowerCase() === 'cash'"
+                    [class.text-green-700]="payment.paymentMethod.toLowerCase() === 'cash'"
+                    [class.bg-blue-100]="payment.paymentMethod.toLowerCase() === 'card'"
+                    [class.text-blue-700]="payment.paymentMethod.toLowerCase() === 'card'"
+                    [class.bg-purple-100]="payment.paymentMethod.toLowerCase() === 'other'"
+                    [class.text-purple-700]="payment.paymentMethod.toLowerCase() === 'other'">
+                {{ payment.paymentMethod }}
+              </span>
+              <span class="text-sm font-semibold text-gray-900">₹{{ payment.amount.toFixed(2) }}</span>
+            </div>
+          </div>
         </div>
         <div class="bg-gray-50 p-3 rounded-lg">
           <p class="text-xs text-gray-500 mb-1">Sold By</p>

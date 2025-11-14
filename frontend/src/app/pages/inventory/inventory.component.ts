@@ -131,7 +131,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.appService.loadInitialData().subscribe({
       next: () => {
         // After initial data is loaded, subscribe to app state
-        const subscription = this.appService.appState$.subscribe(state => {
+        let subscription: any;
+        subscription = this.appService.appState$.subscribe(state => {
           this.products.set(state.products || []);
           this.locations.set(state.locations || []);
 
@@ -163,11 +164,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
           }
 
           // Unsubscribe after first load
-          subscription.unsubscribe();
+          if (subscription) {
+            subscription.unsubscribe();
+          }
         });
       },
-      error: (error) => {
-        console.error('Failed to load initial data:', error);
+      error: () => {
         this.isLoading.set(false);
       }
     });
@@ -175,10 +177,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   loadLocationInventory(locationId: number): void {
     this.isLoading.set(true);
-    console.log('Loading location inventory for location:', locationId);
     this.appService.getLocationInventory(locationId).subscribe({
       next: (inventory) => {
-        console.log('Received inventory data:', inventory);
         const productsMap = new Map(this.products().map(p => [p.sku, p]));
         const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
           id: inv.id?.toString() || '',
@@ -196,13 +196,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
           wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
           product: productsMap.get(inv.productSku)
         }));
-        console.log('Mapped inventory items:', items);
-        console.log('Stats:', this.stats());
         this.locationInventory.set(items);
         this.isLoading.set(false);
       },
-      error: (error) => {
-        console.error('Failed to load location inventory:', error);
+      error: () => {
         this.locationInventory.set([]);
         this.isLoading.set(false);
       }
@@ -211,10 +208,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   loadAllInventory(): void {
     this.isLoading.set(true);
-    console.log('Loading inventory for all locations');
     this.appService.getAllLocationInventory().subscribe({
       next: (inventory: any) => {
-        console.log('Received all inventory data:', inventory);
         const productsMap = new Map(this.products().map(p => [p.sku, p]));
         const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
           id: inv.id?.toString() || '',
@@ -232,12 +227,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
           wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
           product: productsMap.get(inv.productSku)
         }));
-        console.log('Mapped all inventory items:', items);
         this.locationInventory.set(items);
         this.isLoading.set(false);
       },
-      error: (error: any) => {
-        console.error('Failed to load all inventory:', error);
+      error: () => {
         this.locationInventory.set([]);
         this.isLoading.set(false);
       }
@@ -341,7 +334,6 @@ export class InventoryComponent implements OnInit, OnDestroy {
         this.closeEditModal();
       },
       error: (error) => {
-        console.error('Failed to update inventory:', error);
         alert('Failed to update inventory: ' + (error.error?.message || error.message));
         this.isLoading.set(false);
       }

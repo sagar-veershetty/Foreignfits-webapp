@@ -1,5 +1,6 @@
 package com.foreignfits.dto.request;
 
+import com.foreignfits.dto.SalePaymentDto;
 import com.foreignfits.entity.Sale;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -23,8 +24,12 @@ public class CreateSaleRequest {
     @NotNull(message = "Location ID is required")
     private Long locationId; // Location where sale is being made
     
-    @NotNull(message = "Payment method is required")
+    // Keep for backward compatibility (single payment)
     private Sale.PaymentMethod paymentMethod;
+    
+    // New: Support for split payments
+    @Valid
+    private List<SalePaymentDto> payments;
     
     @Size(max = 100, message = "Customer name cannot exceed 100 characters")
     private String customerName;
@@ -70,4 +75,7 @@ public class CreateSaleRequest {
     
     public String getSalesPersonName() { return salesPersonName; }
     public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
+    
+    public List<SalePaymentDto> getPayments() { return payments; }
+    public void setPayments(List<SalePaymentDto> payments) { this.payments = payments; }
 }

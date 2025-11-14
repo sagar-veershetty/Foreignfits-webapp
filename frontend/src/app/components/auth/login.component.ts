@@ -33,8 +33,7 @@ export class LoginComponent {
         // Reset app data when new user logs in to force fresh data load with correct role permissions
         this.appService.resetDataLoadedFlag();
         this.router.navigate(['/dashboard'], { replaceUrl: true }); // replace login page in history
-      },
-      error: (err) => console.error('Login failed:', err)
+      }
     });
   }
 

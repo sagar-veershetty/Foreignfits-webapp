@@ -125,6 +125,13 @@ export interface SaleItem {
   barcodes?: string[]; // Scanned barcode numbers for this item
 }
 
+export interface SalePayment {
+  id?: string;
+  paymentMethod: 'CASH' | 'CARD' | 'OTHER';
+  amount: number;
+  reference?: string;
+}
+
 export interface Sale {
   id: string;
   items: SaleItem[];
@@ -132,6 +139,7 @@ export interface Sale {
   tax: number;
   total: number;
   paymentMethod: 'cash' | 'card' | 'other';
+  payments?: SalePayment[]; // Split payment support
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -150,7 +158,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'sales' | 'warehouse';
+  role: 'admin' | 'sales' | 'warehouse' | 'sales_manager';
   locationId?: string;
   locationName?: string;
   avatar?: string;
@@ -264,4 +272,70 @@ export interface DiscountCalculation {
   points: number;
   discountAmount: number;
   pointValue: number;
+}
+// Expense Management Models
+export type ExpenseType = 
+  | 'DAILY_MAINTENANCE'      // Daily store maintenance
+  | 'SALARY'                 // Staff salaries
+  | 'RENT'                   // Store rent
+  | 'ELECTRICITY'            // Electricity bills
+  | 'WATER'                  // Water bills
+  | 'INTERNET'               // Internet/Phone bills
+  | 'INVENTORY_PURCHASE'     // Purchasing inventory
+  | 'MARKETING'              // Marketing and advertising
+  | 'TRANSPORTATION'         // Transportation costs
+  | 'EQUIPMENT'              // Equipment purchase/maintenance
+  | 'CLEANING'               // Cleaning services
+  | 'SECURITY'               // Security services
+  | 'OFFICE_SUPPLIES'        // Office supplies
+  | 'MISCELLANEOUS';         // Other expenses
+
+export type PaymentMethod = 
+  | 'CASH' 
+  | 'CARD' 
+  | 'UPI' 
+  | 'BANK_TRANSFER' 
+  | 'CHEQUE';
+
+export type ExpenseStatus = 
+  | 'PENDING'    // Waiting for approval
+  | 'APPROVED'   // Approved by manager
+  | 'REJECTED'   // Rejected
+  | 'PAID';      // Payment completed
+
+export interface Expense {
+  id: string;
+  type: ExpenseType;
+  amount: number;
+  description: string;
+  expenseDate: Date;
+  locationId: string;
+  locationName: string;
+  paymentMethod: PaymentMethod;
+  receiptUrl?: string;
+  notes?: string;
+  createdBy: string;
+  approvedBy?: string;
+  status: ExpenseStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ExpenseRequest {
+  type: ExpenseType;
+  amount: number;
+  description: string;
+  expenseDate: Date;
+  locationId: string | number;  // Can be string from form or number for API
+  paymentMethod: PaymentMethod;
+  receiptUrl?: string;
+  notes?: string;
+}
+
+export interface ExpenseSummary {
+  totalExpenses: number;
+  expensesByType: { [key: string]: number };
+  expensesByLocation: { [key: string]: number };
+  startDate: Date;
+  endDate: Date;
 }

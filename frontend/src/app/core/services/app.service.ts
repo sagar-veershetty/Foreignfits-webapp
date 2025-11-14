@@ -53,7 +53,6 @@ export class AppService {
    * Called when a new user logs in to ensure role-specific data is loaded.
    */
   resetDataLoadedFlag(): void {
-    console.log('Resetting dataLoaded flag to force fresh data load');
     this.updateAppState({
       ...this._appStateSubject.value,
       dataLoaded: false,
@@ -67,14 +66,12 @@ export class AppService {
   loadInitialData(): Observable<any> {
     // If already loaded AND locations exist, skip reload
     if (this._appStateSubject.value.dataLoaded && this._appStateSubject.value.locations.length > 0) {
-      console.log('Data already loaded, skipping reload');
       return new Observable(observer => {
         observer.next(true);
         observer.complete();
       });
     }
 
-    console.log('Loading initial data...');
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
     const currentUser = this.authService.getCurrentUser();
@@ -89,16 +86,13 @@ export class AppService {
     // Sales data is only needed for SALES and ADMIN roles (not for WAREHOUSE)
     if (userRole === 'sales' || userRole === 'admin') {
       dataToLoad.sales = this.loadSales();
-    } else {
-      console.log(`Skipping sales data load for ${userRole} user`);
     }
     
     // Stock movements are needed for all roles
     dataToLoad.stockMovements = this.loadStockMovements();
 
     return forkJoin(dataToLoad).pipe(
-      tap((data) => {
-        console.log('Initial data loaded:', data);
+      tap(() => {
         this.updateAppState({
           ...this._appStateSubject.value,
           dataLoaded: true,
@@ -106,7 +100,6 @@ export class AppService {
         });
       }),
       catchError(error => {
-        console.error('Failed to load initial data:', error);
         this.updateAppState({
           ...this._appStateSubject.value,
           isLoading: false,
@@ -128,7 +121,6 @@ export class AppService {
           });
         }),
         catchError(error => {
-          console.warn('Failed to load products from API, using fallback data:', error);
           const fallbackProducts = this.generateMockProducts();
           this.updateAppState({
             ...this._appStateSubject.value,
@@ -169,9 +161,8 @@ export class AppService {
           });
         }),
         catchError(error => {
-          console.warn('Failed to load sales from API (keeping existing list):', error);
-          // Keep existing sales to avoid wiping dashboard stats
-          return new Observable<Sale[]>(observer => observer.next(this._appStateSubject.value.sales));
+          // Keep existing sales list if API fails
+          return new Observable<Sale[]>(observer => observer.next([]));
         })
       );
   }
@@ -189,7 +180,7 @@ export class AppService {
         catchError(error => {
           // 403 is expected for SALES users - they don't have access to stock movements
           if (error.status !== 403) {
-            console.warn('Failed to load stock movements from API:', error);
+            // Silent fail for stock movements
           }
 
           this.updateAppState({
@@ -262,14 +253,12 @@ export class AppService {
             isActive: loc.isActive !== false,
             createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
           }));
-          console.log('Locations loaded:', locations);
           this.updateAppState({
             ...this._appStateSubject.value,
             locations
           });
         }),
         catchError(error => {
-          console.error('Failed to load all locations, trying transfer-destinations:', error);
           // Fallback to transfer-destinations if /locations fails (permission issue)
           return this.http.get<any[]>(`${this.API_BASE_URL}/locations/transfer-destinations`)
             .pipe(
@@ -288,14 +277,12 @@ export class AppService {
                   isActive: loc.isActive !== false,
                   createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
                 }));
-                console.warn('Using transfer-destinations (SUPPLIER may be missing)');
                 this.updateAppState({
                   ...this._appStateSubject.value,
                   locations
                 });
               }),
               catchError(innerError => {
-                console.error('Failed to load from both endpoints:', innerError);
                 this.updateAppState({
                   ...this._appStateSubject.value,
                   locations: []
@@ -326,7 +313,6 @@ export class AppService {
           createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
         }))),
         catchError(error => {
-          console.error('Failed to load transfer destinations:', error);
           return of([]);
         })
       );
@@ -450,7 +436,6 @@ export class AppService {
     return this.http.get<any>(`${this.API_BASE_URL}/barcodes/lookup/${barcodeNumber}`)
       .pipe(
         catchError(error => {
-          console.error('Failed to lookup barcode:', error);
           return throwError(() => error);
         })
       );
@@ -505,9 +490,6 @@ export class AppService {
         // Light-weight refresh: sales only (stats depend on it)
         this.loadSales().subscribe();
       });
-      console.log(`Auto-refresh started for ${userRole} user (${intervalMs}ms interval)`);
-    } else {
-      console.log(`Auto-refresh skipped for ${userRole} user (not needed)`);
     }
   }
 
@@ -546,7 +528,6 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Stock transfer failed:', error);
           return throwError(() => error);
         })
       );
@@ -588,7 +569,6 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Barcode stock transfer failed:', error);
           return throwError(() => error);
         })
       );
@@ -599,7 +579,6 @@ export class AppService {
       `${this.API_BASE_URL}/barcodes/transfer-status/product/${productId}/location/${locationId}`
     ).pipe(
       catchError(error => {
-        console.error('Failed to get barcode transfer status:', error);
         return throwError(() => error);
       })
     );
@@ -623,7 +602,6 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Stock adjustment failed:', error);
           return throwError(() => error);
         })
       );
@@ -673,6 +651,19 @@ export class AppService {
   }
 
   private convertApiSaleToSale(apiSale: any): Sale {
+    // Handle payment method - could be single payment or split payments
+    let paymentMethod = 'cash'; // default
+    if (apiSale.paymentMethod) {
+      // Old format: single paymentMethod field
+      paymentMethod = apiSale.paymentMethod.toLowerCase();
+    } else if (apiSale.payments && apiSale.payments.length > 0) {
+      // New format: multiple payments array
+      // Use the first payment method or 'card' if multiple
+      paymentMethod = apiSale.payments.length === 1 
+        ? apiSale.payments[0].paymentMethod.toLowerCase() 
+        : 'card'; // Default to 'card' for split payments
+    }
+
     return {
       id: apiSale.id.toString(),
       items: (apiSale.items || []).map((item: any) => ({
@@ -686,7 +677,13 @@ export class AppService {
       subtotal: apiSale.subtotal,
       tax: apiSale.tax,
       total: apiSale.total,
-      paymentMethod: apiSale.paymentMethod.toLowerCase(),
+      paymentMethod: paymentMethod as 'cash' | 'card' | 'other',
+      payments: apiSale.payments ? apiSale.payments.map((p: any) => ({
+        id: p.id?.toString(),
+        paymentMethod: p.paymentMethod,
+        amount: p.amount,
+        reference: p.reference
+      })) : undefined,
       customerName: apiSale.customerName,
       customerEmail: apiSale.customerEmail,
       customerPhone: apiSale.customerPhone,
@@ -785,14 +782,13 @@ export class AppService {
   }
 
   private convertSaleToCreateRequest(saleData: any, items: SaleItem[]): any {
-    return {
+    const request: any = {
       items: items.map(item => ({
         productId: parseInt(item.productId),
         quantity: item.quantity,
         barcodeNumbers: item.barcodes || [] // Send scanned barcode numbers
       })),
-      locationId: saleData.locationId, // NEW: Required for new schema
-      paymentMethod: saleData.paymentMethod.toUpperCase(),
+      locationId: saleData.locationId,
       customerName: saleData.customerName,
       customerEmail: saleData.customerEmail,
       customerPhone: saleData.customerPhone,
@@ -800,6 +796,22 @@ export class AppService {
       pointsRedeemed: saleData.pointsRedeemed,
       discountFromPoints: saleData.discountFromPoints,
     };
+
+    // Add payment information - either single payment or split payments
+    if (saleData.payments) {
+      // Split payment mode
+      request.payments = saleData.payments;
+    } else if (saleData.paymentMethod) {
+      // Single payment mode (backward compatibility)
+      request.paymentMethod = saleData.paymentMethod.toUpperCase();
+    }
+
+    // Add salesPersonName if provided
+    if (saleData.salesPersonName) {
+      request.salesPersonName = saleData.salesPersonName;
+    }
+
+    return request;
   }
 
   private generateMockProducts(): Product[] {
@@ -836,7 +848,6 @@ export class AppService {
       .pipe(
         map(apiMovements => apiMovements.map(m => this.convertApiStockMovementToStockMovement(m))),
         catchError(error => {
-          console.error('Failed to load pending stock movements:', error);
           return throwError(() => error);
         })
       );
@@ -851,7 +862,6 @@ export class AppService {
           this.loadProducts().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to approve stock movement:', error);
           return throwError(() => error);
         })
       );
@@ -865,7 +875,6 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to reject stock movement:', error);
           return throwError(() => error);
         })
       );
@@ -877,7 +886,6 @@ export class AppService {
       .pipe(
         map(apiProducts => apiProducts.map(p => this.convertApiProductToProduct(p))),
         catchError(error => {
-          console.error('Failed to load pending products:', error);
           return throwError(() => error);
         })
       );
@@ -891,7 +899,6 @@ export class AppService {
           this.loadProducts().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to approve product:', error);
           return throwError(() => error);
         })
       );
@@ -905,7 +912,6 @@ export class AppService {
           this.loadProducts().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to reject product:', error);
           return throwError(() => error);
         })
       );
@@ -920,7 +926,6 @@ export class AppService {
     return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/all`)
       .pipe(
         catchError(error => {
-          console.error('Failed to load all location inventory:', error);
           return throwError(() => error);
         })
       );
@@ -933,7 +938,6 @@ export class AppService {
     return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/location/${locationId}`)
       .pipe(
         catchError(error => {
-          console.error('Failed to load location inventory:', error);
           return throwError(() => error);
         })
       );
@@ -946,7 +950,6 @@ export class AppService {
     return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/product/${sku}`)
       .pipe(
         catchError(error => {
-          console.error('Failed to load inventory by SKU:', error);
           return throwError(() => error);
         })
       );
@@ -959,7 +962,6 @@ export class AppService {
     return this.http.get<any>(`${this.API_BASE_URL}/inventory/location/${locationId}/product/${sku}`)
       .pipe(
         catchError(error => {
-          console.error('Failed to load inventory for location and SKU:', error);
           return throwError(() => error);
         })
       );
@@ -988,11 +990,7 @@ export class AppService {
 
     return this.http.put<any>(`${this.API_BASE_URL}/inventory/${inventoryId}/pricing`, request)
       .pipe(
-        tap(() => {
-          console.log('Location inventory pricing updated successfully');
-        }),
         catchError(error => {
-          console.error('Failed to update inventory pricing:', error);
           return throwError(() => error);
         })
       );

@@ -170,8 +170,17 @@
 
         <!-- Payment Method -->
         <div class="mb-4">
-          <label class="block text-sm font-medium mb-2">Payment Method</label>
-          <div class="flex gap-2">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium">Payment Method</label>
+            <button 
+              (click)="toggleSplitPayment()" 
+              class="text-xs text-blue-600 hover:text-blue-800 underline">
+              {{ useSplitPayment ? 'Use Single Payment' : 'Split Payment' }}
+            </button>
+          </div>
+
+          <!-- Single Payment Mode -->
+          <div *ngIf="!useSplitPayment" class="flex gap-2">
             <button (click)="paymentMethod = 'cash'" [class]="paymentMethod === 'cash' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
               Cash
             </button>
@@ -182,11 +191,80 @@
               Other
             </button>
           </div>
+
+          <!-- Split Payment Mode -->
+          <div *ngIf="useSplitPayment" class="space-y-2">
+            <!-- Payment Rows -->
+            <div *ngFor="let payment of payments; let i = index" class="flex gap-2 items-start">
+              <select [(ngModel)]="payment.paymentMethod" class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-shrink-0 w-24">
+                <option value="CASH">Cash</option>
+                <option value="CARD">Card</option>
+                <option value="OTHER">Other</option>
+              </select>
+              <div class="flex-1">
+                <input 
+                  type="number" 
+                  [(ngModel)]="payment.amount" 
+                  placeholder="Amount" 
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <input 
+                type="text" 
+                [(ngModel)]="payment.reference" 
+                placeholder="Ref (optional)" 
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <button 
+                (click)="removePaymentRow(i)" 
+                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Add Payment Button -->
+            <button 
+              (click)="addPaymentRow()" 
+              class="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 flex items-center justify-center gap-2">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+              </svg>
+              Add Payment Method
+            </button>
+
+            <!-- Payment Summary -->
+            <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Sale Total:</span>
+                <span class="font-semibold">₹{{ getTotal(appState) | number:'1.2-2' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Total Payments:</span>
+                <span [class]="getTotalPayments() === getTotal(appState) ? 'text-green-600 font-semibold' : 'font-semibold'">
+                  ₹{{ getTotalPayments() | number:'1.2-2' }}
+                </span>
+              </div>
+              <div class="flex justify-between border-t pt-1">
+                <span class="text-gray-700 font-medium">Remaining:</span>
+                <span [class]="getRemainingBalance(appState) === 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'">
+                  ₹{{ getRemainingBalance(appState) | number:'1.2-2' }}
+                </span>
+              </div>
+            </div>
+
+            <div *ngIf="getRemainingBalance(appState) > 0" class="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded p-2">
+              ⚠️ Please enter payments totaling ₹{{ getTotal(appState) | number:'1.2-2' }}
+            </div>
+          </div>
         </div>
 
         <!-- Complete Sale Button -->
         <button (click)="completeSale(appState)"
-                [disabled]="appState.currentSale.length === 0"
+                [disabled]="!canCompleteSale(appState)"
                 class="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -196,6 +274,9 @@
 
         <div *ngIf="appState.currentSale.length === 0" class="mt-2 text-center text-sm text-gray-500">
           Scan items to enable checkout
+        </div>
+        <div *ngIf="useSplitPayment && getRemainingBalance(appState) > 0 && appState.currentSale.length > 0" class="mt-2 text-center text-sm text-orange-600">
+          Add payments totaling ₹{{ getTotal(appState) | number:'1.2-2' }} to complete
         </div>
       </div>
     </div>

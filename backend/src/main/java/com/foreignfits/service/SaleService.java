@@ -4,6 +4,7 @@ import com.foreignfits.dto.LocationDto;
 import com.foreignfits.dto.ProductDto;
 import com.foreignfits.dto.SaleDto;
 import com.foreignfits.dto.SaleItemDto;
+import com.foreignfits.dto.SalePaymentDto;
 import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateSaleRequest;
 import com.foreignfits.dto.request.SaleItemRequest;
@@ -12,6 +13,7 @@ import com.foreignfits.repository.LocationInventoryRepository;
 import com.foreignfits.repository.LocationRepository;
 import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.repository.SaleRepository;
+import com.foreignfits.repository.SalePaymentRepository;
 import com.foreignfits.repository.StockMovementRepository;
 import com.foreignfits.repository.StockTransferRepository;
 import com.foreignfits.repository.UserRepository;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 public class SaleService {
     
     private final SaleRepository saleRepository;
+    private final SalePaymentRepository salePaymentRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockMovementRepository stockMovementRepository;
@@ -175,6 +178,48 @@ public class SaleService {
         }
         savedSale.setItems(saleItems);
         savedSale = saleRepository.save(savedSale);
+        
+        // ✅ SPLIT PAYMENT SUPPORT: Handle multiple payment methods
+        if (request.getPayments() != null && !request.getPayments().isEmpty()) {
+            // Validate that payment amounts sum to sale total
+            BigDecimal paymentSum = request.getPayments().stream()
+                    .map(SalePaymentDto::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+            if (paymentSum.compareTo(savedSale.getTotal()) != 0) {
+                throw new RuntimeException("Payment sum (" + paymentSum + 
+                    ") does not match sale total (" + savedSale.getTotal() + ")");
+            }
+            
+            // Save each payment
+            List<SalePayment> payments = new ArrayList<>();
+            for (SalePaymentDto paymentDto : request.getPayments()) {
+                try {
+                    SalePayment payment = new SalePayment();
+                    payment.setSale(savedSale);
+                    payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(paymentDto.getPaymentMethod()));
+                    payment.setAmount(paymentDto.getAmount());
+                    payment.setReference(paymentDto.getReference());
+                    payments.add(salePaymentRepository.save(payment));
+                } catch (IllegalArgumentException e) {
+                    throw new RuntimeException("Invalid payment method: " + paymentDto.getPaymentMethod() + 
+                        ". Valid values are: CASH, CARD, OTHER");
+                }
+            }
+            savedSale.setPayments(payments);
+            
+        } else if (request.getPaymentMethod() != null) {
+            // Backward compatibility: Convert single payment method to payment record
+            SalePayment payment = new SalePayment();
+            payment.setSale(savedSale);
+            payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(request.getPaymentMethod().name()));
+            payment.setAmount(savedSale.getTotal());
+            payment.setReference(null); // No reference for old format
+            SalePayment savedPayment = salePaymentRepository.save(payment);
+            savedSale.setPayments(List.of(savedPayment));
+        } else {
+            throw new RuntimeException("Payment method or payments list is required");
+        }
         
         // Update inventory and create stock movements
         for (SaleItem item : saleItems) {
@@ -372,6 +417,23 @@ public class SaleService {
             dto.setItems(itemDtos);
         }
         
+        // Convert payments (split payment support)
+        if (sale.getPayments() != null && !sale.getPayments().isEmpty()) {
+            List<SalePaymentDto> paymentDtos = sale.getPayments().stream()
+                    .map(this::convertPaymentToDto)
+                    .collect(Collectors.toList());
+            dto.setPayments(paymentDtos);
+        }
+        
+        return dto;
+    }
+    
+    private SalePaymentDto convertPaymentToDto(SalePayment payment) {
+        SalePaymentDto dto = new SalePaymentDto();
+        dto.setId(payment.getId());
+        dto.setPaymentMethod(payment.getPaymentMethod().name());
+        dto.setAmount(payment.getAmount());
+        dto.setReference(payment.getReference());
         return dto;
     }
     

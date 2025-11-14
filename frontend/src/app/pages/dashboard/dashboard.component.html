@@ -1,16 +1,16 @@
-<div class="min-h-screen bg-gray-50 p-6">
+<div class="min-h-screen bg-gray-50 p-3 sm:p-6">
   <div class="max-w-7xl mx-auto">
     <!-- Header with Location Selector -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
       
       <!-- Location Selector (Admin only) -->
-      <div *ngIf="canSwitchLocation()" class="flex items-center gap-3">
-        <label class="text-sm font-medium text-gray-700">Location:</label>
+      <div *ngIf="canSwitchLocation()" class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        <label class="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Location:</label>
         <select 
           [(ngModel)]="currentSelectedLocationId" 
           (change)="onLocationChange()"
-          class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+          class="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
           <option value="">All Locations</option>
           <option *ngFor="let location of locationsList" [value]="location.id">
             {{ location.name }} ({{ location.type }})
@@ -19,28 +19,28 @@
       </div>
 
       <!-- Location Display (Non-admin) -->
-      <div *ngIf="!canSwitchLocation() && currentSelectedLocationId" class="flex items-center gap-2 bg-indigo-50 px-4 py-2 rounded-lg">
-        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div *ngIf="!canSwitchLocation() && currentSelectedLocationId" class="flex items-center gap-2 bg-indigo-50 px-3 sm:px-4 py-2 rounded-lg w-full sm:w-auto">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
         </svg>
-        <span class="text-sm font-medium text-indigo-900">
+        <span class="text-xs sm:text-sm font-medium text-indigo-900 truncate">
           {{ currentLocationName }}
         </span>
       </div>
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
       <!-- Total Products -->
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Total Products</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">{{ statsData.totalProducts }}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Total Products</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{{ statsData.totalProducts }}</p>
           </div>
-          <div class="bg-blue-50 p-3 rounded-lg">
-            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-blue-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
             </svg>
           </div>
@@ -48,14 +48,14 @@
       </div>
 
       <!-- Total Stock -->
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Total Stock</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">{{ statsData.totalStock }}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Total Stock</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{{ statsData.totalStock }}</p>
           </div>
-          <div class="bg-green-50 p-3 rounded-lg">
-            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-green-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             </svg>
           </div>
@@ -63,14 +63,14 @@
       </div>
 
       <!-- Low Stock Alerts -->
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer" (click)="navigateTo('/inventory')">
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer" (click)="navigateTo('/inventory')">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Low Stock Alerts</p>
-            <p class="text-3xl font-bold text-orange-600 mt-2">{{ statsData.lowStockCount }}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Low Stock Alerts</p>
+            <p class="text-2xl sm:text-3xl font-bold text-orange-600 mt-1 sm:mt-2">{{ statsData.lowStockCount }}</p>
           </div>
-          <div class="bg-orange-50 p-3 rounded-lg">
-            <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-orange-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
           </div>
@@ -78,14 +78,14 @@
       </div>
 
       <!-- Inventory Value -->
-      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Inventory Value</p>
-            <p class="text-3xl font-bold text-gray-900 mt-2">₹{{ statsData.inventoryValue.toFixed(2) }}</p>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Inventory Value</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">₹{{ statsData.inventoryValue.toFixed(2) }}</p>
           </div>
-          <div class="bg-purple-50 p-3 rounded-lg">
-            <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="bg-purple-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
@@ -94,14 +94,14 @@
     </div>
 
     <!-- Two Column Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-6 sm:mb-8">
       <!-- Low Stock Items -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Low Stock Alerts</h2>
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+          <h2 class="text-lg sm:text-xl font-bold text-gray-900">Low Stock Alerts</h2>
         </div>
-        <div class="p-6">
-          <div *ngIf="lowStockItemsList.length === 0" class="text-center py-8 text-gray-500">
+        <div class="p-4 sm:p-6">
+          <div *ngIf="lowStockItemsList.length === 0" class="text-center py-6 sm:py-8 text-gray-500">
             <svg class="w-16 h-16 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -134,69 +134,68 @@
 
       <!-- Top Products by Value -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200">
-          <h2 class="text-xl font-bold text-gray-900">Top Products by Value</h2>
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+          <h2 class="text-lg sm:text-xl font-bold text-gray-900">Top Products by Value</h2>
         </div>
-        <div class="p-6">
-          <div *ngIf="topProductsList.length === 0" class="text-center py-8 text-gray-500">
-            <p>No inventory data available</p>
+        <div class="p-4 sm:p-6">
+          <div *ngIf="topProductsList.length === 0" class="text-center py-6 sm:py-8 text-gray-500">
+            <p class="text-sm sm:text-base">No inventory data available</p>
           </div>
           
-          <div class="space-y-3">
+          <div class="space-y-2 sm:space-y-3">
             <div *ngFor="let item of topProductsList; let i = index" 
-                 class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div class="flex items-center gap-3 flex-1">
-                <div class="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-sm">
+                 class="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-xs sm:text-sm flex-shrink-0">
                   {{ i + 1 }}
                 </div>
-                <div>
-                  <p class="font-semibold text-gray-900">{{ item.productName }}</p>
-                  <p class="text-sm text-gray-600">{{ item.quantity }} units &#64; ₹{{ item.salePrice.toFixed(2) }}</p>
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-sm sm:text-base text-gray-900 truncate">{{ item.productName }}</p>
+                  <p class="text-xs sm:text-sm text-gray-600">{{ item.quantity }} units &#64; ₹{{ item.salePrice.toFixed(2) }}</p>
                 </div>
               </div>
-              <div class="text-right">
-                <p class="font-bold text-lg text-green-600">₹{{ (item.quantity * item.salePrice).toFixed(2) }}</p>
+              <div class="text-right flex-shrink-0 ml-2">
+                <p class="font-bold text-base sm:text-lg text-green-600">₹{{ (item.quantity * item.salePrice).toFixed(2) }}</p>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-
     <!-- Quick Actions -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 class="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+      <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Quick Actions</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <button (click)="navigateTo('/inventory')" 
-                class="flex items-center gap-3 p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors text-left">
-          <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="flex items-center gap-3 p-3 sm:p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors text-left touch-manipulation active:scale-95">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
           </svg>
-          <div>
-            <p class="font-semibold text-indigo-900">View Inventory</p>
-            <p class="text-sm text-indigo-700">Manage stock levels</p>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm sm:text-base text-indigo-900">View Inventory</p>
+            <p class="text-xs sm:text-sm text-indigo-700">Manage stock levels</p>
           </div>
         </button>
 
         <button (click)="navigateTo('/stock-movement')" 
-                class="flex items-center gap-3 p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left">
-          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="flex items-center gap-3 p-3 sm:p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left touch-manipulation active:scale-95">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
           </svg>
-          <div>
-            <p class="font-semibold text-green-900">Stock Transfer</p>
-            <p class="text-sm text-green-700">Move stock between locations</p>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm sm:text-base text-green-900">Stock Transfer</p>
+            <p class="text-xs sm:text-sm text-green-700">Move stock between locations</p>
           </div>
         </button>
 
         <button *ngIf="authService.canViewSales()" (click)="navigateTo('/sales')" 
-                class="flex items-center gap-3 p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left">
-          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                class="flex items-center gap-3 p-3 sm:p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left touch-manipulation active:scale-95">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
-          <div>
-            <p class="font-semibold text-purple-900">Make Sale</p>
-            <p class="text-sm text-purple-700">Process customer orders</p>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm sm:text-base text-purple-900">Make Sale</p>
+            <p class="text-xs sm:text-sm text-purple-700">Process customer orders</p>
           </div>
         </button>
       </div>

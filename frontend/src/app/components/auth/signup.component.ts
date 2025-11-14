@@ -106,10 +106,8 @@ export class SignupComponent implements OnInit {
         }));
         this.allLocations.set(locations);
         this.isLoadingLocations.set(false);
-        console.log('Loaded locations:', locations);
       },
       error: (err) => {
-        console.error('Failed to load locations:', err);
         this.isLoadingLocations.set(false);
         this.validationError = 'Failed to load locations. Please refresh the page.';
       }
@@ -161,7 +159,6 @@ export class SignupComponent implements OnInit {
         this.goToLogin();
       },
       error: (err) => {
-        console.error('Signup failed', err);
         this.validationError = err.error?.error || err.error?.message || 'Registration failed. Please try again.';
       }
     });

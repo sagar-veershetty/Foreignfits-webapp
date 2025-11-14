@@ -173,9 +173,7 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.app.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
-        this.app.loadInitialData().subscribe({
-          error: (e) => console.error('SalesAnalytics: initial data load failed', e)
-        });
+        this.app.loadInitialData().subscribe();
       }
     });
     
@@ -184,10 +182,7 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         if (event.url.includes('/sales-analytics')) {
-          console.log('Sales Analytics: Refreshing data on navigation');
-          this.app.loadInitialData().subscribe({
-            error: (e) => console.error('Sales Analytics: data refresh failed', e)
-          });
+          this.app.loadInitialData().subscribe();
         }
       });
   }

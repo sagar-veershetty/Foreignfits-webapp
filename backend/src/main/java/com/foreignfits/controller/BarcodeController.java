@@ -177,4 +177,28 @@ public class BarcodeController {
         
         return ResponseEntity.ok(barcodeService.getTransferStatusForBarcodes(barcodeNumbers));
     }
+    
+    /**
+     * Reset barcode status to ACTIVE (for admin/debugging purposes)
+     * Use this to fix barcodes that were incorrectly marked as SOLD
+     */
+    @PatchMapping("/reset/{barcodeNumber}")
+    @PreAuthorize("hasAuthority('manage:inventory')")
+    public ResponseEntity<Map<String, Object>> resetBarcodeStatus(@PathVariable String barcodeNumber) {
+        Barcode barcode = barcodeService.findByBarcodeNumber(barcodeNumber);
+        
+        barcode.setStatus("ACTIVE");
+        barcode.setRemark("Reset to ACTIVE by admin - " + java.time.LocalDateTime.now());
+        
+        barcodeRepository.save(barcode);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Barcode status reset to ACTIVE");
+        response.put("barcodeNumber", barcode.getBarcodeNumber());
+        response.put("status", barcode.getStatus());
+        response.put("remark", barcode.getRemark());
+        
+        return ResponseEntity.ok(response);
+    }
 }

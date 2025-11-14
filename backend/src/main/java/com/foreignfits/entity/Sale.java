@@ -29,6 +29,9 @@ public class Sale {
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SaleItem> items;
     
+    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private List<SalePayment> payments;
+    
     @NotNull(message = "Subtotal is required")
     @DecimalMin(value = "0.0", message = "Subtotal cannot be negative")
     @Digits(integer = 10, fraction = 2, message = "Subtotal format is invalid")
@@ -48,7 +51,7 @@ public class Sale {
     private BigDecimal total;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", nullable = false)
+    @Column(name = "payment_method", nullable = true)
     private PaymentMethod paymentMethod;
     
     @Column(name = "customer_name", length = 100)
@@ -98,6 +101,9 @@ public class Sale {
     
     public List<SaleItem> getItems() { return items; }
     public void setItems(List<SaleItem> items) { this.items = items; }
+    
+    public List<SalePayment> getPayments() { return payments; }
+    public void setPayments(List<SalePayment> payments) { this.payments = payments; }
     
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }

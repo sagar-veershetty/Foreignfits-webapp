@@ -300,6 +300,17 @@ public class StockService {
         movement.setApprovedBy(approvedBy);
         movement.setApprovedAt(java.time.LocalDateTime.now());
         
+        // If this is a TRANSFER movement, also update the transfer status to COMPLETED
+        if (movement.getType() == StockMovement.MovementType.TRANSFER && movement.getTransfer() != null) {
+            StockTransfer transfer = movement.getTransfer();
+            transfer.setStatus(StockTransfer.TransferStatus.COMPLETED);
+            transfer.setCompletedBy(approvingUser);
+            transfer.setCompletedAt(java.time.LocalDateTime.now());
+            transfer.setApprovedBy(approvingUser);
+            transfer.setApprovedAt(java.time.LocalDateTime.now());
+            stockTransferRepository.save(transfer);
+        }
+        
         StockMovement savedMovement = stockMovementRepository.save(movement);
         
         return convertToDto(savedMovement);

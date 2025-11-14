@@ -94,6 +94,15 @@ export const routes: Routes = [
     canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
   },
   { 
+    path: 'expenses', 
+    loadComponent: () => import('./pages/expenses/expenses.component').then(m => m.ExpensesComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales_manager','sales'] }
+  },
+  { 
     path: 'customer', 
     loadComponent: () => import('./pages/customer/customer-app.component').then(m => m.CustomerAppComponent)
   },
