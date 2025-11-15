@@ -131,11 +131,13 @@ public class LoyaltyService {
         
         // Deduct points
         customer.setTotalPoints(customer.getTotalPoints() - pointsToRedeem);
-        customerRepository.save(customer);
         
-        // Record transaction (negative points)
+        // Record transaction BEFORE saving customer (to get correct balanceAfter)
         String description = String.format("Redeemed %d points for ₹%.2f discount", pointsToRedeem, discount);
         recordTransaction(customer, TransactionType.REDEEMED, -pointsToRedeem, null, description);
+        
+        // Save customer with updated points
+        customerRepository.save(customer);
         
         logger.info("Customer {} redeemed {} points for ₹{} discount", 
                    customer.getPhone(), pointsToRedeem, discount);
