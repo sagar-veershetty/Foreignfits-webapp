@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-unauthorized',
@@ -31,6 +32,10 @@ import { Router } from '@angular/router';
                     class="w-full px-6 py-3 bg-blue-600 text-white font-semibold text-lg hover:bg-blue-700 rounded-lg shadow-md transition-colors">
               Go to Login
             </button>
+            <button (click)="goToAgentSignup()"
+                    class="w-full px-6 py-3 bg-purple-600 text-white font-semibold hover:bg-purple-700 rounded-lg shadow-md transition-colors">
+              🚢 Register as Shipping Agent
+            </button>
             <button (click)="goToHome()"
                     class="w-full px-6 py-3 bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 rounded-lg transition-colors">
               Back to Home
@@ -48,13 +53,36 @@ import { Router } from '@angular/router';
   styles: []
 })
 export class UnauthorizedComponent {
-  constructor(private router: Router) {}
+  private router = inject(Router);
+  private authService = inject(AuthService);
 
   goToLogin(): void {
+    console.log('🔵 Going to login - clearing storage');
+    localStorage.removeItem('foreignfits_token');
+    localStorage.removeItem('foreignfits_user');
     this.router.navigate(['/login'], { replaceUrl: true });
   }
 
+  goToAgentSignup(): void {
+    console.log('🟣 Going to agent signup - clearing auth state');
+    // Clear authentication completely - this will also clear localStorage
+    // and update the AuthService's internal state
+    localStorage.removeItem('foreignfits_token');
+    localStorage.removeItem('foreignfits_user');
+    
+    console.log('🟣 Navigating to /agent-signup');
+    // Use setTimeout to ensure localStorage is cleared before navigation
+    setTimeout(() => {
+      this.router.navigate(['/agent-signup'], { replaceUrl: true })
+        .then(success => console.log('🟣 Navigation result:', success))
+        .catch(err => console.error('🟣 Navigation error:', err));
+    }, 100);
+  }
+
   goToHome(): void {
+    console.log('🏠 Going to home - clearing storage');
+    localStorage.removeItem('foreignfits_token');
+    localStorage.removeItem('foreignfits_user');
     this.router.navigate(['/'], { replaceUrl: true });
   }
 }

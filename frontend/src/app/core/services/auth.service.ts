@@ -129,6 +129,32 @@ export class AuthService {
       );
   }
 
+  /**
+   * Signup method for agent registration (supports shipping agent roles)
+   */
+  signup(data: { name: string; email: string; password: string; role: string }): Observable<any> {
+    this.updateAuthState({ ...this.authStateSubject.value, isLoading: true, error: null });
+
+    let body = new HttpParams()
+      .set('name', data.name)
+      .set('email', data.email)
+      .set('password', data.password)
+      .set('role', data.role);
+
+    const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' });
+
+    return this.http.post<any>(`${this.API_BASE_URL}/auth/register`, body.toString(), { headers })
+      .pipe(
+        tap(() => {
+          this.updateAuthState({ ...this.authStateSubject.value, isLoading: false, error: null });
+        }),
+        catchError(error => {
+          this.updateAuthState({ ...this.authStateSubject.value, isLoading: false, error: error.error?.error || 'Signup failed' });
+          return throwError(() => error);
+        })
+      );
+  }
+
   logout(): void {
     this.clearAuthData();
     this.updateAuthState({

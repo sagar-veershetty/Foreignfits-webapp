@@ -28,12 +28,14 @@ INSERT INTO users (id, name, email, password, role, location_id, is_active, crea
 (5, 'Sales Rep - Wholesale Store', 'sales.wholesale@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 4, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (6, 'Sales Rep - Retail Store', 'sales.retail@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 5, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (7, 'Pending Sales User', 'pending.sales@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SALES', 4, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(8, 'Pending Warehouse User', 'pending.warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', 2, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+(8, 'Pending Warehouse User', 'pending.warehouse@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'WAREHOUSE', 2, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(9, 'Karl Chen', 'karl@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SHIPPING_AGENT_CHINA', 1, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(10, 'Girish Patel', 'girish@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SHIPPING_AGENT_INDIA', 2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 
 -- Ensure IDENTITY sequences continue after seeded IDs (H2 syntax)
 ALTER TABLE locations ALTER COLUMN id RESTART WITH 6;
-ALTER TABLE users ALTER COLUMN id RESTART WITH 9;
+ALTER TABLE users ALTER COLUMN id RESTART WITH 11;
 ALTER TABLE products ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE location_inventory ALTER COLUMN id RESTART WITH 1;
 
@@ -62,3 +64,11 @@ INSERT INTO expenses (id, type, amount, description, expense_date, location_id, 
 (17, 'WATER', 500.00, 'Water bill - October 2025', CURRENT_TIMESTAMP, 4, 'UPI', null, 'Monthly water charges', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 ALTER TABLE expenses ALTER COLUMN id RESTART WITH 18;
+
+-- Insert sample shipments for testing
+INSERT INTO shipments (id, shipping_id, total_cost, total_packages, total_cbm, is_branded, per_cbm_rate, etd, eta, origin_location, destination_location, tracking_url, payment_status, paid_amount, pending_amount, status, created_by_agent, india_warehouse_address, india_contact_phone, created_at, updated_at) VALUES
+(1, 'FF-2025-001', 150000.00, 50, 25.5, true, 5880.00, '2025-11-01', '2025-11-20', 'Shanghai, China', 'Mumbai, India', 'https://www.maersk.com/tracking/1234567', 'UNPAID', 0.00, 150000.00, 'DELIVERED_TO_WAREHOUSE', 'karl@foreignfits.com', '123 Warehouse District, Mumbai, India 400001', '+912212345678', CURRENT_TIMESTAMP - 10, CURRENT_TIMESTAMP - 1),
+(2, 'FF-2025-002', 200000.00, 75, 35.0, false, 5714.00, '2025-11-05', '2025-11-25', 'Guangzhou, China', 'Mumbai, India', 'https://www.cma-cgm.com/tracking/9876543', 'PARTIALLY_PAID', 50000.00, 150000.00, 'IN_TRANSIT', 'karl@foreignfits.com', '456 Industrial Zone, Mumbai, India 400004', '+912298765432', CURRENT_TIMESTAMP - 8, CURRENT_TIMESTAMP - 2),
+(3, 'FF-2025-003', 180000.00, 60, 30.0, true, 6000.00, '2025-11-10', '2025-11-30', 'Shenzhen, China', 'Mumbai, India', 'https://www.evergreen-line.com/tracking/5555555', 'UNPAID', 0.00, 180000.00, 'CREATED', 'karl@foreignfits.com', '789 Storage Complex, Mumbai, India 400002', '+912255556666', CURRENT_TIMESTAMP - 5, CURRENT_TIMESTAMP);
+
+ALTER TABLE shipments ALTER COLUMN id RESTART WITH 4;

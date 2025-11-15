@@ -20,6 +20,8 @@ public class RolePermissionMapper {
             case WAREHOUSE -> getWarehousePermissions();
             case SALES -> getSalesPermissions();
             case SALES_MANAGER -> getSalesManagerPermissions();
+            case SHIPPING_AGENT_CHINA -> getShippingAgentChinaPermissions();
+            case SHIPPING_AGENT_INDIA -> getShippingAgentIndiaPermissions();
         };
     }
     
@@ -85,7 +87,19 @@ public class RolePermissionMapper {
             "edit:expense",
             "delete:expense",
             "approve:expense",
-            "view:expense_reports"
+            "view:expense_reports",
+            
+            // Shipment Management (Admin has full access)
+            "view:shipments",
+            "create:shipment",
+            "edit:shipment",
+            "delete:shipment",
+            "update:shipment_status",
+            "complete:shipment",
+            "add:payment",
+            "update:payment",
+            "view:payment",
+            "view:shipment_reports"
         );
     }
     
@@ -208,6 +222,49 @@ public class RolePermissionMapper {
             "delete:expense",
             "approve:expense",
             "view:expense_reports"
+        );
+    }
+
+    /**
+     * Shipping Agent (China) can create shipments, update status, manage payments
+     * Can add and update payment information
+     * Restricted to shipments they created
+     */
+    private Set<String> getShippingAgentChinaPermissions() {
+        return Set.of(
+            // Shipment Management
+            "view:shipments",
+            "create:shipment",
+            "edit:shipment",
+            "update:shipment_status",
+            "add:payment",           // China agent can add payments
+            "update:payment",         // China agent can update payments
+            "view:payment",           // China agent can view payment details
+            "view:shipment_reports",
+            
+            // Locations (view only)
+            Permission.VIEW_LOCATIONS.getPermission()
+        );
+    }
+
+    /**
+     * Shipping Agent (India) can receive shipments at India warehouse
+     * Can update local logistics and status
+     * CANNOT view or manage payment information
+     * Can view shipments arriving to India
+     */
+    private Set<String> getShippingAgentIndiaPermissions() {
+        return Set.of(
+            // Shipment Management (NO payment permissions)
+            "view:shipments",
+            "receive:shipment",
+            "edit:shipment",
+            "update:shipment_status",
+            "update:local_logistics",
+            "view:shipment_reports",
+            
+            // Locations (view only)
+            Permission.VIEW_LOCATIONS.getPermission()
         );
     }
     

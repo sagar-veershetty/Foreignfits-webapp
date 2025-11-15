@@ -67,7 +67,7 @@ public class User {
     private LocalDateTime updatedAt;
     
     public enum UserRole {
-        ADMIN, SALES, WAREHOUSE, SALES_MANAGER
+        ADMIN, SALES, WAREHOUSE, SALES_MANAGER, SHIPPING_AGENT_CHINA, SHIPPING_AGENT_INDIA
     }
     
     // Manual getters and setters to ensure compatibility

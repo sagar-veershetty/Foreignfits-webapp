@@ -158,7 +158,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'sales' | 'warehouse' | 'sales_manager';
+  role: 'admin' | 'sales' | 'warehouse' | 'sales_manager' | 'shipping_agent_china' | 'shipping_agent_india';
   locationId?: string;
   locationName?: string;
   avatar?: string;
@@ -338,4 +338,84 @@ export interface ExpenseSummary {
   expensesByLocation: { [key: string]: number };
   startDate: Date;
   endDate: Date;
+}
+
+// Logistics/Shipping Management Models
+export type ShipmentStatus = 
+  | 'CREATED'                  // Shipment created by China agent
+  | 'IN_TRANSIT'               // In transit from China
+  | 'ARRIVED_MUMBAI'           // Arrived at Indian port
+  | 'IN_CUSTOM_CLEARANCE'      // In custom clearance
+  | 'DELIVERED_TO_WAREHOUSE'   // Delivered to domestic warehouse
+  | 'RECEIVED'                 // Received by India agent
+  | 'OUT_FOR_DELIVERY'         // Out for local delivery
+  | 'DELIVERED'                // Delivered to final destination
+  | 'COMPLETED';               // Completed by admin
+
+export type PaymentStatus = 
+  | 'UNPAID'            // No payment received
+  | 'PARTIALLY_PAID'    // Partial payment received
+  | 'PAID';             // Fully paid
+
+export interface Shipment {
+  id: string;
+  shippingId: string;                // Unique tracking number
+  totalCost: number;
+  totalPackages: number;
+  totalCbm: number;                   // Cubic meters
+  isBranded: boolean;
+  perCbmRate: number;
+  etd: Date;                          // Estimated Time of Departure
+  eta: Date;                          // Estimated Time of Arrival
+  trackingUrl?: string;
+  status: ShipmentStatus;
+  remarks?: string;
+  originLocation: string;             // e.g., "China"
+  destinationLocation: string;        // e.g., "Mumbai, India"
+  createdByAgent: string;             // China agent email
+  receivedByAgent?: string;           // Mumbai agent email
+  completedByAdmin?: string;          // Admin email
+  createdAt: Date;
+  receivedAt?: Date;
+  deliveredAt?: Date;
+  completedAt?: Date;
+  updatedAt: Date;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: PaymentStatus;
+  localLogisticProvider?: string;     // Local delivery company
+  localTrackingNumber?: string;       // Local tracking number
+  indiaWarehouseAddress?: string;     // India warehouse address
+  indiaContactPhone?: string;         // India contact phone
+  indiaContactEmail?: string;         // India contact email
+}
+
+export interface ShipmentRequest {
+  shippingId: string;
+  totalCost: number;
+  totalPackages: number;
+  totalCbm: number;
+  isBranded: boolean;
+  perCbmRate: number;
+  etd: Date;
+  eta: Date;
+  trackingUrl?: string;
+  status?: ShipmentStatus;
+  remarks?: string;
+  originLocation?: string;
+  destinationLocation?: string;
+  localLogisticProvider?: string;
+  localTrackingNumber?: string;
+  indiaWarehouseAddress?: string;
+  indiaContactPhone?: string;
+  indiaContactEmail?: string;
+}
+
+export interface ShipmentResponse extends Shipment {
+  // Same as Shipment but returned from API
+}
+
+export interface PaymentRequest {
+  amount: number;
+  remarks?: string;
 }
