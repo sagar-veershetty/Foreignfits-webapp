@@ -7,7 +7,7 @@ import { take } from 'rxjs/operators';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LoyaltyService } from '../../core/services/loyalty.service';
-import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation } from '../../core/models';
+import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation, BarcodeInfo } from '../../core/models';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { PrintReceiptComponent } from './print-receipt.component';
 
@@ -22,15 +22,24 @@ export class SalesComponent implements OnInit {
   showReceiptModal = false;
   receiptData: ReceiptData | null = null;
   appState$: Observable<AppState>;
-  searchTerm = '';
+  barcodeInput = ''; // For barcode scanning
   customerName = '';
   customerPhone = '';
   customerCountryCode = '+91'; // Default to India
+  salesPersonName = ''; // Sales person who assisted with the sale
   paymentMethod: 'cash' | 'card' | 'other' = 'cash';
   completedSale: Sale | null = null;
-  private imageIndex: Record<string, number> = {};
   showSuccessMessage = false;
   successMessage = '';
+  isProcessingBarcode = false;
+  
+  // Split payment support
+  payments: Array<{
+    paymentMethod: 'CASH' | 'CARD' | 'OTHER';
+    amount: number;
+    reference: string;
+  }> = [];
+  useSplitPayment = false;
   
   // Loyalty points properties
   loyaltyCustomer: LoyaltyCustomer | null = null;
@@ -51,67 +60,133 @@ export class SalesComponent implements OnInit {
     // Ensure initial data is loaded (especially important after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Sales: initial data load failed', e)
-        });
+        this.appService.loadInitialData().subscribe();
       }
     });
   }
 
-  // Template helpers for strict mode
-  hasImages(product: Product): boolean {
-    return !!(product.imageUrls && product.imageUrls.length > 0);
-  }
-
-  getFirstImage(product: Product): string | undefined {
-    return product.imageUrls && product.imageUrls.length > 0 ? product.imageUrls[0] : undefined;
-  }
-
-  getFilteredProducts(appState: AppState): Product[] {
+  /**
+   * Handle barcode scan - lookup barcode and add to cart
+   */
+  async onBarcodeScan(barcodeNumber: string): Promise<void> {
+    if (!barcodeNumber || this.isProcessingBarcode) return;
+    
+    this.isProcessingBarcode = true;
     const user = this.authService.getCurrentUser();
     
-    return appState.products.filter(product => {
-      // Filter by user's location for SALES users
-      if (user?.role === 'sales' && user?.locationId) {
-        if (product.locationId !== user.locationId) {
-          return false;
-        }
-      }
+    if (!user || !user.locationId) {
+      alert('User location not found. Please contact administrator.');
+      this.isProcessingBarcode = false;
+      return;
+    }
+
+    try {
+      // Lookup barcode details
+      const barcodeInfo = await this.appService.lookupBarcode(barcodeNumber).toPromise();
       
-      // Filter by stock and search term
-      return product.stock > 0 && (
-        product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        product.sku.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-        (product.barcode && product.barcode.includes(this.searchTerm))
-      );
-    });
-  }
-
-  addToSale(product: Product): void {
-    const quantity = 1;
-    const unitPrice = quantity >= product.wholesaleMinQuantity ? product.wholesalePrice : product.price;
-    
-    const saleItem: SaleItem = {
-      productId: product.id,
-      product,
-      quantity,
-      price: unitPrice,
-      total: unitPrice,
-    };
-    
-    this.appService.addToSale(saleItem);
-  }
-
-  updateQuantity(productId: string, quantity: number): void {
-    if (quantity <= 0) {
-      this.appService.removeFromSale(productId);
-    } else {
-      const appState = this.appService.appStateBehaviorSubject.value;
-      const product = appState.products.find((p: Product) => p.id === productId);
-      if (product) {
-        const unitPrice = quantity >= product.wholesaleMinQuantity ? product.wholesalePrice : product.price;
-        this.appService.updateSaleQuantity(productId, quantity, unitPrice);
+      if (!barcodeInfo) {
+        alert(`Barcode "${barcodeNumber}" not found in system.`);
+        this.isProcessingBarcode = false;
+        this.barcodeInput = '';
+        return;
       }
+
+      // Validate barcode status
+      if (barcodeInfo.status !== 'ACTIVE') {
+        alert(`Barcode "${barcodeNumber}" is ${barcodeInfo.status}. Only ACTIVE barcodes can be sold.`);
+        this.isProcessingBarcode = false;
+        this.barcodeInput = '';
+        return;
+      }
+
+      // Validate barcode location (compare as strings since backend sends number but user.locationId is string)
+      if (String(barcodeInfo.currentLocation.id) !== String(user.locationId)) {
+        alert(`Barcode "${barcodeNumber}" is at ${barcodeInfo.currentLocation.name}. You can only sell items from your location (${user.locationId}).`);
+        this.isProcessingBarcode = false;
+        this.barcodeInput = '';
+        return;
+      }
+
+      // Check if this exact barcode is already in the cart
+      const appState = this.appService.appStateBehaviorSubject.value;
+      const existingItem = appState.currentSale.find(item => 
+        item.barcodes && item.barcodes.includes(barcodeNumber)
+      );
+
+      if (existingItem) {
+        alert(`Barcode "${barcodeNumber}" is already in the cart.`);
+        this.isProcessingBarcode = false;
+        this.barcodeInput = '';
+        return;
+      }
+
+      // Fetch location inventory for pricing
+      const inventory = await this.appService
+        .getInventoryByLocationAndSku(parseInt(user.locationId), barcodeInfo.product.sku)
+        .toPromise();
+
+      if (!inventory) {
+        alert(`Product "${barcodeInfo.product.name}" inventory not found at this location.`);
+        this.isProcessingBarcode = false;
+        this.barcodeInput = '';
+        return;
+      }
+
+      // Create product object from barcode info
+      const product: Product = {
+        id: barcodeInfo.product.id,
+        name: barcodeInfo.product.name,
+        sku: barcodeInfo.product.sku,
+        size: barcodeInfo.product.size || '',
+        color: barcodeInfo.product.color || '',
+        category: 'shirts' as any, // Default, will be fetched from full product if needed
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Use sale price from location inventory
+      const unitPrice = inventory.salePrice;
+
+      // Check if there's already an item for this product (to group multiple barcodes of same product)
+      const existingProductItem = appState.currentSale.find(item => item.productId === product.id);
+
+      if (existingProductItem && existingProductItem.barcodes) {
+        // Add this barcode to existing item
+        existingProductItem.barcodes.push(barcodeNumber);
+        existingProductItem.quantity = existingProductItem.barcodes.length;
+        existingProductItem.total = existingProductItem.quantity * existingProductItem.price;
+        // Trigger state update
+        this.appService.appStateBehaviorSubject.next({
+          ...appState,
+          currentSale: [...appState.currentSale]
+        });
+      } else {
+        // Create new sale item with this barcode
+        const saleItem: SaleItem = {
+          productId: product.id,
+          product,
+          quantity: 1,
+          price: unitPrice,
+          total: unitPrice,
+          barcodes: [barcodeNumber] // Store the scanned barcode
+        };
+
+        this.appService.addToSale(saleItem);
+      }
+
+      // Show success feedback
+      this.showSuccessMessage = true;
+      this.successMessage = `Added: ${product.name} (${barcodeNumber})`;
+      setTimeout(() => this.showSuccessMessage = false, 2000);
+
+      // Clear barcode input
+      this.barcodeInput = '';
+
+    } catch (error: any) {
+      alert(error?.error?.message || 'Failed to process barcode. Please try again.');
+      this.barcodeInput = '';
+    } finally {
+      this.isProcessingBarcode = false;
     }
   }
 
@@ -219,6 +294,7 @@ export class SalesComponent implements OnInit {
 
   completeSale(appState: AppState): void {
     if (appState.currentSale.length === 0) return;
+    
     // Permission check: only admin or sales can complete a sale
     const user = this.authService.getCurrentUser();
     if (!user || (user.role !== 'admin' && user.role !== 'sales')) {
@@ -226,14 +302,48 @@ export class SalesComponent implements OnInit {
       return;
     }
 
-    const saleData = {
-      paymentMethod: this.paymentMethod,
+    if (!user.locationId) {
+      alert('User location not found. Please contact administrator.');
+      return;
+    }
+
+    // Build sale data with either single payment or split payments
+    const saleData: any = {
+      locationId: parseInt(user.locationId),
       customerName: this.customerName,
       customerPhone: this.customerPhone,
       customerCountryCode: this.customerCountryCode,
       pointsRedeemed: this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
       discountFromPoints: this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
     };
+
+    // Add payment information
+    if (this.useSplitPayment) {
+      // Validate split payments
+      const total = this.getTotal(appState);
+      const paid = this.getTotalPayments();
+      
+      if (Math.abs(total - paid) >= 0.01) {
+        alert(`Payment total (₹${paid.toFixed(2)}) does not match sale total (₹${total.toFixed(2)}). Please adjust payment amounts.`);
+        return;
+      }
+
+      if (this.payments.length === 0 || this.payments.some(p => p.amount <= 0)) {
+        alert('Please enter valid payment amounts for all payment methods.');
+        return;
+      }
+
+      // Send payments array for split payment
+      saleData.payments = this.payments;
+    } else {
+      // Send single paymentMethod for backward compatibility
+      saleData.paymentMethod = this.paymentMethod;
+    }
+
+    // Add salesPersonName only if it has a value
+    if (this.salesPersonName && this.salesPersonName.trim()) {
+      saleData.salesPersonName = this.salesPersonName.trim();
+    }
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
@@ -248,6 +358,17 @@ export class SalesComponent implements OnInit {
         const subtotal = this.getSubtotal(appState);
         const tax = this.getTax(appState);
         const total = this.getTotal(appState);
+        
+        // Format payment method for receipt
+        let paymentMethodLabel = '';
+        if (this.useSplitPayment) {
+          paymentMethodLabel = this.payments
+            .map(p => `${p.paymentMethod} ₹${p.amount.toFixed(2)}`)
+            .join(' + ');
+        } else {
+          paymentMethodLabel = this.paymentMethod.toUpperCase();
+        }
+        
         this.receiptData = {
           number: sale.id || 'N/A',
           date: now.toLocaleDateString('en-GB'),
@@ -258,7 +379,7 @@ export class SalesComponent implements OnInit {
           taxLabel: '5% GST (included)',
           tax,
           total,
-          paymentMethod: this.paymentMethod.toUpperCase()
+          paymentMethod: paymentMethodLabel
         };
         this.showReceiptModal = true;
         
@@ -266,11 +387,14 @@ export class SalesComponent implements OnInit {
         this.customerName = '';
         this.customerPhone = '';
         this.customerCountryCode = '+91';
-        this.searchTerm = '';
+        this.salesPersonName = '';
+        this.barcodeInput = '';
         this.loyaltyCustomer = null;
         this.pointsToEarn = null;
         this.pointsToRedeem = 0;
         this.discountFromPoints = 0;
+        this.payments = [];
+        this.useSplitPayment = false;
       },
       error: (err) => {
         const status = err?.status;
@@ -286,56 +410,6 @@ export class SalesComponent implements OnInit {
         }
       }
     });
-  }
-
-  onBarcodeScan(code: string): void {
-    // Set the search term to the scanned barcode
-    this.searchTerm = code;
-    
-    // Wait for Angular change detection to update the filtered products
-    setTimeout(() => {
-      const state = this.appService.appStateBehaviorSubject.value;
-      const filteredProducts = this.getFilteredProducts(state);
-      
-      // If exactly one product matches, auto-add it to sale
-      if (filteredProducts.length === 1) {
-        this.addToSale(filteredProducts[0]);
-        this.searchTerm = ''; // Clear search after adding
-      }
-      // If multiple products match, keep the search term so user can see and select
-    }, 0);
-  }
-
-  // Simple per-card image carousel helpers
-  hasMultipleImages(product: Product): boolean {
-    return !!(product.imageUrls && product.imageUrls.length > 1);
-  }
-
-  nextImage(product: Product): void {
-    if (!product.imageUrls || product.imageUrls.length <= 1) return;
-    const cur = this.imageIndex[product.id] || 0;
-    this.imageIndex[product.id] = (cur + 1) % product.imageUrls.length;
-  }
-
-  prevImage(product: Product): void {
-    if (!product.imageUrls || product.imageUrls.length <= 1) return;
-    const cur = this.imageIndex[product.id] || 0;
-    this.imageIndex[product.id] = (cur - 1 + product.imageUrls.length) % product.imageUrls.length;
-  }
-
-  currentImage(product: Product): string | undefined {
-    if (!product.imageUrls || product.imageUrls.length === 0) return undefined;
-    const idx = this.imageIndex[product.id] || 0;
-    return product.imageUrls[idx] || product.imageUrls[0];
-  }
-
-  currentImageNo(product: Product): number {
-    const idx = this.imageIndex[product.id] || 0;
-    return (idx + 1);
-  }
-
-  imageCount(product: Product): number {
-    return product.imageUrls ? product.imageUrls.length : 0;
   }
 
   onReceiptModalClose(): void {
@@ -355,5 +429,68 @@ export class SalesComponent implements OnInit {
 
   closeSuccessMessage(): void {
     this.showSuccessMessage = false;
+  }
+
+  /**
+   * Toggle between single payment and split payment mode
+   */
+  toggleSplitPayment(): void {
+    this.useSplitPayment = !this.useSplitPayment;
+    if (this.useSplitPayment && this.payments.length === 0) {
+      // Initialize with one payment row
+      this.addPaymentRow();
+    }
+  }
+
+  /**
+   * Add a new payment row
+   */
+  addPaymentRow(): void {
+    this.payments.push({
+      paymentMethod: 'CASH',
+      amount: 0,
+      reference: ''
+    });
+  }
+
+  /**
+   * Remove a payment row
+   */
+  removePaymentRow(index: number): void {
+    this.payments.splice(index, 1);
+  }
+
+  /**
+   * Calculate total amount of all payments
+   */
+  getTotalPayments(): number {
+    return this.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  }
+
+  /**
+   * Calculate remaining balance (sale total - payments)
+   */
+  getRemainingBalance(appState: AppState): number {
+    const total = this.getTotal(appState);
+    const paid = this.getTotalPayments();
+    return Math.max(0, total - paid);
+  }
+
+  /**
+   * Check if sale can be completed (all payments entered)
+   */
+  canCompleteSale(appState: AppState): boolean {
+    if (appState.currentSale.length === 0) return false;
+    
+    if (this.useSplitPayment) {
+      // For split payment, check that payments sum to total and all amounts are valid
+      const total = this.getTotal(appState);
+      const paid = this.getTotalPayments();
+      const hasValidPayments = this.payments.length > 0 && 
+                               this.payments.every(p => p.amount > 0);
+      return hasValidPayments && Math.abs(total - paid) < 0.01; // Allow small rounding differences
+    }
+    
+    return true; // Single payment mode is always valid if cart has items
   }
 }

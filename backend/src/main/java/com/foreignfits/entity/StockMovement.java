@@ -11,6 +11,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "stock_movements")
@@ -58,6 +60,14 @@ public class StockMovement {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "transfer_id")
     private StockTransfer transfer;
+    
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "movement_barcodes",
+        joinColumns = @JoinColumn(name = "movement_id"),
+        inverseJoinColumns = @JoinColumn(name = "barcode_id")
+    )
+    private List<Barcode> barcodes = new ArrayList<>(); // Track which specific barcodes were moved
     
     @NotBlank(message = "Created by is required")
     @Size(max = 100, message = "Created by cannot exceed 100 characters")

@@ -15,10 +15,11 @@ import java.util.List;
 public class SaleDto {
     private Long id;
     private List<SaleItemDto> items;
+    private List<SalePaymentDto> payments; // Support for split payments
     private BigDecimal subtotal;
     private BigDecimal tax;
     private BigDecimal total;
-    private Sale.PaymentMethod paymentMethod;
+    private Sale.PaymentMethod paymentMethod; // Keep for backward compatibility
     private String customerName;
     private String customerEmail;
     private String customerPhone;
@@ -26,7 +27,9 @@ public class SaleDto {
     private Integer pointsEarned;
     private Integer pointsRedeemed;
     private BigDecimal discountFromPoints;
+    private String salesPersonName;
     private UserDto soldBy;
+    private LocationDto location;
     private LocalDateTime createdAt;
     
     // Manual getters and setters to ensure compatibility
@@ -35,6 +38,9 @@ public class SaleDto {
     
     public List<SaleItemDto> getItems() { return items; }
     public void setItems(List<SaleItemDto> items) { this.items = items; }
+    
+    public List<SalePaymentDto> getPayments() { return payments; }
+    public void setPayments(List<SalePaymentDto> payments) { this.payments = payments; }
     
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
@@ -69,8 +75,14 @@ public class SaleDto {
     public BigDecimal getDiscountFromPoints() { return discountFromPoints; }
     public void setDiscountFromPoints(BigDecimal discountFromPoints) { this.discountFromPoints = discountFromPoints; }
     
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
+    
     public UserDto getSoldBy() { return soldBy; }
     public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }
+    
+    public LocationDto getLocation() { return location; }
+    public void setLocation(LocationDto location) { this.location = location; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

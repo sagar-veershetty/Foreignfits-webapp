@@ -14,32 +14,19 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     
     Optional<Product> findBySku(String sku);
     
-    Optional<Product> findByBarcode(String barcode);
-    
     boolean existsBySku(String sku);
-    
-    boolean existsByBarcode(String barcode);
     
     List<Product> findByCategory(Product.ProductCategory category);
     
-    List<Product> findByLocationId(Long locationId);
-    
-    List<Product> findByLocationIdAndIsApprovedTrue(Long locationId);
-    
-    List<Product> findByLocationIdAndIsApprovedFalse(Long locationId);
+    // Location-based queries removed - products are now organization-wide
+    // Use LocationInventory to find products available at specific locations
     
     List<Product> findByIsApprovedFalse();
     
-    @Query("SELECT p FROM Product p WHERE p.location.id = :locationId AND p.sku = :sku")
-    Optional<Product> findByLocationIdAndSku(@Param("locationId") Long locationId, @Param("sku") String sku);
-    
     // Low stock and out-of-stock queries moved to LocationInventoryRepository
     
-    @Query("SELECT p FROM Product p WHERE p.name LIKE %:searchTerm% OR p.sku LIKE %:searchTerm% OR p.barcode LIKE %:searchTerm%")
+    @Query("SELECT p FROM Product p WHERE p.name LIKE %:searchTerm% OR p.sku LIKE %:searchTerm%")
     List<Product> findBySearchTerm(@Param("searchTerm") String searchTerm);
-    
-    @Query("SELECT p FROM Product p WHERE p.category = :category AND p.location.id = :locationId")
-    List<Product> findByCategoryAndLocation(@Param("category") Product.ProductCategory category, @Param("locationId") Long locationId);
     
     // Following queries removed - stock is now in LocationInventory table
     // findAvailableProducts() - use LocationInventoryRepository.hasAvailableStock()

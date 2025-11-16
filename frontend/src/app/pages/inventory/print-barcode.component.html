@@ -3,8 +3,8 @@
 	<button class="close-btn" (click)="close()" title="Close">&times;</button>
 </div>
 
-<!-- Search and selection -->
-<div class="mb-4">
+<!-- Search and selection - Hidden in direct print mode -->
+<div class="mb-4" *ngIf="!directPrintMode">
 	<input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search by name, SKU, or barcode..." class="w-full px-3 py-2 border border-gray-300 rounded-lg" />
 	<div class="mt-2 flex gap-2">
 		<button type="button" (click)="selectAll()" class="px-3 py-1 rounded bg-blue-600 text-white">Select All Products</button>
@@ -12,8 +12,8 @@
 	</div>
 </div>
 
-<!-- Product list with checkboxes -->
-<div class="mb-6 max-h-48 overflow-y-auto border border-gray-100 rounded-lg bg-gray-50 p-2">
+<!-- Product list with checkboxes - Hidden in direct print mode -->
+<div class="mb-6 max-h-48 overflow-y-auto border border-gray-100 rounded-lg bg-gray-50 p-2" *ngIf="!directPrintMode">
 	<div *ngFor="let product of filteredProducts" class="flex items-center gap-2 py-1">
 		<input type="checkbox" [checked]="isSelected(product)" (change)="toggleProduct(product)" />
 		<span class="font-medium">{{ product.name }}</span>
@@ -26,12 +26,12 @@
 <div class="options mb-6">
 	<div>
 		<div class="font-semibold mb-2">Print Options</div>
-		<label><input type="checkbox" [(ngModel)]="showPrice" name="showPrice" /> Price</label><br>
 		<label><input type="checkbox" [(ngModel)]="showSize" name="showSize" /> Size</label><br>
 		<label><input type="checkbox" [(ngModel)]="showColor" name="showColor" /> Color</label><br>
 		<label><input type="checkbox" [(ngModel)]="showSKU" name="showSKU" /> SKU</label><br>
 		<label><input type="checkbox" [(ngModel)]="showCategory" name="showCategory" /> Category</label><br>
-		<label><input type="checkbox" [(ngModel)]="showLocation" name="showLocation" /> Location</label>
+		<label><input type="checkbox" [(ngModel)]="showBarcodeNumber" name="showBarcodeNumber" /> Barcode Number</label><br>
+		<label class="mt-2 text-orange-700"><input type="checkbox" [(ngModel)]="excludeInTransferBarcodes" name="excludeInTransferBarcodes" /> Exclude In-Transfer Barcodes</label>
 	</div>
 	<div>
 		<div class="font-semibold mb-2">Print Settings</div>
@@ -64,7 +64,8 @@
 <!-- Main Print Barcode Stickers button at the bottom -->
   <div class="sticker-preview-grid responsive-sticker-grid" [ngClass]="getStickerSizeClass()">
       <ng-container *ngFor="let product of selectedProducts">
-        <ng-container *ngFor="let i of [].constructor(productQuantities[product.id] || 1)">
+        <!-- Get active barcodes for this product -->
+        <ng-container *ngFor="let barcode of (productBarcodes[product.id] || []).slice(0, productQuantities[product.id] || 1); let i = index">
           <div class="sticker-card-mock responsive-sticker-item"
             [ngStyle]="getStickerPreviewStyle()">
             <div class="sticker-brand-header" [ngStyle]="getFontStyle('brand')">FOREIGN FITS</div>
@@ -74,16 +75,20 @@
               <span *ngIf="showColor && product.color">- {{ product.color }}</span>
             </div>
             <div class="sticker-sku-mock" *ngIf="showSKU" [ngStyle]="getFontStyle('sku')">{{ product.sku }}</div>
-            <div class="sticker-category-mock" *ngIf="showCategory || showLocation" [ngStyle]="getFontStyle('category')">
+            <div class="sticker-category-mock" *ngIf="showCategory" [ngStyle]="getFontStyle('category')">
               <span *ngIf="showCategory">{{ product.category }}</span>
-              <span *ngIf="showLocation && product.location?.name">- {{ product.location?.name }}</span>
             </div>
-            <div class="sticker-price-mock" *ngIf="showPrice" [ngStyle]="getFontStyle('price')">₹{{ product.price.toFixed(2) }}</div>
+            <div class="sticker-price-mock" [ngStyle]="getFontStyle('price')">₹{{ (productPrices[product.id] || 0).toFixed(2) }}</div>
             <div class="sticker-barcode-mock">
-              <div class="barcode-bg">
-                <span [innerHTML]="renderBarcodeSvg(product)"></span>
+              <div class="barcode-no-bg">
+                <span [innerHTML]="renderBarcodeSvgWithNumber(barcode.barcodeNumber)"></span>
               </div>
-              <div class="barcode-value" [ngStyle]="getFontStyle('barcode')">{{ product.barcode || product.sku || product.id }}</div>
+              <div class="barcode-value" *ngIf="showBarcodeNumber" [ngStyle]="getFontStyle('barcode')">{{ barcode.barcodeNumber }}</div>
+              <div *ngIf="getBarcodeTransferStatus(product.id, barcode.barcodeNumber)" 
+                   class="transfer-status-badge no-print"
+                   style="margin-top: 4px; padding: 4px 8px; background: #f97316; color: white; font-size: 0.75rem; font-weight: 600; border-radius: 4px; text-align: center;">
+                {{ getBarcodeTransferStatus(product.id, barcode.barcodeNumber) }}
+              </div>
             </div>
           </div>
         </ng-container>
@@ -92,7 +97,7 @@
   </div>
 </div>
 
-<!-- Quantity controls and remove buttons below preview -->
+<!-- Barcode information and quantity controls below preview -->
 <div *ngIf="selectedProducts.length > 0" class="mb-6">
   <div class="flex flex-wrap gap-4 justify-start">
     <div *ngFor="let product of selectedProducts" class="bg-white border border-gray-200 rounded-lg p-4 flex flex-col items-start" style="min-width:220px; max-width:260px;">
@@ -100,15 +105,34 @@
 		<div>
 		  <div class="font-medium text-sm leading-tight">{{ product.name }}</div>
 		  <div class="text-xs text-gray-500">{{ product.sku }}<span *ngIf="product.size"> - {{ product.size }}</span><span *ngIf="product.color"> - {{ product.color }}</span></div>
-		  <div class="text-xs text-green-700 font-bold">₹{{ product.price.toFixed(2) }}</div>
+		  <div class="text-xs text-green-700 font-bold">₹{{ (productPrices[product.id] || 0).toFixed(2) }}</div>
 		</div>
 		<button type="button" (click)="toggleProduct(product)" class="text-red-500 text-xs ml-2">Remove</button>
 	  </div>
+	  
+	  <!-- Barcode status information -->
+	  <div *ngIf="productBarcodes[product.id]" class="mt-2 w-full text-xs bg-blue-50 border border-blue-200 rounded p-2">
+	    <div class="font-semibold text-blue-900 mb-1">Barcode Status:</div>
+	    <div class="text-blue-700">
+	      <span class="font-medium text-green-700">{{ getAvailableBarcodeCount(product.id) }} Available</span>
+	      <span *ngIf="getPendingTransferCount(product.id) > 0" class="ml-2 text-orange-600 font-medium">
+	        | {{ getPendingTransferCount(product.id) }} In Transfer
+	      </span>
+	      <span *ngIf="getInactiveBarcodeCount(product.id) > 0" class="ml-2 text-gray-600">
+	        | {{ getInactiveBarcodeCount(product.id) }} Inactive
+	      </span>
+	    </div>
+	    <div *ngIf="getPendingTransferCount(product.id) > 0" class="text-orange-700 text-xs mt-1">
+	      ({{ getPendingTransferInfo(product.id) }})
+	    </div>
+	  </div>
+	  <div *ngIf="loadingBarcodes[product.id]" class="mt-2 w-full text-xs text-gray-500 italic">Loading barcodes...</div>
+	  
 	  <div class="flex items-center mt-2 w-full justify-between">
-		<label class="text-xs mr-2">Sticker Quantity</label>
+		<label class="text-xs mr-2">Print Quantity</label>
 		<div class="flex items-center gap-1">
 		  <button type="button" (click)="productQuantities[product.id]=Math.max(1,(productQuantities[product.id]||1)-1)" class="px-2 py-1 rounded bg-gray-200">-</button>
-		  <input type="number" min="1" [(ngModel)]="productQuantities[product.id]" class="w-12 px-2 py-1 border border-gray-300 rounded text-center" />
+		  <input type="number" min="1" [max]="getAvailableBarcodeCount(product.id) || 999" [(ngModel)]="productQuantities[product.id]" class="w-12 px-2 py-1 border border-gray-300 rounded text-center" />
 		  <button type="button" (click)="productQuantities[product.id]=(productQuantities[product.id]||1)+1" class="px-2 py-1 rounded bg-gray-200">+</button>
 		</div>
 	  </div>
@@ -124,6 +148,13 @@
 </div>
 
 <style>
+  /* Hide transfer status badges when printing */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+
   .sticker-preview-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -209,6 +240,16 @@
     border-radius: 8px;
     box-shadow: 0 1px 4px 0 rgba(0,0,0,0.06);
     padding: 10px 18px 4px 18px;
+    display: block;
+    margin: 0 auto;
+    overflow: hidden;
+    text-align: center;
+  }
+  .barcode-no-bg {
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
     display: block;
     margin: 0 auto;
     overflow: hidden;

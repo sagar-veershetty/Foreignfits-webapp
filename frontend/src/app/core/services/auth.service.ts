@@ -52,7 +52,7 @@ export class AuthService {
             // Update localStorage with permissions
             localStorage.setItem('foreignfits_user', JSON.stringify(user));
           } catch (e) {
-            console.warn('Could not extract permissions from token', e);
+            // Could not extract permissions from token
           }
         }
         
@@ -101,7 +101,7 @@ export class AuthService {
       );
   }
 
-  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse', locationId: number | null = null): Observable<any> {
+  register(name: string, email: string, password: string, role: 'admin'|'sales'|'warehouse'|'sales_manager', locationId: number | null = null): Observable<any> {
     this.updateAuthState({ ...this.authStateSubject.value, isLoading: true, error: null });
 
     let body = new HttpParams()
@@ -114,6 +114,32 @@ export class AuthService {
     if (locationId !== null) {
       body = body.set('locationId', locationId.toString());
     }
+
+    const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' });
+
+    return this.http.post<any>(`${this.API_BASE_URL}/auth/register`, body.toString(), { headers })
+      .pipe(
+        tap(() => {
+          this.updateAuthState({ ...this.authStateSubject.value, isLoading: false, error: null });
+        }),
+        catchError(error => {
+          this.updateAuthState({ ...this.authStateSubject.value, isLoading: false, error: error.error?.error || 'Signup failed' });
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Signup method for agent registration (supports shipping agent roles)
+   */
+  signup(data: { name: string; email: string; password: string; role: string }): Observable<any> {
+    this.updateAuthState({ ...this.authStateSubject.value, isLoading: true, error: null });
+
+    let body = new HttpParams()
+      .set('name', data.name)
+      .set('email', data.email)
+      .set('password', data.password)
+      .set('role', data.role);
 
     const headers = new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' });
 
@@ -147,7 +173,7 @@ export class AuthService {
         appService.resetDataLoadedFlag();
       });
     } catch (error) {
-      console.warn('Could not reset app data on logout:', error);
+      // Could not reset app data on logout
     }
     
     this.router.navigate(['/']);

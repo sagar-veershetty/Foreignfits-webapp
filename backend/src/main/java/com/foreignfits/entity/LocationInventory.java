@@ -1,6 +1,8 @@
 package com.foreignfits.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,6 +11,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -53,6 +56,27 @@ public class LocationInventory {
     
     @Column(name = "reorder_point")
     private Integer reorderPoint;
+    
+    // Location-specific pricing - each location can set their own costs and prices
+    @NotNull(message = "Cost is required")
+    @DecimalMin(value = "0.0", message = "Cost must be greater than or equal to 0")
+    @Digits(integer = 10, fraction = 2, message = "Cost must have at most 10 integer digits and 2 decimal places")
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal cost;
+    
+    @NotNull(message = "Sale price is required")
+    @DecimalMin(value = "0.0", message = "Sale price must be greater than or equal to 0")
+    @Digits(integer = 10, fraction = 2, message = "Sale price must have at most 10 integer digits and 2 decimal places")
+    @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal salePrice;
+    
+    @DecimalMin(value = "0.0", message = "Wholesale price must be greater than or equal to 0")
+    @Digits(integer = 10, fraction = 2, message = "Wholesale price must have at most 10 integer digits and 2 decimal places")
+    @Column(name = "wholesale_price", precision = 12, scale = 2)
+    private BigDecimal wholesalePrice;
+    
+    @Column(name = "wholesale_min_quantity")
+    private Integer wholesaleMinQuantity;
     
     @Column(name = "last_restock_date")
     private LocalDateTime lastRestockDate;

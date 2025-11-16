@@ -20,6 +20,7 @@ interface NavigationTab {
 })
 export class NavbarComponent {
   authState$: Observable<AuthState>;
+  isMobileMenuOpen = false;
 
   private tabs: NavigationTab[] = [
     { 
@@ -59,6 +60,24 @@ export class NavbarComponent {
       iconPath: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
     },
     { 
+      id: 'barcode-history', 
+      label: 'Barcode History', 
+      route: '/barcode-history',
+      iconPath: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+    { 
+      id: 'expenses', 
+      label: 'Expenses', 
+      route: '/expenses',
+      iconPath: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z'
+    },
+    { 
+      id: 'shipments', 
+      label: 'Shipments', 
+      route: '/shipments',
+      iconPath: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'
+    },
+    { 
       id: 'approvals', 
       label: 'Approvals', 
       route: '/approvals',
@@ -83,7 +102,15 @@ export class NavbarComponent {
     
     const tabs: NavigationTab[] = [];
     
-    // Dashboard - available to all authenticated users
+    // Special case: Shipping agents ONLY see Shipments tab
+    if (user.role === 'shipping_agent_china' || user.role === 'shipping_agent_india') {
+      tabs.push(this.tabs.find(t => t.id === 'shipments')!);
+      return tabs.filter(t => t !== undefined);
+    }
+    
+    // For all other roles (admin, sales, warehouse, etc.)
+    
+    // Dashboard - available to all non-shipping-agent users
     tabs.push(this.tabs.find(t => t.id === 'dashboard')!);
     
     // Inventory - available to users with view products permission
@@ -111,7 +138,22 @@ export class NavbarComponent {
       tabs.push(this.tabs.find(t => t.id === 'stock-movement')!);
     }
     
-    // Approvals - available to all authenticated users (role-based filtering inside component)
+    // Barcode History - available to users with view inventory permission
+    if (this.authService.canViewProducts()) {
+      tabs.push(this.tabs.find(t => t.id === 'barcode-history')!);
+    }
+    
+    // Expenses - available to Admin, Sales Manager, and Sales users
+    if (user.role === 'admin' || user.role === 'sales_manager' || user.role === 'sales') {
+      tabs.push(this.tabs.find(t => t.id === 'expenses')!);
+    }
+    
+    // Shipments - available to Admin only (shipping agents handled above)
+    if (user.role === 'admin') {
+      tabs.push(this.tabs.find(t => t.id === 'shipments')!);
+    }
+    
+    // Approvals - available to all non-shipping-agent users (role-based filtering inside component)
     tabs.push(this.tabs.find(t => t.id === 'approvals')!);
     
     return tabs.filter(t => t !== undefined);
@@ -125,9 +167,15 @@ export class NavbarComponent {
 
   navigateTo(route: string): void {
     this.router.navigate([route]);
+    this.isMobileMenuOpen = false; // Close menu after navigation
+  }
+
+  toggleMobileMenu(): void {
+    this.isMobileMenuOpen = !this.isMobileMenuOpen;
   }
 
   logout(): void {
     this.authService.logout();
+    this.isMobileMenuOpen = false;
   }
 }

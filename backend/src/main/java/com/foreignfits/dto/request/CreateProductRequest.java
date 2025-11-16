@@ -29,20 +29,12 @@ public class CreateProductRequest {
     @Size(max = 50, message = "Color cannot exceed 50 characters")
     private String color;
     
-    @NotNull(message = "Price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
-    private BigDecimal price;
-    
-    @NotNull(message = "Cost is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Cost must be greater than 0")
+    // Pricing fields moved to LocationInventory - kept here for backward compatibility
+    // Frontend sends 'salePrice', backend internally uses 'price'
+    private BigDecimal price;       // Maps to salePrice from frontend
+    private BigDecimal salePrice;   // Alternative field name for frontend compatibility
     private BigDecimal cost;
-    
-    @NotNull(message = "Wholesale price is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Wholesale price must be greater than 0")
     private BigDecimal wholesalePrice;
-    
-    @NotNull(message = "Wholesale minimum quantity is required")
-    @Min(value = 1, message = "Wholesale minimum quantity must be at least 1")
     private Integer wholesaleMinQuantity;
     
     @NotNull(message = "Stock is required")
@@ -57,10 +49,9 @@ public class CreateProductRequest {
     @Size(max = 50, message = "SKU cannot exceed 50 characters")
     private String sku;
     
-    private String description;
+    private Boolean isManualSku = false; // True if SKU was manually entered, false if auto-generated
     
-    @Size(max = 50, message = "Barcode cannot exceed 50 characters")
-    private String barcode;
+    private String description;
     
     private List<String> imageUrls;
     
@@ -80,8 +71,16 @@ public class CreateProductRequest {
     public String getColor() { return color; }
     public void setColor(String color) { this.color = color; }
     
-    public BigDecimal getPrice() { return price; }
+    // Handle both 'price' and 'salePrice' from frontend
+    public BigDecimal getPrice() { 
+        return price != null ? price : salePrice; 
+    }
     public void setPrice(BigDecimal price) { this.price = price; }
+    
+    public BigDecimal getSalePrice() { 
+        return salePrice != null ? salePrice : price; 
+    }
+    public void setSalePrice(BigDecimal salePrice) { this.salePrice = salePrice; }
     
     public BigDecimal getCost() { return cost; }
     public void setCost(BigDecimal cost) { this.cost = cost; }
@@ -101,11 +100,11 @@ public class CreateProductRequest {
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
     
+    public Boolean getIsManualSku() { return isManualSku; }
+    public void setIsManualSku(Boolean isManualSku) { this.isManualSku = isManualSku; }
+    
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-    
-    public String getBarcode() { return barcode; }
-    public void setBarcode(String barcode) { this.barcode = barcode; }
     
     public List<String> getImageUrls() { return imageUrls; }
     public void setImageUrls(List<String> imageUrls) { this.imageUrls = imageUrls; }

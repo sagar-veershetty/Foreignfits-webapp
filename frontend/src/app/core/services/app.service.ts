@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, throwError, forkJoin, of, interval, Subscription } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { catchError, tap, map } from 'rxjs/operators';
-import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment } from '../models';
+import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment, BarcodeHistory } from '../models';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
+import { Barcode } from '../models';
 
 export interface AppState {
   products: Product[];
@@ -52,7 +53,6 @@ export class AppService {
    * Called when a new user logs in to ensure role-specific data is loaded.
    */
   resetDataLoadedFlag(): void {
-    console.log('Resetting dataLoaded flag to force fresh data load');
     this.updateAppState({
       ...this._appStateSubject.value,
       dataLoaded: false,
@@ -66,14 +66,12 @@ export class AppService {
   loadInitialData(): Observable<any> {
     // If already loaded AND locations exist, skip reload
     if (this._appStateSubject.value.dataLoaded && this._appStateSubject.value.locations.length > 0) {
-      console.log('Data already loaded, skipping reload');
       return new Observable(observer => {
         observer.next(true);
         observer.complete();
       });
     }
 
-    console.log('Loading initial data...');
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
     const currentUser = this.authService.getCurrentUser();
@@ -88,16 +86,13 @@ export class AppService {
     // Sales data is only needed for SALES and ADMIN roles (not for WAREHOUSE)
     if (userRole === 'sales' || userRole === 'admin') {
       dataToLoad.sales = this.loadSales();
-    } else {
-      console.log(`Skipping sales data load for ${userRole} user`);
     }
     
     // Stock movements are needed for all roles
     dataToLoad.stockMovements = this.loadStockMovements();
 
     return forkJoin(dataToLoad).pipe(
-      tap((data) => {
-        console.log('Initial data loaded:', data);
+      tap(() => {
         this.updateAppState({
           ...this._appStateSubject.value,
           dataLoaded: true,
@@ -105,7 +100,6 @@ export class AppService {
         });
       }),
       catchError(error => {
-        console.error('Failed to load initial data:', error);
         this.updateAppState({
           ...this._appStateSubject.value,
           isLoading: false,
@@ -127,7 +121,6 @@ export class AppService {
           });
         }),
         catchError(error => {
-          console.warn('Failed to load products from API, using fallback data:', error);
           const fallbackProducts = this.generateMockProducts();
           this.updateAppState({
             ...this._appStateSubject.value,
@@ -168,9 +161,8 @@ export class AppService {
           });
         }),
         catchError(error => {
-          console.warn('Failed to load sales from API (keeping existing list):', error);
-          // Keep existing sales to avoid wiping dashboard stats
-          return new Observable<Sale[]>(observer => observer.next(this._appStateSubject.value.sales));
+          // Keep existing sales list if API fails
+          return new Observable<Sale[]>(observer => observer.next([]));
         })
       );
   }
@@ -188,7 +180,7 @@ export class AppService {
         catchError(error => {
           // 403 is expected for SALES users - they don't have access to stock movements
           if (error.status !== 403) {
-            console.warn('Failed to load stock movements from API:', error);
+            // Silent fail for stock movements
           }
 
           this.updateAppState({
@@ -198,6 +190,48 @@ export class AppService {
           return new Observable<StockMovement[]>(observer => observer.next([]));
         })
       );
+  }
+
+  // Barcode methods
+  getBarcodesForProduct(productId: string, locationId: string): Observable<Barcode[]> {
+    return this.http.get<Barcode[]>(`${this.API_BASE_URL}/barcodes/product/${productId}/location/${locationId}`);
+  }
+
+  getBarcodeCount(productId: string, locationId: string): Observable<number> {
+    return this.http.get<{count: number}>(`${this.API_BASE_URL}/barcodes/count/product/${productId}/location/${locationId}`)
+      .pipe(map(res => res.count));
+  }
+
+  updateBarcodeRemark(barcodeId: string, status: string, remark: string): Observable<any> {
+    return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}`, { status, remark });
+  }
+
+  // Barcode History Methods
+  getBarcodeHistory(params?: {
+    barcodeNumber?: string;
+    locationId?: number;
+    startDate?: string;
+    endDate?: string;
+  }): Observable<BarcodeHistory[]> {
+    let queryParams = new HttpParams();
+    if (params?.barcodeNumber) {
+      queryParams = queryParams.set('barcodeNumber', params.barcodeNumber);
+    }
+    if (params?.locationId) {
+      queryParams = queryParams.set('locationId', params.locationId.toString());
+    }
+    if (params?.startDate) {
+      queryParams = queryParams.set('startDate', params.startDate);
+    }
+    if (params?.endDate) {
+      queryParams = queryParams.set('endDate', params.endDate);
+    }
+    
+    return this.http.get<BarcodeHistory[]>(`${this.API_BASE_URL}/barcode-history`, { params: queryParams });
+  }
+
+  getBarcodeHistoryForBarcode(barcodeNumber: string): Observable<BarcodeHistory[]> {
+    return this.http.get<BarcodeHistory[]>(`${this.API_BASE_URL}/barcode-history/barcode/${barcodeNumber}`);
   }
 
   private loadLocations(): Observable<Location[]> {
@@ -219,14 +253,12 @@ export class AppService {
             isActive: loc.isActive !== false,
             createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
           }));
-          console.log('Locations loaded:', locations);
           this.updateAppState({
             ...this._appStateSubject.value,
             locations
           });
         }),
         catchError(error => {
-          console.error('Failed to load all locations, trying transfer-destinations:', error);
           // Fallback to transfer-destinations if /locations fails (permission issue)
           return this.http.get<any[]>(`${this.API_BASE_URL}/locations/transfer-destinations`)
             .pipe(
@@ -245,14 +277,12 @@ export class AppService {
                   isActive: loc.isActive !== false,
                   createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
                 }));
-                console.warn('Using transfer-destinations (SUPPLIER may be missing)');
                 this.updateAppState({
                   ...this._appStateSubject.value,
                   locations
                 });
               }),
               catchError(innerError => {
-                console.error('Failed to load from both endpoints:', innerError);
                 this.updateAppState({
                   ...this._appStateSubject.value,
                   locations: []
@@ -283,16 +313,23 @@ export class AppService {
           createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
         }))),
         catchError(error => {
-          console.error('Failed to load transfer destinations:', error);
           return of([]);
         })
       );
   }
 
-  createProduct(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Observable<Product> {
+  /**
+   * Create a new product (organization-wide master data)
+   * Also creates initial LocationInventory with provided pricing
+   */
+  createProduct(
+    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
+    locationId: number,
+    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number }
+  ): Observable<Product> {
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
-    const request = this.convertProductToCreateRequest(product);
+    const request = this.convertProductToCreateRequest(product, locationId, pricing);
     return this.http.post<Product>(`${this.API_BASE_URL}/products`, request)
       .pipe(
         tap(apiProduct => {
@@ -315,10 +352,24 @@ export class AppService {
       );
   }
 
+  /**
+   * Update product master data (name, category, size, color, description, etc)
+   * NOTE: Does NOT update pricing - use updateLocationInventoryPricing() instead
+   */
   updateProduct(id: string, product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Observable<Product> {
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
-    const request = this.convertProductToCreateRequest(product);
+    // For updates, send only product master data (no pricing)
+    const request = {
+      name: product.name,
+      category: product.category.toUpperCase(),
+      size: product.size,
+      color: product.color,
+      sku: product.sku,
+      description: product.description,
+      imageUrls: product.imageUrls,
+    };
+    
     return this.http.put<Product>(`${this.API_BASE_URL}/products/${parseInt(id)}`, request)
       .pipe(
         tap(apiProduct => {
@@ -380,6 +431,16 @@ export class AppService {
     });
   }
 
+  // Barcode lookup
+  lookupBarcode(barcodeNumber: string): Observable<any> {
+    return this.http.get<any>(`${this.API_BASE_URL}/barcodes/lookup/${barcodeNumber}`)
+      .pipe(
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
   createSale(saleData: any, items: SaleItem[]): Observable<Sale> {
     const request = this.convertSaleToCreateRequest(saleData, items);
     return this.http.post<Sale>(`${this.API_BASE_URL}/sales`, request)
@@ -388,20 +449,14 @@ export class AppService {
           const sale = this.convertApiSaleToSale(apiSale);
           const currentState = this._appStateSubject.value;
           
-          // Update products stock locally
-          const updatedProducts = currentState.products.map(product => {
-            const saleItem = items.find(item => item.productId === product.id);
-            if (saleItem) {
-              return { ...product, stock: product.stock - saleItem.quantity };
-            }
-            return product;
-          });
+          // NOTE: Product.stock is deprecated (backend returns null)
+          // Inventory is now tracked in LocationInventory table
+          // No need for local stock updates - backend handles it
 
           this.updateAppState({
             ...currentState,
             sales: [...currentState.sales, sale],
             currentSale: [],
-            products: updatedProducts
           });
 
           // Refresh sales from backend to ensure dashboard stats are up-to-date
@@ -435,9 +490,6 @@ export class AppService {
         // Light-weight refresh: sales only (stats depend on it)
         this.loadSales().subscribe();
       });
-      console.log(`Auto-refresh started for ${userRole} user (${intervalMs}ms interval)`);
-    } else {
-      console.log(`Auto-refresh skipped for ${userRole} user (not needed)`);
     }
   }
 
@@ -448,7 +500,7 @@ export class AppService {
     }
   }
 
-  // Stock Transfer API
+  // Stock Transfer API (Admin - quantity-based)
   createStockTransfer(transferRequest: {
     productId: string;
     fromLocationId: string;
@@ -476,10 +528,60 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Stock transfer failed:', error);
           return throwError(() => error);
         })
       );
+  }
+  
+  // Validate a single barcode before adding to transfer list
+  validateBarcodeForTransfer(barcodeNumber: string, fromLocationId: number): Observable<any> {
+    return this.http.get<any>(`${this.API_BASE_URL}/stock-transfers/validate-barcode`, {
+      params: {
+        barcodeNumber: barcodeNumber,
+        fromLocationId: fromLocationId.toString()
+      }
+    });
+  }
+
+  // Barcode Stock Transfer API (Warehouse/Store - barcode-based)
+  createBarcodeStockTransfer(transferRequest: {
+    fromLocationId: number;
+    toLocationId: number;
+    barcodeNumbers: string[];
+    reason: string;
+    reference?: string;
+    notes?: string;
+  }): Observable<any> {
+    const request = {
+      fromLocationId: transferRequest.fromLocationId,
+      toLocationId: transferRequest.toLocationId,
+      barcodeNumbers: transferRequest.barcodeNumbers,
+      reason: transferRequest.reason,
+      reference: transferRequest.reference || '',
+      notes: transferRequest.notes || ''
+    };
+
+    return this.http.post<any>(`${this.API_BASE_URL}/stock-transfers/barcodes`, request)
+      .pipe(
+        tap(() => {
+          // Refresh products and stock movements after transfer
+          this.loadProducts().subscribe();
+          this.loadStockMovements().subscribe();
+        }),
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  getBarcodeTransferStatus(productId: number, locationId: number): Observable<any> {
+    return this.http.get<any>(
+      `${this.API_BASE_URL}/barcodes/transfer-status/product/${productId}/location/${locationId}`
+    ).pipe(
+      catchError(error => {
+        return throwError(() => error);
+      })
+    );
   }
 
   // Stock Adjustment API
@@ -500,7 +602,6 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Stock adjustment failed:', error);
           return throwError(() => error);
         })
       );
@@ -517,17 +618,21 @@ export class AppService {
       category: apiProduct.category.toLowerCase(),
       size: apiProduct.size,
       color: apiProduct.color,
-      price: apiProduct.price / 100,
-      cost: apiProduct.cost / 100,
-      wholesalePrice: apiProduct.wholesalePrice / 100,
-      wholesaleMinQuantity: apiProduct.wholesaleMinQuantity,
-      stock: apiProduct.stock,
-      minStock: apiProduct.minStock,
       sku: apiProduct.sku,
       description: apiProduct.description,
-      barcode: apiProduct.barcode,
       imageUrls: apiProduct.imageUrls || [],
-      locationId: apiProduct.location?.id.toString() || '',
+      createdAt: new Date(apiProduct.createdAt),
+      updatedAt: new Date(apiProduct.updatedAt),
+      
+      // DEPRECATED - Backend returns null, kept for backward compatibility
+      // For pricing/inventory, fetch LocationInventory data instead
+      price: apiProduct.price ? apiProduct.price / 100 : null,
+      cost: apiProduct.cost ? apiProduct.cost / 100 : null,
+      wholesalePrice: apiProduct.wholesalePrice ? apiProduct.wholesalePrice / 100 : null,
+      wholesaleMinQuantity: apiProduct.wholesaleMinQuantity || null,
+      stock: apiProduct.stock || null,
+      minStock: apiProduct.minStock || null,
+      locationId: apiProduct.location?.id.toString() || null,
       location: apiProduct.location ? {
         id: apiProduct.location.id.toString(),
         name: apiProduct.location.name,
@@ -541,32 +646,64 @@ export class AppService {
         capacity: apiProduct.location.capacity,
         isActive: apiProduct.location.isActive,
         createdAt: new Date(apiProduct.location.createdAt),
-      } : undefined,
-      createdAt: new Date(apiProduct.createdAt),
-      updatedAt: new Date(apiProduct.updatedAt),
+      } : null,
     };
   }
 
   private convertApiSaleToSale(apiSale: any): Sale {
+    // Handle payment method - could be single payment or split payments
+    let paymentMethod = 'cash'; // default
+    if (apiSale.paymentMethod) {
+      // Old format: single paymentMethod field
+      paymentMethod = apiSale.paymentMethod.toLowerCase();
+    } else if (apiSale.payments && apiSale.payments.length > 0) {
+      // New format: multiple payments array
+      // Use the first payment method or 'card' if multiple
+      paymentMethod = apiSale.payments.length === 1 
+        ? apiSale.payments[0].paymentMethod.toLowerCase() 
+        : 'card'; // Default to 'card' for split payments
+    }
+
     return {
       id: apiSale.id.toString(),
       items: (apiSale.items || []).map((item: any) => ({
         productId: item.product.id.toString(),
         product: this.convertApiProductToProduct(item.product),
         quantity: item.quantity,
-        price: item.price / 100,
-        total: item.total / 100,
+        price: item.price,
+        total: item.total,
+        barcodes: item.barcodes || []
       })),
-      subtotal: apiSale.subtotal / 100,
-      tax: apiSale.tax / 100,
-      total: apiSale.total / 100,
-      paymentMethod: apiSale.paymentMethod.toLowerCase(),
+      subtotal: apiSale.subtotal,
+      tax: apiSale.tax,
+      total: apiSale.total,
+      paymentMethod: paymentMethod as 'cash' | 'card' | 'other',
+      payments: apiSale.payments ? apiSale.payments.map((p: any) => ({
+        id: p.id?.toString(),
+        paymentMethod: p.paymentMethod,
+        amount: p.amount,
+        reference: p.reference
+      })) : undefined,
       customerName: apiSale.customerName,
       customerEmail: apiSale.customerEmail,
       customerPhone: apiSale.customerPhone,
       customerCountryCode: apiSale.customerCountryCode,
       soldBy: apiSale.soldBy.name,
       soldById: apiSale.soldBy.id.toString(),
+      location: {
+        id: apiSale.location.id.toString(),
+        name: apiSale.location.name,
+        type: apiSale.location.type.toLowerCase(),
+        address: apiSale.location.address || '',
+        city: apiSale.location.city || '',
+        state: apiSale.location.state || '',
+        zipCode: apiSale.location.zipCode || '',
+        phone: apiSale.location.phone,
+        manager: apiSale.location.manager,
+        capacity: apiSale.location.capacity,
+        isActive: apiSale.location.isActive !== false,
+        createdAt: apiSale.location.createdAt ? new Date(apiSale.location.createdAt) : new Date()
+      },
       createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
     };
   }
@@ -611,37 +748,47 @@ export class AppService {
       status: apiMovement.status || 'PENDING', // Map status field
       approvedBy: apiMovement.approvedBy,
       approvedAt: apiMovement.approvedAt ? new Date(apiMovement.approvedAt) : undefined,
-      rejectionReason: apiMovement.rejectionReason,
     };
   }
 
-  private convertProductToCreateRequest(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): any {
+  /**
+   * Convert product form data to create request
+   * NOTE: Now requires separate locationId and pricing parameters
+   * Product itself no longer contains location or pricing (organization-wide master)
+   */
+  private convertProductToCreateRequest(
+    product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
+    locationId: number,
+    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number }
+  ): any {
     return {
       name: product.name,
       category: product.category.toUpperCase(),
       size: product.size,
       color: product.color,
-      price: Math.round(product.price * 100),
-      cost: Math.round(product.cost * 100),
-      wholesalePrice: Math.round(product.wholesalePrice * 100),
-      wholesaleMinQuantity: product.wholesaleMinQuantity,
-      stock: product.stock,
-      minStock: product.minStock,
       sku: product.sku,
       description: product.description,
-      barcode: product.barcode,
       imageUrls: product.imageUrls,
-      locationId: parseInt(product.locationId),
+      locationId: locationId,
+      // Backend expects BigDecimal in rupees format, no need to multiply by 100
+      cost: pricing.cost,
+      salePrice: pricing.salePrice,
+      wholesalePrice: pricing.wholesalePrice || null,
+      wholesaleMinQuantity: pricing.wholesaleMinQuantity || null,
+      // Initial stock for first location
+      stock: product.stock || 0,
+      minStock: product.minStock || 0,
     };
   }
 
   private convertSaleToCreateRequest(saleData: any, items: SaleItem[]): any {
-    return {
+    const request: any = {
       items: items.map(item => ({
         productId: parseInt(item.productId),
         quantity: item.quantity,
+        barcodeNumbers: item.barcodes || [] // Send scanned barcode numbers
       })),
-      paymentMethod: saleData.paymentMethod.toUpperCase(),
+      locationId: saleData.locationId,
       customerName: saleData.customerName,
       customerEmail: saleData.customerEmail,
       customerPhone: saleData.customerPhone,
@@ -649,6 +796,22 @@ export class AppService {
       pointsRedeemed: saleData.pointsRedeemed,
       discountFromPoints: saleData.discountFromPoints,
     };
+
+    // Add payment information - either single payment or split payments
+    if (saleData.payments) {
+      // Split payment mode
+      request.payments = saleData.payments;
+    } else if (saleData.paymentMethod) {
+      // Single payment mode (backward compatibility)
+      request.paymentMethod = saleData.paymentMethod.toUpperCase();
+    }
+
+    // Add salesPersonName if provided
+    if (saleData.salesPersonName) {
+      request.salesPersonName = saleData.salesPersonName;
+    }
+
+    return request;
   }
 
   private generateMockProducts(): Product[] {
@@ -674,8 +837,7 @@ export class AppService {
         location: locations[0],
         imageUrls: [
           'https://images.pexels.com/photos/1020585/pexels-photo-1020585.jpeg?auto=compress&cs=tinysrgb&w=400'
-        ],
-        barcode: '011234567890'
+        ]
       }
     ];
   }
@@ -686,7 +848,6 @@ export class AppService {
       .pipe(
         map(apiMovements => apiMovements.map(m => this.convertApiStockMovementToStockMovement(m))),
         catchError(error => {
-          console.error('Failed to load pending stock movements:', error);
           return throwError(() => error);
         })
       );
@@ -701,7 +862,6 @@ export class AppService {
           this.loadProducts().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to approve stock movement:', error);
           return throwError(() => error);
         })
       );
@@ -715,7 +875,6 @@ export class AppService {
           this.loadStockMovements().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to reject stock movement:', error);
           return throwError(() => error);
         })
       );
@@ -727,7 +886,6 @@ export class AppService {
       .pipe(
         map(apiProducts => apiProducts.map(p => this.convertApiProductToProduct(p))),
         catchError(error => {
-          console.error('Failed to load pending products:', error);
           return throwError(() => error);
         })
       );
@@ -741,7 +899,6 @@ export class AppService {
           this.loadProducts().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to approve product:', error);
           return throwError(() => error);
         })
       );
@@ -755,10 +912,113 @@ export class AppService {
           this.loadProducts().subscribe();
         }),
         catchError(error => {
-          console.error('Failed to reject product:', error);
           return throwError(() => error);
         })
       );
   }
+
+  // ==================== LocationInventory API ====================
+  
+  /**
+   * Get all inventory across all locations (Admin only)
+   */
+  getAllLocationInventory(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/all`)
+      .pipe(
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+  
+  /**
+   * Get all location inventory records for a specific location
+   */
+  getLocationInventory(locationId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/location/${locationId}`)
+      .pipe(
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Get inventory for a specific product SKU across all locations
+   */
+  getInventoryByProductSku(sku: string): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/product/${sku}`)
+      .pipe(
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Get inventory for specific location and product SKU
+   */
+  getInventoryByLocationAndSku(locationId: number, sku: string): Observable<any> {
+    return this.http.get<any>(`${this.API_BASE_URL}/inventory/location/${locationId}/product/${sku}`)
+      .pipe(
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Update location-specific pricing
+   * Each location can set their own cost, salePrice, wholesalePrice, wholesaleMinQuantity
+   */
+  updateInventoryPricing(
+    inventoryId: number,
+    pricing: {
+      cost: number;
+      salePrice: number;
+      wholesalePrice?: number;
+      wholesaleMinQuantity?: number;
+    }
+  ): Observable<any> {
+    // Backend expects BigDecimal in rupees format, no need to multiply by 100
+    const request = {
+      cost: pricing.cost,
+      salePrice: pricing.salePrice,
+      wholesalePrice: pricing.wholesalePrice || null,
+      wholesaleMinQuantity: pricing.wholesaleMinQuantity || null,
+    };
+
+    return this.http.put<any>(`${this.API_BASE_URL}/inventory/${inventoryId}/pricing`, request)
+      .pipe(
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Helper to convert LocationInventory API response
+   */
+  private convertApiLocationInventoryToDto(apiInv: any): any {
+    return {
+      id: apiInv.id.toString(),
+      locationId: apiInv.locationId.toString(),
+      locationName: apiInv.locationName,
+      productSku: apiInv.productSku,
+      productName: apiInv.productName,
+      quantity: apiInv.quantity,
+      minStock: apiInv.minStock,
+      maxStock: apiInv.maxStock,
+      reorderPoint: apiInv.reorderPoint,
+      // Backend sends BigDecimal in rupees format, no need to divide by 100
+      cost: apiInv.cost || 0,
+      salePrice: apiInv.salePrice || 0,
+      wholesalePrice: apiInv.wholesalePrice || null,
+      wholesaleMinQuantity: apiInv.wholesaleMinQuantity || null,
+      createdAt: new Date(apiInv.createdAt),
+      updatedAt: new Date(apiInv.updatedAt),
+    };
+  }
 }
+
 

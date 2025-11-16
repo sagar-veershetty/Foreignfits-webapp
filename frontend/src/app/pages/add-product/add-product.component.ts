@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
@@ -6,7 +6,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product, Location } from '../../core/models';
-import * as JsBarcode from 'jsbarcode';
 
 @Component({
   selector: 'app-add-product',
@@ -121,12 +120,35 @@ import * as JsBarcode from 'jsbarcode';
 
           <!-- SKU -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">SKU *</label>
-            <input type="text" required [(ngModel)]="formData.sku" name="sku" (blur)="validateSku()" placeholder="Enter unique SKU"
-                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            <div class="flex items-center justify-between mb-2">
+              <label class="block text-sm font-medium text-gray-700">SKU *</label>
+              <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="isManualSku" name="isManualSku" 
+                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>Manual SKU</span>
+              </label>
+            </div>
+            <div class="flex gap-2">
+              <input type="text" required [(ngModel)]="formData.sku" name="sku" (blur)="validateSku()" 
+                     [readonly]="!isManualSku"
+                     placeholder="Click 'Generate SKU' or enable manual entry"
+                     [class.bg-gray-50]="!isManualSku"
+                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <button type="button" (click)="generateSku()" [disabled]="isManualSku || !canGenerateSku()"
+                      class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Generate SKU
+              </button>
+            </div>
             <div *ngIf="skuError" class="mt-1 text-sm text-red-600">{{ skuError }}</div>
             <div *ngIf="!skuError && isCheckingSku" class="mt-1 text-sm text-gray-500">Checking SKU...</div>
-            <p class="text-xs text-gray-500 mt-1">Barcode will be auto-generated based on SKU</p>
+            <p class="text-xs text-gray-500 mt-1">
+              <span *ngIf="!isManualSku">Auto-generated from Name(2) + Category(3) + Size + Color(3) + Random(4)</span>
+              <span *ngIf="isManualSku">Enter a unique SKU manually</span>
+              <span class="ml-2" *ngIf="formData.stock > 0">• {{ formData.stock }} barcodes will be generated</span>
+            </p>
           </div>
 
           <!-- Images uploader -->
@@ -169,36 +191,33 @@ import * as JsBarcode from 'jsbarcode';
     </div>
   `
 })
-export class AddProductComponent implements OnInit, AfterViewInit {
+export class AddProductComponent implements OnInit {
   appState$: Observable<AppState>;
   
   formData = {
-    name: '',
-    category: 'shirts' as Product['category'],
-    size: '',
-    color: '',
-    price: 0,
-    cost: 0,
-    wholesalePrice: 0,
+    name: 'Classic Denim Jacket',
+    category: 'jackets' as Product['category'],
+    size: 'M',
+    color: 'Blue',
+    price: 89.99,
+    cost: 45.00,
+    wholesalePrice: 65.00,
     wholesaleMinQuantity: 100,
-    stock: 0,
-    minStock: 0,
+    stock: 150,
+    minStock: 20,
     sku: '',
-    description: '',
-    barcode: '',
+    description: 'Premium quality denim jacket with vintage wash finish. Features button closure, chest pockets, and comfortable fit.',
     imageUrls: [] as string[],
     locationId: '',
   };
 
   // UI validation state
   skuError: string | null = null;
-  barcodeError: string | null = null;
   isCheckingSku = false;
-  isCheckingBarcode = false;
+  isManualSku = false; // Toggle for manual SKU entry
   creationSuccess = false;
   isEditMode = false;
   editingProductId: string | null = null;
-  @ViewChild('barcodeSvg') barcodeSvg?: ElementRef<SVGSVGElement>;
 
   constructor(
     private appService: AppService, 
@@ -214,28 +233,19 @@ export class AddProductComponent implements OnInit, AfterViewInit {
     // Force reload if locations are empty
     const currentState = this.appService.appStateBehaviorSubject.value;
     if (!currentState.locations || currentState.locations.length === 0) {
-      console.log('Locations empty, forcing data reload...');
       this.appService.loadInitialData().subscribe({
         next: () => {
-          console.log('Initial data loaded successfully');
           const state = this.appService.appStateBehaviorSubject.value;
-          console.log('Locations after load:', state.locations);
           // Auto-set location to SUPPLIER for admin users after data loads
           if (this.isAdmin()) {
             this.formData.locationId = '1'; // SUPPLIER location ID
-            console.log('Admin detected - locationId set to:', this.formData.locationId);
           }
-        },
-        error: (err) => {
-          console.error('Failed to load initial data:', err);
         }
       });
     } else {
-      console.log('Locations already loaded:', currentState.locations);
       // Auto-set location to SUPPLIER for admin users
       if (this.isAdmin()) {
         this.formData.locationId = '1'; // SUPPLIER location ID
-        console.log('Admin detected - locationId set to:', this.formData.locationId);
       }
     }
     
@@ -245,7 +255,6 @@ export class AddProductComponent implements OnInit, AfterViewInit {
         // Double-check locationId is set for admin
         if (!this.formData.locationId) {
           this.formData.locationId = '1';
-          console.log('Setting locationId in appState subscription:', this.formData.locationId);
         }
       }
     });
@@ -258,24 +267,24 @@ export class AddProductComponent implements OnInit, AfterViewInit {
         const state = this.appService.appStateBehaviorSubject.value;
         const prod = state.products.find(p => p.id === id);
         if (prod) {
+          // NOTE: Product pricing/location fields are deprecated (backend returns null)
+          // For edit mode, use default values if null
           this.formData = {
             name: prod.name,
             category: prod.category,
             size: prod.size,
             color: prod.color,
-            price: prod.price,
-            cost: prod.cost,
-            wholesalePrice: prod.wholesalePrice,
-            wholesaleMinQuantity: prod.wholesaleMinQuantity,
-            stock: prod.stock,
-            minStock: prod.minStock,
+            price: prod.price || 0,
+            cost: prod.cost || 0,
+            wholesalePrice: prod.wholesalePrice || 0,
+            wholesaleMinQuantity: prod.wholesaleMinQuantity || 0,
+            stock: prod.stock || 0,
+            minStock: prod.minStock || 0,
             sku: prod.sku,
             description: prod.description || '',
-            barcode: prod.barcode || '',
             imageUrls: prod.imageUrls || [],
-            locationId: prod.locationId,
+            locationId: prod.locationId || '',
           };
-          setTimeout(() => this.renderBarcode(), 0);
         }
       } else {
         this.isEditMode = false;
@@ -283,21 +292,13 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       }
     });
   }
-  ngAfterViewInit(): void {
-    this.renderBarcode();
-  }
 
   onSubmit(): void {
     const appState = this.appService.appStateBehaviorSubject.value;
     
-    console.log('Form submission - locationId:', this.formData.locationId);
-    console.log('Is Admin:', this.isAdmin());
-    console.log('Available locations:', appState.locations);
-    
     // Check if locations are loaded
     if (!appState.locations || appState.locations.length === 0) {
       alert('Loading location data. Please wait a moment and try again.');
-      console.error('Locations not loaded yet!');
       // Trigger data load
       this.appService.loadInitialData().subscribe();
       return;
@@ -306,7 +307,6 @@ export class AddProductComponent implements OnInit, AfterViewInit {
     // For admin users, ensure locationId is set to SUPPLIER (ID=1)
     if (this.isAdmin() && !this.formData.locationId) {
       this.formData.locationId = '1';
-      console.log('Admin locationId was empty, set to:', this.formData.locationId);
     }
     
     const selectedLocation = appState.locations.find((loc: Location) => 
@@ -315,10 +315,7 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       this.formData.locationId === loc.id.toString()
     );
     
-    console.log('Selected location:', selectedLocation);
-    
     if (!selectedLocation) {
-      console.error('Location not found! locationId:', this.formData.locationId);
       alert('Please select a location for the product');
       return;
     }
@@ -326,7 +323,6 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       const product = {
         ...this.formData,
         location: selectedLocation,
-        barcode: this.formData.barcode || this.generateBarcode(),
       };
 
       this.appService.updateProduct(this.editingProductId, product).subscribe({
@@ -335,7 +331,6 @@ export class AddProductComponent implements OnInit, AfterViewInit {
           this.router.navigate(['/inventory']);
         },
         error: (err) => {
-          console.error('Update product failed', err);
           alert('Failed to update product. Please try again.');
         }
       });
@@ -357,29 +352,48 @@ export class AddProductComponent implements OnInit, AfterViewInit {
           return; // stop submission; errors shown inline
         }
 
-        // Auto-generate unique barcode based on SKU
-        const generatedBarcode = this.generateBarcode();
-
+        // Extract product master data (no location/pricing, no barcode)
         const product = {
-          ...this.formData,
-          location: selectedLocation,
-          barcode: generatedBarcode,
+          name: this.formData.name,
+          category: this.formData.category,
+          size: this.formData.size,
+          color: this.formData.color,
+          sku: this.formData.sku,
+          description: this.formData.description,
+          imageUrls: this.formData.imageUrls,
+          // Deprecated fields - set to null for compatibility
+          price: null,
+          cost: null,
+          wholesalePrice: null,
+          wholesaleMinQuantity: null,
+          stock: this.formData.stock, // Used for initial quantity at first location
+          minStock: this.formData.minStock, // Used for initial threshold
+          locationId: null,
+          location: null,
         };
 
-        this.appService.createProduct(product).subscribe({
+        // Extract location-specific pricing
+        const locationId = parseInt(selectedLocation.id);
+        const pricing = {
+          cost: this.formData.cost,
+          salePrice: this.formData.price,
+          wholesalePrice: this.formData.wholesalePrice,
+          wholesaleMinQuantity: this.formData.wholesaleMinQuantity,
+        };
+
+        // NEW: createProduct now requires locationId and pricing as separate params
+        this.appService.createProduct(product, locationId, pricing).subscribe({
           next: () => {
             // Product added successfully - redirect to dashboard silently (no popup)
             this.router.navigate(['/dashboard']);
           },
           error: (err) => {
-            console.error('Create product failed', err);
             alert('Failed to add product. Please try again.');
           }
         });
       },
       error: (err) => {
         this.isCheckingSku = false;
-        console.error('Validation check failed', err);
         alert('Could not validate SKU. Please try again.');
       }
     });
@@ -399,14 +413,11 @@ export class AddProductComponent implements OnInit, AfterViewInit {
       minStock: 0,
       sku: '',
       description: '',
-      barcode: '',
       imageUrls: [],
       locationId: '',
     };
     this.skuError = null;
-    this.barcodeError = null;
     this.isCheckingSku = false;
-    this.isCheckingBarcode = false;
   }
 
   goToDashboard(): void {
@@ -415,6 +426,53 @@ export class AddProductComponent implements OnInit, AfterViewInit {
 
   dismissSuccess(): void {
     this.creationSuccess = false;
+  }
+
+  // Generate SKU from product attributes
+  generateSku(): void {
+    const name = this.formData.name?.trim() || '';
+    const category = this.formData.category?.trim() || '';
+    const size = this.formData.size?.trim() || '';
+    const color = this.formData.color?.trim() || '';
+
+    if (!this.canGenerateSku()) {
+      alert('Please fill in Name, Category, Size, and Color to generate SKU');
+      return;
+    }
+
+    // Extract alphanumeric characters only
+    const extractAlphaNum = (str: string) => str.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+
+    // Name: first 2 alphanumeric characters
+    const namePart = extractAlphaNum(name).substring(0, 2).padEnd(2, 'X');
+    
+    // Category: first 3 alphanumeric characters
+    const categoryPart = extractAlphaNum(category).substring(0, 3).padEnd(3, 'X');
+    
+    // Size: all alphanumeric characters (no limit)
+    const sizePart = extractAlphaNum(size);
+    
+    // Color: first 3 alphanumeric characters
+    const colorPart = extractAlphaNum(color).substring(0, 3).padEnd(3, 'X');
+    
+    // Random: 4 digits
+    const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // Combine: NAME(2)-CATEGORY(3)-SIZE-COLOR(3)-RANDOM(4)
+    this.formData.sku = `${namePart}${categoryPart}${sizePart}${colorPart}${randomPart}`;
+    
+    // Validate the generated SKU
+    this.validateSku();
+  }
+
+  // Check if we have enough data to generate SKU
+  canGenerateSku(): boolean {
+    return !!(
+      this.formData.name?.trim() &&
+      this.formData.category?.trim() &&
+      this.formData.size?.trim() &&
+      this.formData.color?.trim()
+    );
   }
 
   validateSku(): void {
@@ -432,47 +490,6 @@ export class AddProductComponent implements OnInit, AfterViewInit {
         // Silent error; user can still submit and backend will validate
       }
     });
-  }
-
-  validateBarcode(): void {
-    const barcode = this.formData.barcode?.trim();
-    this.barcodeError = null;
-    if (!barcode) return; // optional field
-    this.isCheckingBarcode = true;
-    this.appService.productExistsByBarcode(barcode).subscribe({
-      next: exists => {
-        this.isCheckingBarcode = false;
-        this.barcodeError = exists ? 'Barcode already exists. Leave blank to auto-generate.' : null;
-      },
-      error: () => {
-        this.isCheckingBarcode = false;
-      }
-    });
-  }
-
-  generateBarcode(): string {
-    // Generate barcode based on SKU with unique suffix
-    if (!this.formData.sku) {
-      return '';
-    }
-    
-    // Use SKU as base and add timestamp for uniqueness
-    const timestamp = Date.now().toString().slice(-6);
-    const skuCode = this.formData.sku.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8);
-    
-    return `${skuCode}${timestamp}`;
-  }
-  onGenerateBarcode(): void {
-    this.formData.barcode = this.generateBarcode();
-    this.renderBarcode();
-  }
-  renderBarcode(): void {
-    try {
-      if (!this.barcodeSvg) return;
-      const code = (this.formData.barcode || '').trim();
-      if (!code) { (this.barcodeSvg.nativeElement as any).innerHTML = ''; return; }
-      JsBarcode(this.barcodeSvg.nativeElement, code, { format: 'CODE128', width: 2, height: 60, displayValue: true, fontSize: 12, margin: 0 });
-    } catch {}
   }
 
   // Image uploading helpers

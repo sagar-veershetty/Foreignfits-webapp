@@ -213,26 +213,23 @@
           <select [(ngModel)]="adjustmentForm.productId" name="productId" required
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
             <option value="">Select a product</option>
-            <option *ngFor="let product of products()" [value]="product.id">
-              {{ product.name }} ({{ product.sku }}) - Stock: {{ product.stock }}
+            <option *ngFor="let product of getAdjustableProducts()" [value]="product.id">
+              {{ product.name }} ({{ product.sku }})
             </option>
           </select>
+          <p class="text-sm text-gray-500 mt-1">Showing products from {{ getUserLocationName() || 'your location' }}</p>
         </div>
 
         <div *ngIf="getSelectedProduct()" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 class="font-medium text-blue-900 mb-2">Current Stock Information</h3>
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span class="text-blue-700">Current Stock:</span>
-              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.stock }}</span>
+          <h3 class="font-medium text-blue-900 mb-2">Selected Product</h3>
+          <div class="text-sm">
+            <div class="mb-2">
+              <span class="text-blue-700">Product:</span>
+              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.name }}</span>
             </div>
             <div>
-              <span class="text-blue-700">Min Stock:</span>
-              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.minStock }}</span>
-            </div>
-            <div>
-              <span class="text-blue-700">Location:</span>
-              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.location?.name || 'N/A' }}</span>
+              <span class="text-blue-700">SKU:</span>
+              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.sku }}</span>
             </div>
           </div>
         </div>
@@ -313,15 +310,16 @@
         </div>
       </div>
 
-      <!-- Transfer Form -->
-      <form *ngIf="authService.canCreateStockMovement()" (ngSubmit)="submitTransfer()" class="max-w-2xl mx-auto space-y-6">
+      <!-- Admin Transfer Form (Quantity-based) -->
+      <form *ngIf="authService.canCreateStockMovement() && isAdmin()" (ngSubmit)="submitTransfer()" class="max-w-2xl mx-auto space-y-6">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Product *</label>
           <select [(ngModel)]="transferForm.productId" name="productId" required
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-            <option value="">Select a product</option>
+                  [disabled]="!transferForm.fromLocationId"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed">
+            <option value="">{{ transferForm.fromLocationId ? 'Select a product' : 'From location will be auto-set' }}</option>
             <option *ngFor="let product of getTransferableProducts()" [value]="product.id">
-              {{ product.name }} ({{ product.sku }}) - Stock: {{ product.stock }}
+              {{ product.name }} ({{ product.sku }})
             </option>
           </select>
         </div>
@@ -330,14 +328,15 @@
           <h3 class="font-medium text-blue-900 mb-2">Product Information</h3>
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span class="text-blue-700">Current Stock:</span>
-              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.stock }}</span>
+              <span class="text-blue-700">SKU:</span>
+              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.sku }}</span>
             </div>
             <div>
-              <span class="text-blue-700">Current Location:</span>
-              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.location?.name || 'N/A' }}</span>
+              <span class="text-blue-700">Category:</span>
+              <span class="ml-2 font-semibold">{{ getSelectedProduct()!.category }}</span>
             </div>
           </div>
+          <p class="text-xs text-blue-600 mt-2">Note: Stock availability at the FROM location will be validated when submitting.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,6 +445,188 @@
           <button 
             type="button"
             (click)="resetTransferForm()"
+            class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+            Reset
+          </button>
+        </div>
+      </form>
+
+      <!-- Warehouse/Store Barcode Transfer Form -->
+      <form *ngIf="authService.canCreateStockMovement() && !isAdmin()" (ngSubmit)="submitBarcodeTransfer()" class="max-w-2xl mx-auto space-y-6">
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <h3 class="font-medium text-blue-900 mb-2">Barcode-Based Transfer</h3>
+          <p class="text-sm text-blue-700">Scan or enter barcodes for the items you want to transfer. All scanned items must be from the same product.</p>
+        </div>
+
+        <!-- Barcode Scanner Input -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Scan/Enter Barcodes</label>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              [(ngModel)]="currentBarcodeInput"
+              (ngModelChange)="currentBarcodeInput.set($event)"
+              name="barcodeInput"
+              (keydown.enter)="$event.preventDefault(); addBarcode()"
+              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Scan or type barcode and press Enter">
+            <button 
+              type="button"
+              (click)="openCameraScanner()"
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
+              title="Scan with Camera">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span class="hidden sm:inline">Camera</span>
+            </button>
+            <button 
+              type="button"
+              (click)="addBarcode()"
+              class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+              Add
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">
+            Scan barcode with scanner, use camera, or manually type and click Add
+          </p>
+        </div>
+
+        <!-- Camera Scanner Modal -->
+        <div *ngIf="showCameraScanner()" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div class="bg-white rounded-lg max-w-md w-full overflow-hidden">
+            <div class="bg-gray-800 px-4 py-3 flex justify-between items-center">
+              <h3 class="text-white font-medium">Scan Barcode</h3>
+              <button 
+                type="button"
+                (click)="closeCameraScanner()"
+                class="text-white hover:text-gray-300">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+            <div class="p-4">
+              <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 4/3;">
+                <video #videoElement autoplay playsinline class="w-full h-full object-cover"></video>
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div class="border-2 border-green-500 rounded-lg" style="width: 80%; height: 40%;"></div>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600 mt-3 text-center">
+                Position barcode within the frame
+              </p>
+              <p *ngIf="cameraScannerError()" class="text-sm text-red-600 mt-2 text-center">
+                {{ cameraScannerError() }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scanned Barcodes List -->
+        <div *ngIf="scannedBarcodes().length > 0" class="border border-gray-200 rounded-lg">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+            <h3 class="font-medium text-gray-900">Scanned Barcodes ({{ getTotalScannedQuantity() }})</h3>
+            <button 
+              type="button"
+              (click)="clearBarcodes()"
+              class="text-sm text-red-600 hover:text-red-700 font-medium">
+              Clear All
+            </button>
+          </div>
+          <div class="divide-y divide-gray-200 max-h-64 overflow-y-auto">
+            <div *ngFor="let item of scannedBarcodes()" class="px-4 py-3 flex justify-between items-center hover:bg-gray-50">
+              <div class="flex-1">
+                <p class="font-mono text-sm font-medium text-gray-900">{{ item.barcode }}</p>
+                <p *ngIf="item.productName" class="text-xs text-gray-600 mt-1">{{ item.productName }}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span 
+                  [ngClass]="{
+                    'bg-green-100 text-green-800': item.status === 'valid',
+                    'bg-red-100 text-red-800': item.status === 'invalid',
+                    'bg-yellow-100 text-yellow-800': item.status === 'pending'
+                  }"
+                  class="px-2 py-1 rounded text-xs font-medium">
+                  {{ item.status === 'valid' ? 'Valid' : item.status === 'invalid' ? 'Invalid' : 'Checking...' }}
+                </span>
+                <button 
+                  type="button"
+                  (click)="removeBarcode(item.barcode)"
+                  class="text-red-600 hover:text-red-700">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Destination Location -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">To Location *</label>
+          <select [(ngModel)]="barcodeTransferForm.toLocationId" name="toLocationId" required
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            <option value="">Select destination location</option>
+            <option *ngFor="let location of getAvailableDestinationLocations()" [value]="location.id">
+              {{ location.name }} ({{ location.type }})
+            </option>
+          </select>
+          <p class="mt-1 text-xs text-gray-500">
+            Your location ({{ getUserLocationName() }}) is set as the source
+          </p>
+        </div>
+
+        <!-- Reason -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Reason *</label>
+          <select [(ngModel)]="barcodeTransferForm.reason" name="reason" required
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            <option value="">Select a reason</option>
+            <option value="Store Restock">Store Restock</option>
+            <option value="Warehouse Return">Warehouse Return</option>
+            <option value="Store to Store">Store to Store</option>
+            <option value="Seasonal Movement">Seasonal Movement</option>
+            <option value="Inventory Balancing">Inventory Balancing</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <!-- Reference Number -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Reference Number</label>
+          <input 
+            type="text" 
+            [(ngModel)]="barcodeTransferForm.reference" 
+            name="reference"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="Transfer ID, request number, etc. (optional)">
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+          <textarea 
+            [(ngModel)]="barcodeTransferForm.notes" 
+            name="notes"
+            rows="3"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="Additional notes about this transfer (optional)"></textarea>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="flex gap-4">
+          <button 
+            type="submit"
+            [disabled]="getTotalScannedQuantity() === 0"
+            class="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed">
+            Submit Transfer ({{ getTotalScannedQuantity() }} items)
+          </button>
+          <button 
+            type="button"
+            (click)="resetBarcodeTransferForm()"
             class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
             Reset
           </button>

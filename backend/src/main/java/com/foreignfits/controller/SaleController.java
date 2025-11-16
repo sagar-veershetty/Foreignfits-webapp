@@ -112,7 +112,7 @@ public class SaleController {
     
     @PostMapping
     @PreAuthorize("hasAuthority('create:sale')")
-    public ResponseEntity<SaleDto> createSale(@Valid @RequestBody CreateSaleRequest request, Authentication authentication) {
+    public ResponseEntity<?> createSale(@Valid @RequestBody CreateSaleRequest request, Authentication authentication) {
         try {
             String email = authentication.getName();
             Long userId = userService.getUserByEmail(email)
@@ -122,7 +122,13 @@ public class SaleController {
             SaleDto sale = saleService.createSale(request, userId);
             return ResponseEntity.ok(sale);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            // Return detailed error message for debugging
+            return ResponseEntity.badRequest().body(
+                java.util.Map.of(
+                    "error", e.getMessage(),
+                    "type", e.getClass().getSimpleName()
+                )
+            );
         }
     }
 }

@@ -1,28 +1,84 @@
+// Product = Organization-wide master data (no location or pricing)
+// For pricing and inventory, fetch LocationInventory data
 export interface Product {
   id: string;
   name: string;
   category: 'shirts' | 'pants' | 'dresses' | 'jackets' | 'shoes' | 'accessories';
   size: string;
   color: string;
-  price: number;
-  cost: number;
-  wholesalePrice: number;
-  wholesaleMinQuantity: number;
-  stock: number;
-  minStock: number;
   sku: string;
+  isManualSku?: boolean;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
-  barcode?: string;
   imageUrls?: string[];
-  locationId: string;
-  location?: Location;
   createdBy?: string;
   isApproved?: boolean;
   approvedBy?: string;
   approvedAt?: Date;
-  rejectionReason?: string;
+  
+  // DEPRECATED - Backend returns null, kept for backward compatibility
+  price?: number | null;
+  cost?: number | null;
+  wholesalePrice?: number | null;
+  wholesaleMinQuantity?: number | null;
+  stock?: number | null;
+  minStock?: number | null;
+  locationId?: string | null;
+  location?: Location | null;
+}
+
+// LocationInventory = Location-specific pricing and inventory tracking
+export interface LocationInventory {
+  id: string;
+  locationId: string;
+  locationName: string;
+  productSku: string;
+  productName: string;
+  quantity: number;
+  minStock: number;
+  maxStock: number;
+  reorderPoint: number;
+  
+  // Location-specific pricing
+  cost: number;
+  salePrice: number;
+  wholesalePrice?: number;
+  wholesaleMinQuantity?: number;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Barcode {
+  id: string;
+  barcodeNumber: string;
+  productSku: string;
+  productName: string;
+  locationName: string;
+  status: 'ACTIVE' | 'DAMAGED' | 'LOST' | 'SOLD';
+  remark?: string;
+  createdAt: Date;
+}
+
+export interface BarcodeHistory {
+  id: number;
+  barcodeNumber: string;
+  barcodeId?: number;
+  productSku: string;
+  productName: string;
+  eventType: 'CREATED' | 'TRANSFERRED' | 'SOLD' | 'RETURNED' | 'DAMAGED' | 'LOST';
+  locationId?: number;
+  locationName?: string;
+  fromLocationId?: number;
+  fromLocationName?: string;
+  toLocationId?: number;
+  toLocationName?: string;
+  referenceType?: string;
+  referenceId?: number;
+  notes?: string;
+  performedBy?: string;
+  createdAt: Date;
 }
 
 export interface Location {
@@ -40,12 +96,40 @@ export interface Location {
   createdAt: Date;
 }
 
+export interface BarcodeInfo {
+  id: string;
+  barcodeNumber: string;
+  status: string;
+  remark?: string;
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    size?: string;
+    color?: string;
+  };
+  currentLocation: {
+    id: string;
+    name: string;
+    type: string;
+  };
+  createdAt: Date;
+}
+
 export interface SaleItem {
   productId: string;
   product: Product;
   quantity: number;
   price: number;
   total: number;
+  barcodes?: string[]; // Scanned barcode numbers for this item
+}
+
+export interface SalePayment {
+  id?: string;
+  paymentMethod: 'CASH' | 'CARD' | 'OTHER';
+  amount: number;
+  reference?: string;
 }
 
 export interface Sale {
@@ -55,12 +139,15 @@ export interface Sale {
   tax: number;
   total: number;
   paymentMethod: 'cash' | 'card' | 'other';
+  payments?: SalePayment[]; // Split payment support
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   customerCountryCode?: string;
+  salesPersonName?: string;
   soldBy: string;
   soldById: string;
+  location: Location;
   createdAt: Date;
   pointsEarned?: number;
   pointsRedeemed?: number;
@@ -71,7 +158,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'sales' | 'warehouse';
+  role: 'admin' | 'sales' | 'warehouse' | 'sales_manager' | 'shipping_agent_china' | 'shipping_agent_india';
   locationId?: string;
   locationName?: string;
   avatar?: string;
@@ -98,7 +185,6 @@ export interface StockMovement {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'; // Movement status
   approvedBy?: string;
   approvedAt?: Date;
-  rejectionReason?: string;
   
   // Transfer-specific fields - now ALL movements have these via transfer
   transferId?: string;
@@ -107,6 +193,7 @@ export interface StockMovement {
 }
 
 export interface StockAdjustment {
+  locationId: string;
   productId: string;
   adjustmentType: 'increase' | 'decrease' | 'set';
   quantity: number;
@@ -185,4 +272,150 @@ export interface DiscountCalculation {
   points: number;
   discountAmount: number;
   pointValue: number;
+}
+// Expense Management Models
+export type ExpenseType = 
+  | 'DAILY_MAINTENANCE'      // Daily store maintenance
+  | 'SALARY'                 // Staff salaries
+  | 'RENT'                   // Store rent
+  | 'ELECTRICITY'            // Electricity bills
+  | 'WATER'                  // Water bills
+  | 'INTERNET'               // Internet/Phone bills
+  | 'INVENTORY_PURCHASE'     // Purchasing inventory
+  | 'MARKETING'              // Marketing and advertising
+  | 'TRANSPORTATION'         // Transportation costs
+  | 'EQUIPMENT'              // Equipment purchase/maintenance
+  | 'CLEANING'               // Cleaning services
+  | 'SECURITY'               // Security services
+  | 'OFFICE_SUPPLIES'        // Office supplies
+  | 'MISCELLANEOUS';         // Other expenses
+
+export type PaymentMethod = 
+  | 'CASH' 
+  | 'CARD' 
+  | 'UPI' 
+  | 'BANK_TRANSFER' 
+  | 'CHEQUE';
+
+export type ExpenseStatus = 
+  | 'PENDING'    // Waiting for approval
+  | 'APPROVED'   // Approved by manager
+  | 'REJECTED'   // Rejected
+  | 'PAID';      // Payment completed
+
+export interface Expense {
+  id: string;
+  type: ExpenseType;
+  amount: number;
+  description: string;
+  expenseDate: Date;
+  locationId: string;
+  locationName: string;
+  paymentMethod: PaymentMethod;
+  receiptUrl?: string;
+  notes?: string;
+  createdBy: string;
+  approvedBy?: string;
+  status: ExpenseStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ExpenseRequest {
+  type: ExpenseType;
+  amount: number;
+  description: string;
+  expenseDate: Date;
+  locationId: string | number;  // Can be string from form or number for API
+  paymentMethod: PaymentMethod;
+  receiptUrl?: string;
+  notes?: string;
+}
+
+export interface ExpenseSummary {
+  totalExpenses: number;
+  expensesByType: { [key: string]: number };
+  expensesByLocation: { [key: string]: number };
+  startDate: Date;
+  endDate: Date;
+}
+
+// Logistics/Shipping Management Models
+export type ShipmentStatus = 
+  | 'CREATED'                  // Shipment created by China agent
+  | 'IN_TRANSIT'               // In transit from China
+  | 'ARRIVED_MUMBAI'           // Arrived at Indian port
+  | 'IN_CUSTOM_CLEARANCE'      // In custom clearance
+  | 'DELIVERED_TO_WAREHOUSE'   // Delivered to domestic warehouse
+  | 'RECEIVED'                 // Received by India agent
+  | 'OUT_FOR_DELIVERY'         // Out for local delivery
+  | 'DELIVERED'                // Delivered to final destination
+  | 'COMPLETED';               // Completed by admin
+
+export type PaymentStatus = 
+  | 'UNPAID'            // No payment received
+  | 'PARTIALLY_PAID'    // Partial payment received
+  | 'PAID';             // Fully paid
+
+export interface Shipment {
+  id: string;
+  shippingId: string;                // Unique tracking number
+  totalCost: number;
+  totalPackages: number;
+  totalCbm: number;                   // Cubic meters
+  isBranded: boolean;
+  perCbmRate: number;
+  etd: Date;                          // Estimated Time of Departure
+  eta: Date;                          // Estimated Time of Arrival
+  trackingUrl?: string;
+  status: ShipmentStatus;
+  remarks?: string;
+  originLocation: string;             // e.g., "China"
+  destinationLocation: string;        // e.g., "Mumbai, India"
+  createdByAgent: string;             // China agent email
+  receivedByAgent?: string;           // Mumbai agent email
+  completedByAdmin?: string;          // Admin email
+  createdAt: Date;
+  receivedAt?: Date;
+  deliveredAt?: Date;
+  completedAt?: Date;
+  updatedAt: Date;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: PaymentStatus;
+  localLogisticProvider?: string;     // Local delivery company
+  localTrackingNumber?: string;       // Local tracking number
+  indiaWarehouseAddress?: string;     // India warehouse address
+  indiaContactPhone?: string;         // India contact phone
+  indiaContactEmail?: string;         // India contact email
+}
+
+export interface ShipmentRequest {
+  shippingId: string;
+  totalCost: number;
+  totalPackages: number;
+  totalCbm: number;
+  isBranded: boolean;
+  perCbmRate: number;
+  etd: Date;
+  eta: Date;
+  trackingUrl?: string;
+  status?: ShipmentStatus;
+  remarks?: string;
+  originLocation?: string;
+  destinationLocation?: string;
+  localLogisticProvider?: string;
+  localTrackingNumber?: string;
+  indiaWarehouseAddress?: string;
+  indiaContactPhone?: string;
+  indiaContactEmail?: string;
+}
+
+export interface ShipmentResponse extends Shipment {
+  // Same as Shipment but returned from API
+}
+
+export interface PaymentRequest {
+  amount: number;
+  remarks?: string;
 }

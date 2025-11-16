@@ -1,267 +1,291 @@
-<!-- pos.component.html -->
-<div class="max-w-7xl mx-auto px-4" *ngIf="appState$ | async as appState">
-  <!-- SIDE-BY-SIDE from md and up -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <!-- LEFT: Products (2/3 width) -->
-    <div class="md:col-span-2">
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 md:p-4">
-        <!-- Search -->
-        <div class="mb-4">
-          <app-barcode-input
-            [value]="searchTerm"
-            (valueChange)="searchTerm = $event"
-            (scan)="onBarcodeScan($event)"
-            placeholder="Search or scan products to add to sale...">
-          </app-barcode-input>
-        </div>
+<!-- Barcode-First Sales Component -->
+<div class="max-w-5xl mx-auto px-4" *ngIf="appState$ | async as appState">
+  
+  <!-- Success Message -->
+  <div *ngIf="showSuccessMessage" class="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+    <span>{{ successMessage }}</span>
+    <button (click)="closeSuccessMessage()" class="ml-2 text-white hover:text-gray-200">×</button>
+  </div>
 
-        <!-- Product cards -->
-        <div class="grid grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 max-h-[62vh] overflow-y-auto pr-1">
-          <div
-            *ngFor="let product of getFilteredProducts(appState)"
-            class="border border-gray-200 rounded-lg overflow-hidden bg-white hover:shadow-md transition"
-            (click)="addToSale(product)">
-            <div class="relative overflow-hidden">
-              <!-- FIXED image height so it never blows up -->
-              <img *ngIf="hasImages(product)"
-                   [src]="currentImage(product)"
-                   [alt]="product.name"
-                   class="block w-full h-24 object-cover" />
-              <div *ngIf="!hasImages(product)" class="h-24 w-full flex items-center justify-center text-gray-400 bg-gray-100">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-              </div>
-
-              <!-- Carousel controls -->
-              <div *ngIf="hasMultipleImages(product)" class="absolute inset-y-0 left-0 flex items-center">
-                <button (click)="$event.stopPropagation(); prevImage(product)"
-                        class="m-1 h-6 w-6 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center">‹</button>
-              </div>
-              <div *ngIf="hasMultipleImages(product)" class="absolute inset-y-0 right-0 flex items-center">
-                <button (click)="$event.stopPropagation(); nextImage(product)"
-                        class="m-1 h-6 w-6 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center">›</button>
-              </div>
-              <div *ngIf="hasImages(product)" class="absolute bottom-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-black/60 text-white">
-                {{ currentImageNo(product) }} / {{ imageCount(product) }}
-              </div>
-            </div>
-
-            <div class="p-2 md:p-3">
-              <div class="text-[13px] font-semibold text-gray-900 truncate">{{ product.name }}</div>
-              <div class="text-[11px] text-gray-600">{{ product.size }} – {{ product.color }}</div>
-              <div class="text-[11px] text-blue-600 truncate">{{ product.barcode || product.sku }}</div>
-              <div class="mt-1 flex items-center justify-between">
-                <span class="text-green-600 font-semibold text-sm">₹{{ product.price | number:'1.2-2' }}</span>
-                <div class="flex items-center gap-2 text-[11px] text-gray-500">
-                  <span>Stock: {{ product.stock }}</span>
-                  <button (click)="$event.stopPropagation(); addToSale(product)"
-                          title="Add"
-                          class="h-6 w-6 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700">+</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div> <!-- /grid -->
-      </div>
-    </div>
-
-    <!-- RIGHT: Cart (1/3 width) -->
-    <div class="md:sticky md:top-20 h-fit">
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- LEFT: Barcode Scanner & Cart -->
+    <div>
+      <!-- Barcode Scanner Section -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 mb-4">
         <div class="flex items-center gap-2 text-gray-900 font-semibold mb-3">
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
           </svg>
-          <span>Current Sale</span>
+          <span>Scan Barcode</span>
         </div>
 
-        <div class="space-y-3 mb-4 max-h-[55vh] overflow-y-auto pr-1">
-          <p *ngIf="appState.currentSale.length === 0" class="text-gray-500 text-center py-6">
-            No items in current sale
+        <app-barcode-input
+          [value]="barcodeInput"
+          (valueChange)="barcodeInput = $event"
+          (scan)="onBarcodeScan($event)"
+          placeholder="Scan barcode to add item to sale...">
+        </app-barcode-input>
+
+        <div *ngIf="isProcessingBarcode" class="mt-2 text-sm text-blue-600 flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Processing barcode...</span>
+        </div>
+
+        <div class="mt-3 text-xs text-gray-500 bg-gray-50 rounded p-2">
+          <strong>Instructions:</strong> Scan product barcodes to add items to the sale. Each barcode represents a unique physical item. The system will automatically fetch product details and pricing.
+        </div>
+      </div>
+
+      <!-- Cart Section -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-gray-900 font-semibold">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"/>
+            </svg>
+            <span>Cart</span>
+          </div>
+          <span class="text-sm text-gray-600">{{ appState.currentSale.length }} item(s)</span>
+        </div>
+
+        <div class="space-y-3 mb-4 max-h-[50vh] overflow-y-auto pr-1">
+          <p *ngIf="appState.currentSale.length === 0" class="text-gray-500 text-center py-8">
+            No items scanned yet. Scan a barcode to start.
           </p>
 
           <div *ngFor="let item of appState.currentSale" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
             <div class="flex items-start justify-between">
-              <div class="min-w-0">
-                <div class="font-medium text-gray-900 truncate">{{ item.product.name }}</div>
+              <div class="min-w-0 flex-1">
+                <div class="font-medium text-gray-900">{{ item.product.name }}</div>
                 <div class="text-xs text-gray-600">{{ item.product.size }} – {{ item.product.color }}</div>
-                <div class="text-sm font-semibold text-green-600">₹{{ item.price | number:'1.2-2' }} each</div>
+                <div class="text-xs text-blue-600">SKU: {{ item.product.sku }}</div>
+                
+                <!-- Show scanned barcodes -->
+                <div *ngIf="item.barcodes && item.barcodes.length > 0" class="mt-2 space-y-1">
+                  <div *ngFor="let barcode of item.barcodes" class="text-xs bg-white px-2 py-1 rounded border border-gray-200 font-mono">
+                    {{ barcode }}
+                  </div>
+                </div>
+                
+                <div class="mt-2 flex items-center gap-2">
+                  <span class="text-sm text-gray-600">Qty: {{ item.quantity }}</span>
+                  <span class="text-sm font-semibold text-green-600">₹{{ item.price | number:'1.2-2' }} each</span>
+                </div>
               </div>
-              <div class="flex items-center gap-2 ml-3">
-                <button (click)="updateQuantity(item.productId, item.quantity - 1)" class="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
-                </button>
-                <input type="number"
-                       [min]="1"
-                       [max]="item.product.stock + item.quantity"
-                       [value]="item.quantity"
-                       (change)="updateQuantity(item.productId, +$any($event.target).value)"
-                       class="w-14 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"/>
-                <button (click)="updateQuantity(item.productId, item.quantity + 1)" class="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/></svg>
-                </button>
-                <button (click)="removeFromSale(item.productId)" class="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                </button>
-              </div>
+              
+              <button (click)="removeFromSale(item.productId)" 
+                      class="ml-2 p-1 text-red-500 hover:bg-red-50 rounded"
+                      title="Remove">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+            
+            <div class="mt-2 pt-2 border-t border-gray-200 flex justify-between items-center">
+              <span class="text-sm text-gray-600">Item Total:</span>
+              <span class="text-lg font-bold text-gray-900">₹{{ item.total | number:'1.2-2' }}</span>
             </div>
           </div>
         </div>
 
-        <div class="border-t border-gray-200 pt-3 space-y-2">
-          <div class="flex justify-between text-sm"><span>Subtotal:</span><span>₹{{ getSubtotal(appState) | number:'1.2-2' }}</span></div>
-          <div class="flex justify-between text-sm"><span>Tax (5% GST - included):</span><span>₹{{ getTax(appState) | number:'1.2-2' }}</span></div>
-          <div *ngIf="discountFromPoints > 0" class="flex justify-between text-sm text-purple-600">
-            <span>Loyalty Discount:</span>
-            <span>-₹{{ discountFromPoints | number:'1.2-2' }}</span>
-          </div>
-          <div class="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
+        <!-- Cart Summary -->
+        <div *ngIf="appState.currentSale.length > 0" class="border-t pt-3">
+          <div class="flex justify-between items-center text-lg font-bold">
             <span>Total:</span>
             <span class="text-green-600">₹{{ getTotal(appState) | number:'1.2-2' }}</span>
           </div>
+          <div class="text-xs text-gray-500 mt-1">Includes 5% GST</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Customer & Payment -->
+    <div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <h3 class="text-lg font-semibold mb-4">Customer & Payment</h3>
+
+        <!-- Customer Info -->
+        <div class="space-y-3 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Customer Name (Optional)</label>
+            <input type="text" [(ngModel)]="customerName" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter customer name" />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">Phone Number (Optional)</label>
+            <div class="flex gap-2">
+              <select [(ngModel)]="customerCountryCode" class="px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="+91">+91 (India)</option>
+                <option value="+1">+1 (US)</option>
+                <option value="+44">+44 (UK)</option>
+              </select>
+              <input type="tel" [(ngModel)]="customerPhone" (ngModelChange)="onPhoneChange()" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg" placeholder="Phone number" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-1">
+              Sales Person Name (Optional)
+              <span class="text-xs text-gray-500 font-normal ml-1">- For incentive tracking</span>
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="salesPersonName" 
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+              placeholder="Enter sales person name" 
+              maxlength="100"
+            />
+            <p class="text-xs text-gray-500 mt-1">Track which team member assisted with this sale</p>
+          </div>
+
+          <!-- Loyalty Info -->
+          <div *ngIf="isLoadingLoyalty" class="text-sm text-blue-600">Loading loyalty info...</div>
+          
+          <div *ngIf="loyaltyCustomer" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div class="text-sm font-medium text-blue-900">Loyalty Customer</div>
+            <div class="text-xs text-blue-700 mt-1">{{ loyaltyCustomer.customerName }}</div>
+            <div class="text-xs text-blue-700">Available Points: <strong>{{ loyaltyCustomer.currentPoints }}</strong></div>
+            
+            <div *ngIf="pointsToEarn" class="mt-2 text-xs text-green-700">
+              Will earn: <strong>{{ pointsToEarn.totalPoints }}</strong> points
+            </div>
+
+            <div *ngIf="loyaltyCustomer.currentPoints > 0" class="mt-2">
+              <label class="text-xs font-medium">Redeem Points:</label>
+              <input type="number" [(ngModel)]="pointsToRedeem" [max]="loyaltyCustomer.currentPoints" min="0" class="w-full mt-1 px-2 py-1 text-sm border border-blue-300 rounded" />
+              <div *ngIf="discountFromPoints > 0" class="text-xs text-green-700 mt-1">
+                Discount: ₹{{ discountFromPoints | number:'1.2-2' }}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="mt-4 space-y-3">
-          <input type="text" placeholder="Customer name (optional)" [(ngModel)]="customerName"
-                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-          
-          <!-- Mobile Number with Country Code -->
-          <div class="flex gap-2">
-            <select [(ngModel)]="customerCountryCode" 
-                    class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-              <option value="+91">🇮🇳 +91</option>
-              <option value="+1">🇺🇸 +1</option>
-              <option value="+44">🇬🇧 +44</option>
-              <option value="+971">🇦🇪 +971</option>
-              <option value="+966">🇸🇦 +966</option>
-              <option value="+86">🇨🇳 +86</option>
-              <option value="+81">🇯🇵 +81</option>
-              <option value="+82">🇰🇷 +82</option>
-              <option value="+65">🇸🇬 +65</option>
-              <option value="+60">🇲🇾 +60</option>
-              <option value="+61">🇦🇺 +61</option>
-              <option value="+64">🇳🇿 +64</option>
-              <option value="+49">🇩🇪 +49</option>
-              <option value="+33">🇫🇷 +33</option>
-              <option value="+39">🇮🇹 +39</option>
-              <option value="+34">🇪🇸 +34</option>
-              <option value="+7">🇷🇺 +7</option>
-              <option value="+55">🇧🇷 +55</option>
-              <option value="+52">🇲🇽 +52</option>
-              <option value="+27">🇿🇦 +27</option>
-            </select>
-            <input type="tel" 
-                   placeholder="Mobile number (optional)" 
-                   [(ngModel)]="customerPhone"
-                   (ngModelChange)="onPhoneChange()"
-                   maxlength="15"
-                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        <!-- Payment Method -->
+        <div class="mb-4">
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-medium">Payment Method</label>
+            <button 
+              (click)="toggleSplitPayment()" 
+              class="text-xs text-blue-600 hover:text-blue-800 underline">
+              {{ useSplitPayment ? 'Use Single Payment' : 'Split Payment' }}
+            </button>
           </div>
-          
-          <!-- Loyalty Points Section -->
-          <div *ngIf="loyaltyCustomer" class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-3">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2">
-                <svg class="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+
+          <!-- Single Payment Mode -->
+          <div *ngIf="!useSplitPayment" class="flex gap-2">
+            <button (click)="paymentMethod = 'cash'" [class]="paymentMethod === 'cash' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
+              Cash
+            </button>
+            <button (click)="paymentMethod = 'card'" [class]="paymentMethod === 'card' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
+              Card
+            </button>
+            <button (click)="paymentMethod = 'other'" [class]="paymentMethod === 'other' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
+              Other
+            </button>
+          </div>
+
+          <!-- Split Payment Mode -->
+          <div *ngIf="useSplitPayment" class="space-y-2">
+            <!-- Payment Rows -->
+            <div *ngFor="let payment of payments; let i = index" class="flex gap-2 items-start">
+              <select [(ngModel)]="payment.paymentMethod" class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-shrink-0 w-24">
+                <option value="CASH">Cash</option>
+                <option value="CARD">Card</option>
+                <option value="OTHER">Other</option>
+              </select>
+              <div class="flex-1">
+                <input 
+                  type="number" 
+                  [(ngModel)]="payment.amount" 
+                  placeholder="Amount" 
+                  step="0.01"
+                  min="0"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <input 
+                type="text" 
+                [(ngModel)]="payment.reference" 
+                placeholder="Ref (optional)" 
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <button 
+                (click)="removePaymentRow(i)" 
+                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                 </svg>
-                <span class="font-semibold text-gray-900">Loyalty Member</span>
-              </div>
-              <span class="px-2 py-1 rounded-full text-xs font-medium {{ loyaltyService.getTierBadgeColor(loyaltyCustomer.tier) }}">
-                {{ loyaltyService.formatTierName(loyaltyCustomer.tier) }}
-              </span>
+              </button>
             </div>
-            
-            <div class="grid grid-cols-2 gap-2 text-sm mb-3">
-              <div>
-                <div class="text-gray-600 text-xs">Available Points</div>
-                <div class="font-bold text-purple-600">{{ loyaltyCustomer.currentPoints | number }}</div>
+
+            <!-- Add Payment Button -->
+            <button 
+              (click)="addPaymentRow()" 
+              class="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 flex items-center justify-center gap-2">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+              </svg>
+              Add Payment Method
+            </button>
+
+            <!-- Payment Summary -->
+            <div class="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Sale Total:</span>
+                <span class="font-semibold">₹{{ getTotal(appState) | number:'1.2-2' }}</span>
               </div>
-              <div>
-                <div class="text-gray-600 text-xs">Points to Earn</div>
-                <div class="font-bold text-green-600">
-                  +{{ pointsToEarn?.totalPoints || 0 | number }}
-                  <span *ngIf="pointsToEarn && pointsToEarn.tierMultiplier > 1" class="text-xs text-orange-600">
-                    ({{ pointsToEarn.tierMultiplier }}x)
-                  </span>
-                </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Total Payments:</span>
+                <span [class]="getTotalPayments() === getTotal(appState) ? 'text-green-600 font-semibold' : 'font-semibold'">
+                  ₹{{ getTotalPayments() | number:'1.2-2' }}
+                </span>
+              </div>
+              <div class="flex justify-between border-t pt-1">
+                <span class="text-gray-700 font-medium">Remaining:</span>
+                <span [class]="getRemainingBalance(appState) === 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold'">
+                  ₹{{ getRemainingBalance(appState) | number:'1.2-2' }}
+                </span>
               </div>
             </div>
 
-            <!-- Points Redemption -->
-            <div class="border-t border-purple-200 pt-2">
-              <div class="text-xs text-gray-600 mb-1">Redeem Points (Min 500)</div>
-              <div class="flex gap-2">
-                <input type="number" 
-                       [(ngModel)]="pointsToRedeem"
-                       [min]="0"
-                       [max]="loyaltyCustomer.currentPoints"
-                       step="100"
-                       placeholder="Points to redeem"
-                       class="flex-1 px-2 py-1.5 text-sm border border-purple-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
-                <button (click)="applyPointsRedemption()" 
-                        [disabled]="!pointsToRedeem || pointsToRedeem < 500"
-                        class="px-3 py-1.5 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
-                  Apply
-                </button>
-                <button *ngIf="discountFromPoints > 0" 
-                        (click)="clearPointsRedemption()"
-                        class="px-2 py-1.5 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors">
-                  Clear
-                </button>
-              </div>
-              <div *ngIf="discountFromPoints > 0" class="text-xs text-green-600 mt-1">
-                ✓ Discount of ₹{{ discountFromPoints | number:'1.2-2' }} applied
-              </div>
+            <div *ngIf="getRemainingBalance(appState) > 0" class="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded p-2">
+              ⚠️ Please enter payments totaling ₹{{ getTotal(appState) | number:'1.2-2' }}
             </div>
           </div>
+        </div>
 
-          <!-- Loading Loyalty -->
-          <div *ngIf="isLoadingLoyalty" class="text-center text-sm text-gray-600 py-2">
-            <svg class="animate-spin h-5 w-5 inline-block mr-2" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Loading loyalty info...
-          </div>
-          
-          <select [(ngModel)]="paymentMethod" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-            <option value="cash">Cash</option>
-            <option value="card">Card</option>
-            <option value="other">Other</option>
-          </select>
-          <button (click)="completeSale(appState)" class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-            Complete Sale - Foreign Fits
-          </button>
+        <!-- Complete Sale Button -->
+        <button (click)="completeSale(appState)"
+                [disabled]="!canCompleteSale(appState)"
+                class="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Complete Sale</span>
+        </button>
+
+        <div *ngIf="appState.currentSale.length === 0" class="mt-2 text-center text-sm text-gray-500">
+          Scan items to enable checkout
+        </div>
+        <div *ngIf="useSplitPayment && getRemainingBalance(appState) > 0 && appState.currentSale.length > 0" class="mt-2 text-center text-sm text-orange-600">
+          Add payments totaling ₹{{ getTotal(appState) | number:'1.2-2' }} to complete
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<app-print-receipt
-  *ngIf="showReceiptModal && receiptData"
-  [receipt]="receiptData"
-  [show]="showReceiptModal"
-  (close)="onReceiptModalClose()">
+<!-- Receipt Modal -->
+<app-print-receipt *ngIf="showReceiptModal && receiptData" 
+                   [receipt]="receiptData"
+                   [show]="showReceiptModal"
+                   (close)="onReceiptModalClose()">
 </app-print-receipt>
-
-<!-- Success Message -->
-<div *ngIf="showSuccessMessage" 
-     class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-slide-down">
-  <div class="bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[320px]">
-    <svg class="h-6 w-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-    </svg>
-    <span class="flex-1 font-medium">{{ successMessage }}</span>
-    <button (click)="closeSuccessMessage()" 
-            class="text-white hover:text-green-100 transition-colors">
-      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-      </svg>
-    </button>
-  </div>
-</div>

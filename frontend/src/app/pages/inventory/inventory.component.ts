@@ -1,68 +1,119 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
-import { Observable, Subscription } from 'rxjs';
-import { take, filter } from 'rxjs/operators';
 import { Router, NavigationEnd } from '@angular/router';
-import { AppService, AppState } from '../../core/services/app.service';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
+import { AppService } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Product } from '../../core/models';
-import * as JsBarcode from 'jsbarcode';
+import { Product, Location } from '../../core/models';
+
+interface LocationInventoryItem {
+  id: string;
+  locationId: string;
+  locationName: string;
+  productSku: string;
+  productName: string;
+  quantity: number;
+  minStock: number;
+  maxStock: number;
+  reorderPoint: number;
+  cost: number;
+  salePrice: number;
+  wholesalePrice: number | null;
+  wholesaleMinQuantity: number | null;
+  product?: Product;
+}
 
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, FormsModule, BarcodeInputComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './inventory.component.html'
 })
 export class InventoryComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
-  showBarcodes = false;
-  toggleShowBarcodes() {
-    this.showBarcodes = !this.showBarcodes;
-  }
 
-  barcodeModalOpen = false;
-  barcodeProduct: Product | null = null;
-  appState$: Observable<AppState>;
-  searchTerm = '';
-  categoryFilter = 'all';
-  locationFilter = 'all';
-  lowStockOnly = false;
-  groupBySku = false; // Toggle to show products grouped by SKU
-  // simple per-card image index (not persisted)
-  private imageIndex: Record<string, number> = {};
+  // Signals for reactive state
+  locationInventory = signal<LocationInventoryItem[]>([]);
+  locations = signal<Location[]>([]);
+  selectedLocationId = signal<string>('');
+  products = signal<Product[]>([]);
+  isLoading = signal<boolean>(false);
+
+  // Filter signals
+  searchTerm = signal<string>('');
+  categoryFilter = signal<string>('all');
+  lowStockOnly = signal<boolean>(false);
+
+  // Edit modal state
+  editModalOpen = signal<boolean>(false);
+  editingItem = signal<LocationInventoryItem | null>(null);
+  editForm = signal({
+    cost: 0,
+    salePrice: 0,
+    wholesalePrice: 0,
+    wholesaleMinQuantity: 0,
+    minStock: 0,
+    maxStock: 0,
+    reorderPoint: 0
+  });
+
+  // Filtered inventory
+  filteredInventory = computed(() => {
+    const inventory = this.locationInventory();
+    const search = this.searchTerm().toLowerCase();
+    const category = this.categoryFilter();
+    const lowStock = this.lowStockOnly();
+
+    return inventory.filter(item => {
+      const matchesSearch = !search || 
+        item.productName.toLowerCase().includes(search) ||
+        item.productSku.toLowerCase().includes(search);
+
+      const matchesCategory = category === 'all' || 
+        (item.product && item.product.category === category);
+
+      const matchesLowStock = !lowStock || 
+        (item.minStock && item.quantity <= item.minStock);
+
+      return matchesSearch && matchesCategory && matchesLowStock;
+    });
+  });
+
+  // Stats
+  stats = computed(() => {
+    const inventory = this.filteredInventory();
+    const totalItems = inventory.length;
+    const totalStock = inventory.reduce((sum, item) => sum + item.quantity, 0);
+    const lowStockCount = inventory.filter(item => 
+      item.minStock && item.quantity <= item.minStock
+    ).length;
+    const totalValue = inventory.reduce((sum, item) => 
+      sum + (item.quantity * item.salePrice), 0
+    );
+
+    return { totalItems, totalStock, lowStockCount, totalValue };
+  });
+
+  categories = ['SHIRTS', 'PANTS', 'JACKETS', 'DRESSES', 'SHOES', 'ACCESSORIES'];
 
   constructor(
+    public authService: AuthService,
     private appService: AppService,
-    private authService: AuthService,
-    private router: Router,
-    private sanitizer: DomSanitizer
-  ) {
-    this.appState$ = this.appService.appState$;
-  }
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    // Ensure initial data is loaded (especially important after page refresh)
-    this.appService.appState$.pipe(take(1)).subscribe(state => {
-      if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Inventory: initial data load failed', e)
-        });
-      }
-    });
-    
-    // Listen to navigation events and reload data when returning to this component
+    this.loadData();
+    this.setupLocationAutoSelect();
+
+    // Listen to navigation events
     this.routerSubscription = this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         if (event.url.includes('/inventory')) {
-          console.log('Inventory: Refreshing data on navigation');
-          this.appService.loadInitialData().subscribe({
-            error: (e) => console.error('Inventory: data refresh failed', e)
-          });
+          this.loadData();
         }
       });
   }
@@ -73,277 +124,313 @@ export class InventoryComponent implements OnInit, OnDestroy {
     }
   }
 
+  loadData(): void {
+    this.isLoading.set(true);
 
-  getFilteredProducts(appState: AppState): Product[] {
-    const user = this.authService.getCurrentUser();
-    
-    return appState.products.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                           product.sku.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
-                           (product.barcode && product.barcode.includes(this.searchTerm));
-      const matchesCategory = this.categoryFilter === 'all' || product.category === this.categoryFilter;
-      
-      // Location filtering logic based on cross-location access
-      let matchesLocation = true;
-      
-      if (!this.authService.hasCrossLocationAccess()) {
-        // Users WITHOUT cross-location access: only see products from their assigned location
-        matchesLocation = product.locationId === user?.locationId;
+    // First, ensure initial data (products, locations, etc.) is loaded
+    this.appService.loadInitialData().subscribe({
+      next: () => {
+        // After initial data is loaded, subscribe to app state
+        let subscription: any;
+        subscription = this.appService.appState$.subscribe(state => {
+          this.products.set(state.products || []);
+          this.locations.set(state.locations || []);
+
+          // After state is loaded, determine which location inventory to load
+          const currentUser = this.authService.getCurrentUser();
+          const isAdmin = this.authService.hasCrossLocationAccess();
+          const locs = state.locations || [];
+
+          if (isAdmin) {
+            // Admin: Load selected location or "all" by default
+            const locationId = this.selectedLocationId();
+            if (locationId) {
+              if (locationId === 'all') {
+                this.loadAllInventory();
+              } else {
+                this.loadLocationInventory(parseInt(locationId));
+              }
+            } else {
+              // Default to "all" for admin
+              this.selectedLocationId.set('all');
+              this.loadAllInventory();
+            }
+          } else if (currentUser?.locationId) {
+            // Regular user: Load only their location
+            this.selectedLocationId.set(currentUser.locationId);
+            this.loadLocationInventory(parseInt(currentUser.locationId));
+          } else {
+            this.isLoading.set(false);
+          }
+
+          // Unsubscribe after first load
+          if (subscription) {
+            subscription.unsubscribe();
+          }
+        });
+      },
+      error: () => {
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  loadLocationInventory(locationId: number): void {
+    this.isLoading.set(true);
+    this.appService.getLocationInventory(locationId).subscribe({
+      next: (inventory) => {
+        const productsMap = new Map(this.products().map(p => [p.sku, p]));
+        const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
+          id: inv.id?.toString() || '',
+          locationId: inv.locationId?.toString() || locationId.toString(),
+          locationName: inv.locationName || '',
+          productSku: inv.productSku || '',
+          productName: inv.productName || '',
+          quantity: inv.quantity || 0,
+          minStock: inv.minStock || 0,
+          maxStock: inv.maxStock || 0,
+          reorderPoint: inv.reorderPoint || 0,
+          cost: inv.cost || 0,  // Already in rupees from backend
+          salePrice: inv.salePrice || 0,  // Already in rupees from backend
+          wholesalePrice: inv.wholesalePrice || null,  // Already in rupees from backend
+          wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
+          product: productsMap.get(inv.productSku)
+        }));
+        this.locationInventory.set(items);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.locationInventory.set([]);
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  loadAllInventory(): void {
+    this.isLoading.set(true);
+    this.appService.getAllLocationInventory().subscribe({
+      next: (inventory: any) => {
+        const productsMap = new Map(this.products().map(p => [p.sku, p]));
+        const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
+          id: inv.id?.toString() || '',
+          locationId: inv.locationId?.toString() || '',
+          locationName: inv.locationName || '',
+          productSku: inv.productSku || '',
+          productName: inv.productName || '',
+          quantity: inv.quantity || 0,
+          minStock: inv.minStock || 0,
+          maxStock: inv.maxStock || 0,
+          reorderPoint: inv.reorderPoint || 0,
+          cost: inv.cost || 0,
+          salePrice: inv.salePrice || 0,
+          wholesalePrice: inv.wholesalePrice || null,
+          wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
+          product: productsMap.get(inv.productSku)
+        }));
+        this.locationInventory.set(items);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.locationInventory.set([]);
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  setupLocationAutoSelect(): void {
+    setTimeout(() => {
+      const currentUser = this.authService.getCurrentUser();
+      const isAdmin = this.authService.hasCrossLocationAccess();
+
+      if (!isAdmin && currentUser?.locationId) {
+        this.selectedLocationId.set(currentUser.locationId);
+        this.loadLocationInventory(parseInt(currentUser.locationId));
+      } else if (isAdmin) {
+        // Default to "all" locations for admins if not already selected
+        if (!this.selectedLocationId()) {
+          this.selectedLocationId.set('all');
+          this.loadAllInventory();
+        }
+      }
+    }, 500);
+  }
+
+  onLocationChange(): void {
+    const locationId = this.selectedLocationId();
+    if (locationId) {
+      if (locationId === 'all') {
+        this.loadAllInventory();
       } else {
-        // Users WITH cross-location access (admin): can filter by location dropdown or see all
-        matchesLocation = this.locationFilter === 'all' || product.locationId === this.locationFilter;
+        this.loadLocationInventory(parseInt(locationId));
       }
-      
-      const matchesLowStock = !this.lowStockOnly || product.stock <= product.minStock;
-      return matchesSearch && matchesCategory && matchesLocation && matchesLowStock;
-    });
-  }
-
-  // Summary helpers (computed over the filtered list)
-  getFilteredCount(appState: AppState): number {
-    return this.getFilteredProducts(appState).length;
-  }
-
-  getFilteredTotalStock(appState: AppState): number {
-    return this.getFilteredProducts(appState).reduce((sum, p) => sum + (p.stock || 0), 0);
-  }
-
-  getFilteredInventoryValueRetail(appState: AppState): number {
-    return this.getFilteredProducts(appState).reduce((sum, p) => sum + (p.stock || 0) * (p.price || 0), 0);
-  }
-
-  getFilteredInventoryValueCost(appState: AppState): number {
-    return this.getFilteredProducts(appState).reduce((sum, p) => sum + (p.stock || 0) * (p.cost || 0), 0);
-  }
-
-  getFilteredLowStockCount(appState: AppState): number {
-    return this.getFilteredProducts(appState).filter(p => p.stock <= p.minStock).length;
-  }
-
-  // Group products by SKU to show multi-location inventory
-  getGroupedProducts(appState: AppState): Map<string, Product[]> {
-    const filtered = this.getFilteredProducts(appState);
-    const grouped = new Map<string, Product[]>();
-    
-    filtered.forEach(product => {
-      const key = product.sku;
-      if (!grouped.has(key)) {
-        grouped.set(key, []);
-      }
-      grouped.get(key)!.push(product);
-    });
-    
-    return grouped;
-  }
-
-  // Get total stock across all locations for a SKU group
-  getGroupTotalStock(products: Product[]): number {
-    return products.reduce((sum, p) => sum + (p.stock || 0), 0);
-  }
-
-  // Get locations for a SKU group
-  getGroupLocations(products: Product[]): string {
-    return products
-      .map(p => `${p.location?.name || 'Unknown'} (${p.stock})`)
-      .join(', ');
-  }
-
-  // Barcode/Label printing
-  printBarcode(product: Product): void {
-    const code = product.barcode || product.sku || product.id;
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    try {
-      JsBarcode(svg, code, { format: 'CODE128', width: 2, height: 48, displayValue: false, margin: 0 });
-    } catch (e) {
-      // Fallback to CODE39 if CODE128 fails
-      try { JsBarcode(svg, code, { format: 'CODE39', width: 2, height: 48, displayValue: false, margin: 0 }); } catch {}
     }
-    const svgMarkup = new XMLSerializer().serializeToString(svg);
-
-    const name = product.name || '';
-    const sku = product.sku || '';
-    const size = product.size || '';
-    const color = product.color || '';
-    const price = `₹${(product.price ?? 0).toFixed(2)}`;
-    const location = product.location?.name || '';
-
-    const labelHtml = `
-      <div class="label">
-        <div class="row top">
-          <div class="name">${this.escapeHtml(name)}</div>
-          <div class="price">${this.escapeHtml(price)}</div>
-        </div>
-        <div class="meta">SKU: ${this.escapeHtml(sku)} • ${this.escapeHtml(size)} • ${this.escapeHtml(color)}${location ? ' • ' + this.escapeHtml(location) : ''}</div>
-        <div class="barcode">${svgMarkup}</div>
-      </div>
-    `;
-
-    const win = window.open('', '', 'width=600,height=400');
-    if (!win) return;
-    win.document.open();
-    win.document.write(`
-      <html>
-        <head>
-          <title>Print Label</title>
-          <style>
-            @page { size: 62mm 30mm; margin: 3mm; }
-            body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
-            .label { width: 56mm; height: 24mm; display: flex; flex-direction: column; justify-content: space-between; }
-            .row.top { display:flex; justify-content: space-between; align-items: baseline; }
-            .name { font-size: 10pt; font-weight: 600; max-width: 42mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .price { font-size: 10pt; font-weight: 700; }
-            .meta { font-size: 8pt; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .barcode svg { width: 100%; height: 18mm; }
-            @media print { .label { page-break-after: always; } }
-          </style>
-        </head>
-        <body>${labelHtml}
-          <script>
-            window.onload = function(){ window.print(); setTimeout(function(){ window.close(); }, 200); };
-          <\/script>
-        </body>
-      </html>
-    `);
-    win.document.close();
   }
 
-  // Add product to barcode print selection and navigate to print-barcode
-  onBarcodeClick(product: Product): void {
-    sessionStorage.setItem('barcodePrintSelection', JSON.stringify([{ ...product, quantity: 1 }]));
-    this.router.navigate(['/print-barcode']);
-  }
-
-  showBarcodeModal() {
-    // Show barcode for the first filtered product
-    const appState = (this.appState$ as any).source?._value || null;
-    const filtered = appState ? this.getFilteredProducts(appState) : [];
-    this.barcodeProduct = filtered.length > 0 ? filtered[0] : null;
-    this.barcodeModalOpen = true;
-  }
-
-  closeBarcodeModal() {
-    this.barcodeModalOpen = false;
-  }
-
-  renderBarcodeSvg(product: Product): SafeHtml {
-    const code = product.barcode || product.sku || product.id;
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    try {
-      JsBarcode(svg, code, { format: 'CODE128', width: 2, height: 48, displayValue: true, margin: 0 });
-    } catch (e) {
-      try { JsBarcode(svg, code, { format: 'CODE39', width: 2, height: 48, displayValue: true, margin: 0 }); } catch {}
-    }
-    const raw = new XMLSerializer().serializeToString(svg);
-    return this.sanitizer.bypassSecurityTrustHtml(raw);
-  }
-
-  private escapeHtml(text: string): string {
-    const map: any = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return String(text).replace(/[&<>"']/g, (m) => map[m]);
-  }
-
-  getCategoryColor(category: string): string {
-    const colors = {
-      shirts: 'px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800',
-      pants: 'px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800',
-      dresses: 'px-2 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800',
-      jackets: 'px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800',
-      shoes: 'px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800',
-      accessories: 'px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800',
-    };
-    return colors[category as keyof typeof colors] || 'px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800';
-  }
-
-  getStockStatusClass(product: Product): string {
-    return `flex items-center justify-between p-3 rounded-lg ${
-      product.stock <= product.minStock 
-        ? 'bg-red-50 border border-red-200' 
-        : 'bg-green-50 border border-green-200'
-    }`;
-  }
-
-  getStockTextClass(product: Product): string {
-    return `text-lg font-bold ${
-      product.stock <= product.minStock ? 'text-red-600' : 'text-green-600'
-    }`;
-  }
-
-  getStockBadgeClass(product: Product): string {
-    return `px-2 py-0.5 rounded text-xs font-semibold ${
-      product.stock <= product.minStock
-        ? 'text-red-700 bg-red-100 border border-red-200'
-        : 'text-green-700 bg-green-100 border border-green-200'
-    }`;
-  }
-
-  formatPrice(value: number): string {
-    return `₹${value.toFixed(2)}`;
-  }
-
-  canEdit(): boolean {
-    return this.authService.canEditProduct();
-  }
-
-  isAdmin(): boolean {
+  canSwitchLocation(): boolean {
     return this.authService.hasCrossLocationAccess();
   }
 
-  onEdit(product: Product): void {
-    if (!this.canEdit()) return;
-    this.router.navigate(['/add-product'], { queryParams: { id: product.id } });
+  canGenerateBarcodes(): boolean {
+    const user = this.authService.getCurrentUser();
+    // ADMIN and WAREHOUSE can generate barcodes for bulk printing
+    // But not in STORE locations (barcodes should be generated at warehouse)
+    const userHasPermission = user?.role === 'admin' || user?.role === 'warehouse';
+    
+    const locationId = this.selectedLocationId();
+    const location = this.locations().find(l => l.id === locationId);
+    const isNotStore = location?.type !== 'store';
+    
+    return userHasPermission && isNotStore;
   }
 
-  showLowStock(): void {
-    this.lowStockOnly = true;
+  canPrintIndividualBarcode(): boolean {
+    // ADMIN, WAREHOUSE, and SALES users can print individual barcodes
+    // SALES users can print barcodes when prices are updated at their store
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin' || user?.role === 'warehouse' || user?.role === 'sales';
   }
 
-  clearLowStockFilter(): void {
-    this.lowStockOnly = false;
+  openEditModal(item: LocationInventoryItem): void {
+    this.editingItem.set(item);
+    this.editForm.set({
+      // Values are already in rupees from backend, no need to divide
+      cost: item.cost,
+      salePrice: item.salePrice,
+      wholesalePrice: item.wholesalePrice || 0,
+      wholesaleMinQuantity: item.wholesaleMinQuantity || 0,
+      minStock: item.minStock,
+      maxStock: item.maxStock,
+      reorderPoint: item.reorderPoint
+    });
+    this.editModalOpen.set(true);
   }
 
-  // Print all filtered products barcodes (first image index not relevant)
-  printFilteredBarcodes(): void {
-    // Deprecated: replaced by navigation to print-barcode screen
+  closeEditModal(): void {
+    this.editModalOpen.set(false);
+    this.editingItem.set(null);
   }
 
-  navigateToPrintBarcode(): void {
+  saveEdit(): void {
+    const item = this.editingItem();
+    const form = this.editForm();
+    
+    if (!item) return;
+
+    this.isLoading.set(true);
+
+    // Update pricing via API
+    this.appService.updateInventoryPricing(parseInt(item.id), {
+      cost: form.cost,
+      salePrice: form.salePrice,
+      wholesalePrice: form.wholesalePrice > 0 ? form.wholesalePrice : undefined,
+      wholesaleMinQuantity: form.wholesaleMinQuantity > 0 ? form.wholesaleMinQuantity : undefined
+    }).subscribe({
+      next: () => {
+        // Reload inventory
+        const locationId = this.selectedLocationId();
+        if (locationId) {
+          this.loadLocationInventory(parseInt(locationId));
+        }
+        this.closeEditModal();
+      },
+      error: (error) => {
+        alert('Failed to update inventory: ' + (error.error?.message || error.message));
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  getStockStatusClass(item: LocationInventoryItem): string {
+    if (!item.minStock) return 'bg-gray-100 text-gray-800';
+    const percent = (item.quantity / item.minStock) * 100;
+    if (percent <= 50) return 'bg-red-100 text-red-800';
+    if (percent <= 100) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-green-100 text-green-800';
+  }
+
+  getStockStatusText(item: LocationInventoryItem): string {
+    if (!item.minStock) return 'Normal';
+    const percent = (item.quantity / item.minStock) * 100;
+    if (percent <= 50) return 'Critical';
+    if (percent <= 100) return 'Low';
+    return 'Good';
+  }
+
+  getLocationBadgeClass(item: LocationInventoryItem): string {
+    const locationId = item.locationId;
+    const location = this.locations().find(l => l.id === locationId);
+    
+    if (!location) {
+      return 'bg-gray-50 text-gray-700'; // Default
+    }
+    
+    // Different colors for different location types
+    switch (location.type.toLowerCase()) {
+      case 'warehouse':
+        return 'bg-purple-50 text-purple-700 border border-purple-200';
+      case 'store':
+        return 'bg-blue-50 text-blue-700 border border-blue-200';
+      default:
+        return 'bg-gray-50 text-gray-700 border border-gray-200';
+    }
+  }
+
+  printBarcode(item: LocationInventoryItem): void {
+    if (item.product?.id) {
+      this.router.navigate(['/print-barcode'], { 
+        queryParams: { productId: item.product.id } 
+      });
+    }
+  }
+
+  generateBarcodes(): void {
+    // Navigate to print-barcode without query params for bulk mode
     this.router.navigate(['/print-barcode']);
   }
 
-  // image helpers for card (optional nav)
-  getImage(product: Product): string | undefined {
-    const idx = this.imageIndex[product.id] || 0;
-    return product.imageUrls && product.imageUrls[idx] ? product.imageUrls[idx] : product.imageUrls?.[0];
+  navigateToAddProduct(): void {
+    this.router.navigate(['/add-product']);
   }
 
-  nextImage(product: Product): void {
-    if (!product.imageUrls || product.imageUrls.length <= 1) return;
-    const current = this.imageIndex[product.id] || 0;
-    this.imageIndex[product.id] = (current + 1) % product.imageUrls.length;
+  // Helper getters for template access
+  get currentLocationName(): string {
+    const locationId = this.selectedLocationId();
+    if (locationId === 'all') {
+      return 'All Locations';
+    }
+    const location = this.locations().find(l => l.id === locationId);
+    return location?.name || 'My Location';
   }
 
-  prevImage(product: Product): void {
-    if (!product.imageUrls || product.imageUrls.length <= 1) return;
-    const current = this.imageIndex[product.id] || 0;
-    this.imageIndex[product.id] = (current - 1 + product.imageUrls.length) % product.imageUrls.length;
+  get statsData() {
+    return this.stats();
   }
 
-  // Template guards/helpers for strict mode
-  hasAnyImages(product: Product): boolean {
-    return !!(product.imageUrls && product.imageUrls.length > 0);
+  get inventoryList() {
+    return this.filteredInventory();
   }
 
-  hasMultipleImages(product: Product): boolean {
-    return !!(product.imageUrls && product.imageUrls.length > 1);
+  get locationsList() {
+    return this.locations();
   }
 
-  imageCount(product: Product): number {
-    return product.imageUrls ? product.imageUrls.length : 0;
+  get currentSelectedLocationId() {
+    return this.selectedLocationId();
   }
 
-  currentImageNo(product: Product): number {
-    const count = this.imageCount(product);
-    const idx = this.imageIndex[product.id] || 0;
-    return Math.min(idx + 1, count || 1);
+  set currentSelectedLocationId(value: string) {
+    this.selectedLocationId.set(value);
+  }
+
+  get isLoadingData() {
+    return this.isLoading();
+  }
+
+  get isModalOpen() {
+    return this.editModalOpen();
+  }
+
+  get currentEditingItem() {
+    return this.editingItem();
   }
 }

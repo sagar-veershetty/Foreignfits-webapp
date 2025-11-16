@@ -20,6 +20,11 @@ export const routes: Routes = [
     canActivate: [() => import('./core/guards/login.guard').then(m => m.loginGuard)]
   },
   { 
+    path: 'agent-signup', 
+    loadComponent: () => import('./components/auth/agent-signup.component').then(m => m.AgentSignupComponent)
+    // No guard - allow anyone to access agent signup
+  },
+  { 
     path: 'dashboard', 
     loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent),
     canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
@@ -80,9 +85,48 @@ export const routes: Routes = [
     data: { roles: ['admin','sales'] }
   },
   { 
+    path: 'barcode-history', 
+    loadComponent: () => import('./pages/barcode-history/barcode-history.component').then(m => m.BarcodeHistoryComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','warehouse','sales'] }
+  },
+  { 
     path: 'approvals', 
     loadComponent: () => import('./pages/approvals/approvals.component').then(m => m.ApprovalsComponent),
     canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+  },
+  { 
+    path: 'expenses', 
+    loadComponent: () => import('./pages/expenses/expenses.component').then(m => m.ExpensesComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales_manager','sales'] }
+  },
+  { 
+    path: 'shipments', 
+    loadComponent: () => import('./pages/shipments/shipments.component').then(m => m.ShipmentsComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard)
+    ]
+  },
+  { 
+    path: 'shipments/create', 
+    loadComponent: () => import('./pages/shipments/shipment-form.component').then(m => m.ShipmentFormComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard)
+    ]
+  },
+  { 
+    path: 'shipments/:id', 
+    loadComponent: () => import('./pages/shipments/shipment-form.component').then(m => m.ShipmentFormComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard)
+    ]
   },
   { 
     path: 'customer', 

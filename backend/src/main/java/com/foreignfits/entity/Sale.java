@@ -29,6 +29,9 @@ public class Sale {
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SaleItem> items;
     
+    @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private List<SalePayment> payments;
+    
     @NotNull(message = "Subtotal is required")
     @DecimalMin(value = "0.0", message = "Subtotal cannot be negative")
     @Digits(integer = 10, fraction = 2, message = "Subtotal format is invalid")
@@ -48,7 +51,7 @@ public class Sale {
     private BigDecimal total;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", nullable = false)
+    @Column(name = "payment_method", nullable = true)
     private PaymentMethod paymentMethod;
     
     @Column(name = "customer_name", length = 100)
@@ -72,9 +75,17 @@ public class Sale {
     @Column(name = "discount_from_points", precision = 12, scale = 2)
     private BigDecimal discountFromPoints;
     
+    @Column(name = "sales_person_name", length = 100)
+    private String salesPersonName;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sold_by_id", nullable = false)
     private User soldBy;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = false)
+    @NotNull(message = "Location is required")
+    private Location location;
     
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -90,6 +101,9 @@ public class Sale {
     
     public List<SaleItem> getItems() { return items; }
     public void setItems(List<SaleItem> items) { this.items = items; }
+    
+    public List<SalePayment> getPayments() { return payments; }
+    public void setPayments(List<SalePayment> payments) { this.payments = payments; }
     
     public BigDecimal getSubtotal() { return subtotal; }
     public void setSubtotal(BigDecimal subtotal) { this.subtotal = subtotal; }
@@ -124,8 +138,14 @@ public class Sale {
     public BigDecimal getDiscountFromPoints() { return discountFromPoints; }
     public void setDiscountFromPoints(BigDecimal discountFromPoints) { this.discountFromPoints = discountFromPoints; }
     
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
+    
     public User getSoldBy() { return soldBy; }
     public void setSoldBy(User soldBy) { this.soldBy = soldBy; }
+    
+    public Location getLocation() { return location; }
+    public void setLocation(Location location) { this.location = location; }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

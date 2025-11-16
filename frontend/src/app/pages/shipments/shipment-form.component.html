@@ -1,0 +1,623 @@
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+  <!-- Header -->
+  <div class="mb-6">
+    <div class="flex items-center gap-2 mb-2">
+      <a 
+        [routerLink]="['/shipments']"
+        class="text-gray-600 hover:text-gray-900 transition-colors">
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </a>
+      <h1 class="text-3xl font-bold text-gray-800">
+        {{ isEditMode() ? 'Edit Shipment' : 'Create New Shipment' }}
+      </h1>
+    </div>
+    <p class="text-gray-600">
+      {{ isEditMode() ? 'Update shipment details' : 'Fill in the shipment information to create a new shipment' }}
+    </p>
+  </div>
+
+  <!-- Status Timeline (Edit Mode Only) -->
+  @if (isEditMode() && currentShipment() && !loading()) {
+    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-6">Shipment Journey</h2>
+      
+      <div class="relative">
+        <!-- Timeline Line -->
+        <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+        
+        <!-- Timeline Steps -->
+        <div class="space-y-6">
+          <!-- Step 1: Created -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('CREATED') }}">
+              @if (isStatusCompleted('CREATED')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">1</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('CREATED') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Shipment Created
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Order received from China supplier</p>
+              @if (currentShipment()?.createdAt) {
+                <p class="text-xs text-gray-400 mt-1">{{ formatDate(currentShipment()!.createdAt) }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 2: In Transit to India -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('IN_TRANSIT') }}">
+              @if (isStatusCompleted('IN_TRANSIT')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">2</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('IN_TRANSIT') ? 'text-indigo-600' : 'text-gray-700' }}">
+                In-Transit from China to India
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Shipment is on the way via {{ currentShipment()?.originLocation || 'China' }}</p>
+              @if (currentShipment()?.etd) {
+                <p class="text-xs text-gray-400 mt-1">ETD: {{ formatDate(currentShipment()!.etd) }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 3: Arrived Mumbai -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('ARRIVED_MUMBAI') }}">
+              @if (isStatusCompleted('ARRIVED_MUMBAI')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">3</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('ARRIVED_MUMBAI') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Arrived at Indian Port
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Shipment cleared customs and arrived at Indian port</p>
+              @if (currentShipment()?.eta) {
+                <p class="text-xs text-gray-400 mt-1">ETA: {{ formatDate(currentShipment()!.eta) }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 4: In Custom Clearance -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('IN_CUSTOM_CLEARANCE') }}">
+              @if (isStatusCompleted('IN_CUSTOM_CLEARANCE')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">4</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('IN_CUSTOM_CLEARANCE') ? 'text-indigo-600' : 'text-gray-700' }}">
+                In Custom Clearance
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Shipment undergoing customs clearance process</p>
+            </div>
+          </div>
+
+          <!-- Step 5: Delivered to Domestic Warehouse -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('DELIVERED_TO_WAREHOUSE') }}">
+              @if (isStatusCompleted('DELIVERED_TO_WAREHOUSE')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">5</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('DELIVERED_TO_WAREHOUSE') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Delivered to Domestic Warehouse
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Shipment delivered to domestic warehouse in India</p>
+              @if (currentShipment()?.indiaWarehouseAddress) {
+                <p class="text-xs text-gray-400 mt-1">📍 {{ currentShipment()!.indiaWarehouseAddress }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 6: Received by India Agent -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('RECEIVED') }}">
+              @if (isStatusCompleted('RECEIVED')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">6</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('RECEIVED') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Received by India Agent
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Confirmed received by India agent</p>
+              @if (currentShipment()?.receivedAt) {
+                <p class="text-xs text-gray-400 mt-1">{{ formatDate(currentShipment()!.receivedAt) }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 7: Out for Delivery -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('OUT_FOR_DELIVERY') }}">
+              @if (isStatusCompleted('OUT_FOR_DELIVERY')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">7</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('OUT_FOR_DELIVERY') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Out for Delivery to Destination Warehouse
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">En route to destination warehouse</p>
+              @if (currentShipment()?.localLogisticProvider) {
+                <p class="text-xs text-gray-400 mt-1">🚚 {{ currentShipment()!.localLogisticProvider }}</p>
+              }
+              @if (currentShipment()?.localTrackingNumber) {
+                <p class="text-xs text-gray-400 mt-1">Tracking: {{ currentShipment()!.localTrackingNumber }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 8: Delivered -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('DELIVERED') }}">
+              @if (isStatusCompleted('DELIVERED')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">8</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('DELIVERED') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Delivered to Destination Warehouse
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">Successfully delivered to destination warehouse</p>
+              @if (currentShipment()?.deliveredAt) {
+                <p class="text-xs text-gray-400 mt-1">{{ formatDate(currentShipment()!.deliveredAt) }}</p>
+              }
+            </div>
+          </div>
+
+          <!-- Step 9: Completed -->
+          <div class="relative flex items-start gap-4">
+            <div class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full {{ getStatusClass('COMPLETED') }}">
+              @if (isStatusCompleted('COMPLETED')) {
+                <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+              } @else {
+                <span class="text-xs font-semibold text-white">9</span>
+              }
+            </div>
+            <div class="flex-1 pt-1">
+              <h3 class="text-sm font-semibold {{ isStatusActive('COMPLETED') ? 'text-indigo-600' : 'text-gray-700' }}">
+                Order Completed
+              </h3>
+              <p class="text-xs text-gray-500 mt-1">All processes completed, order closed</p>
+              @if (currentShipment()?.completedAt) {
+                <p class="text-xs text-gray-400 mt-1">{{ formatDate(currentShipment()!.completedAt) }}</p>
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="flex justify-center items-center py-12">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  }
+
+  <!-- Success Message -->
+  @if (successMessage()) {
+    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+      <p class="font-medium">{{ successMessage() }}</p>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error()) {
+    <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+      <p class="font-medium">Error</p>
+      <p class="text-sm">{{ error() }}</p>
+    </div>
+  }
+
+  <!-- Form -->
+  @if (!loading()) {
+    <form (ngSubmit)="submitForm()" class="space-y-6">
+      <!-- Basic Information Card -->
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Basic Information</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Shipping ID -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Shipping ID *
+            </label>
+            <div class="flex gap-2">
+              <input 
+                type="text" 
+                [(ngModel)]="shippingId"
+                [ngModelOptions]="{standalone: true}"
+                [class.border-red-500]="hasFieldError('shippingId')"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="e.g., SHP-12345678-001"
+                [readonly]="isEditMode()">
+              @if (!isEditMode()) {
+                <button 
+                  type="button"
+                  (click)="generateShippingId()"
+                  class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                  Generate
+                </button>
+              }
+            </div>
+            @if (hasFieldError('shippingId')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('shippingId') }}</p>
+            }
+          </div>
+
+          <!-- Type (Branded) -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Shipment Type *
+            </label>
+            <select 
+              [(ngModel)]="isBranded"
+              [ngModelOptions]="{standalone: true}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+              <option [ngValue]="true">Branded</option>
+              <option [ngValue]="false">Non-Branded</option>
+            </select>
+          </div>
+
+          <!-- Total Packages -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Total Packages *
+            </label>
+            <input 
+              type="number" 
+              [(ngModel)]="totalPackages"
+              [ngModelOptions]="{standalone: true}"
+              [class.border-red-500]="hasFieldError('totalPackages')"
+              min="1"
+              step="1"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Number of packages">
+            @if (hasFieldError('totalPackages')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('totalPackages') }}</p>
+            }
+          </div>
+
+          <!-- Total CBM -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Total CBM (Cubic Meters) *
+            </label>
+            <input 
+              type="number" 
+              [(ngModel)]="totalCbm"
+              [ngModelOptions]="{standalone: true}"
+              (ngModelChange)="calculateTotalCost()"
+              [class.border-red-500]="hasFieldError('totalCbm')"
+              min="0"
+              step="0.01"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="e.g., 15.5">
+            @if (hasFieldError('totalCbm')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('totalCbm') }}</p>
+            }
+          </div>
+
+          <!-- Per CBM Rate -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Per CBM Rate (₹) *
+            </label>
+            <input 
+              type="number" 
+              [(ngModel)]="perCbmRate"
+              [ngModelOptions]="{standalone: true}"
+              (ngModelChange)="calculateTotalCost()"
+              [class.border-red-500]="hasFieldError('perCbmRate')"
+              min="0"
+              step="0.01"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="e.g., 5000">
+            @if (hasFieldError('perCbmRate')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('perCbmRate') }}</p>
+            }
+          </div>
+
+          <!-- Total Cost (Auto-calculated) -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Total Cost (₹) *
+            </label>
+            <div class="relative">
+              <input 
+                type="number" 
+                [(ngModel)]="totalCost"
+                [ngModelOptions]="{standalone: true}"
+                [class.border-red-500]="hasFieldError('totalCost')"
+                min="0"
+                step="0.01"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50"
+                placeholder="Auto-calculated from CBM × Rate">
+              <span class="absolute right-3 top-2 text-sm text-gray-500">
+                {{ totalCbm() }} × {{ perCbmRate() }} = {{ totalCost() }}
+              </span>
+            </div>
+            @if (hasFieldError('totalCost')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('totalCost') }}</p>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Dates & Tracking Card -->
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Dates & Tracking</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- ETD -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              ETD (Estimated Time of Departure) *
+            </label>
+            <input 
+              type="date" 
+              [(ngModel)]="etd"
+              [ngModelOptions]="{standalone: true}"
+              [class.border-red-500]="hasFieldError('etd')"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            @if (hasFieldError('etd')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('etd') }}</p>
+            }
+          </div>
+
+          <!-- ETA -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              ETA (Estimated Time of Arrival) *
+            </label>
+            <input 
+              type="date" 
+              [(ngModel)]="eta"
+              [ngModelOptions]="{standalone: true}"
+              [class.border-red-500]="hasFieldError('eta')"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+            @if (hasFieldError('eta')) {
+              <p class="text-red-600 text-sm mt-1">{{ getFieldError('eta') }}</p>
+            }
+          </div>
+
+          <!-- Tracking URL -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Tracking URL
+            </label>
+            <input 
+              type="url" 
+              [(ngModel)]="trackingUrl"
+              [ngModelOptions]="{standalone: true}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="https://tracking.example.com/shipment/123">
+            <p class="text-gray-500 text-xs mt-1">International tracking link (optional)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Locations Card -->
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Locations</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Origin Location -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Origin Location
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="originLocation"
+              [ngModelOptions]="{standalone: true}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="e.g., China">
+          </div>
+
+          <!-- Destination Location -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Destination Location
+            </label>
+            <input 
+              type="text" 
+              [(ngModel)]="destinationLocation"
+              [ngModelOptions]="{standalone: true}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="e.g., Mumbai, India">
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Status (Edit Mode) -->
+      @if (isEditMode()) {
+        <div class="bg-white rounded-lg shadow-sm p-6">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">Update Status</h2>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Current Status
+            </label>
+            <select 
+              [(ngModel)]="currentStatus"
+              [ngModelOptions]="{standalone: true}"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+              @for (status of shipmentStatuses; track status) {
+                <option [value]="status">{{ formatStatus(status) }}</option>
+              }
+            </select>
+            <p class="text-gray-500 text-xs mt-1">Update the shipment status (be careful with status changes)</p>
+          </div>
+        </div>
+      }
+
+      <!-- India Warehouse/Contact Details Card -->
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">India Agent/Warehouse Details</h2>
+        
+        <div class="space-y-4">
+          <!-- Warehouse Address -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Warehouse Address
+            </label>
+            <textarea 
+              [(ngModel)]="indiaWarehouseAddress"
+              [ngModelOptions]="{standalone: true}"
+              rows="3"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="Full warehouse address in India"></textarea>
+            <p class="text-gray-500 text-xs mt-1">Complete address where shipment will be received/stored</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Contact Phone -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Contact Phone
+              </label>
+              <input 
+                type="tel" 
+                [(ngModel)]="indiaContactPhone"
+                [ngModelOptions]="{standalone: true}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="e.g., +91 98765 43210">
+              <p class="text-gray-500 text-xs mt-1">Primary contact number</p>
+            </div>
+
+            <!-- Contact Email -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Contact Email
+              </label>
+              <input 
+                type="email" 
+                [(ngModel)]="indiaContactEmail"
+                [ngModelOptions]="{standalone: true}"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="e.g., warehouse@example.com">
+              <p class="text-gray-500 text-xs mt-1">Contact email for queries</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Remarks Card -->
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Additional Information</h2>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Remarks / Notes
+          </label>
+          <textarea 
+            [(ngModel)]="remarks"
+            [ngModelOptions]="{standalone: true}"
+            rows="4"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            placeholder="Any additional notes or special instructions..."></textarea>
+        </div>
+      </div>
+
+      <!-- Current Shipment Info (Edit Mode) -->
+      @if (isEditMode() && currentShipment()) {
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 class="text-lg font-semibold text-blue-900 mb-3">Current Shipment Status</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p class="text-blue-600 font-medium">Status</p>
+              <p class="text-blue-900">{{ formatStatus(currentShipment()?.status || '') }}</p>
+            </div>
+            @if (canViewPayment()) {
+              <div>
+                <p class="text-blue-600 font-medium">Payment Status</p>
+                <p class="text-blue-900">{{ formatStatus(currentShipment()?.paymentStatus || '') }}</p>
+              </div>
+              <div>
+                <p class="text-blue-600 font-medium">Paid Amount</p>
+                <p class="text-blue-900">{{ formatCurrency(currentShipment()?.paidAmount || 0) }}</p>
+              </div>
+              <div>
+                <p class="text-blue-600 font-medium">Pending Amount</p>
+                <p class="text-blue-900">{{ formatCurrency(currentShipment()?.pendingAmount || 0) }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Action Buttons -->
+      <div class="flex justify-end gap-3">
+        <button 
+          type="button"
+          (click)="cancel()"
+          [disabled]="saving()"
+          class="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          Cancel
+        </button>
+        <button 
+          type="submit"
+          [disabled]="saving()"
+          class="px-6 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+          @if (saving()) {
+            <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Saving...</span>
+          } @else {
+            <span>{{ isEditMode() ? 'Update Shipment' : 'Create Shipment' }}</span>
+          }
+        </button>
+      </div>
+    </form>
+  }
+</div>

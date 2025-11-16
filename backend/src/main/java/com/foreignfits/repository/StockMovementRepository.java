@@ -35,6 +35,23 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     @Query("SELECT sm FROM StockMovement sm ORDER BY sm.createdAt DESC")
     List<StockMovement> findAllOrderByCreatedAtDesc();
     
+    // All stock movements with eager fetch (for ADMIN)
+    @Query("SELECT DISTINCT sm FROM StockMovement sm " +
+           "LEFT JOIN FETCH sm.transfer t " +
+           "LEFT JOIN FETCH t.fromLocation " +
+           "LEFT JOIN FETCH t.toLocation " +
+           "ORDER BY sm.createdAt DESC")
+    List<StockMovement> findAllByOrderByCreatedAtDesc();
+    
+    // All pending stock movements with eager fetch (for ADMIN)
+    @Query("SELECT DISTINCT sm FROM StockMovement sm " +
+           "LEFT JOIN FETCH sm.transfer t " +
+           "LEFT JOIN FETCH t.fromLocation " +
+           "LEFT JOIN FETCH t.toLocation " +
+           "WHERE sm.status = 'PENDING' " +
+           "ORDER BY sm.createdAt DESC")
+    List<StockMovement> findPendingOrderByCreatedAtDesc();
+    
     // User-based filtering: movements at user's location OR created by user
     // All movements now have transfers, so check fromLocation or toLocation
     // FETCH transfer and its locations eagerly to avoid lazy loading issues

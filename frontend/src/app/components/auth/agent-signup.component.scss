@@ -1,0 +1,70 @@
+// Additional custom styles for agent signup component
+// Most styling is handled by Tailwind CSS classes
+
+:host {
+  display: block;
+}
+
+// Smooth transitions for agent type selection
+button[type="button"] {
+  transition: all 0.2s ease-in-out;
+  
+  &:hover:not([class*="bg-indigo-600"]) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  &[class*="bg-indigo-600"] {
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+  }
+}
+
+// Input focus styles enhancement
+input {
+  transition: all 0.2s ease-in-out;
+  
+  &:focus {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  }
+}
+
+// Submit button hover effect
+button[type="submit"] {
+  transition: all 0.2s ease-in-out;
+  
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+  }
+  
+  &:not(:disabled):active {
+    transform: translateY(0);
+  }
+}
+
+// Loading spinner animation
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Success/Error message animations
+.bg-green-50,
+.bg-red-50 {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

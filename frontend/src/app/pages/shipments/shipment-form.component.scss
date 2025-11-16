@@ -1,0 +1,9 @@
+// Shipment Form component styles
+:host {
+  display: block;
+}
+
+// Custom input focus styles
+input:focus, select:focus, textarea:focus {
+  outline: none;
+}

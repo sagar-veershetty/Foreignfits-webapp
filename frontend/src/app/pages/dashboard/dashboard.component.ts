@@ -1,199 +1,396 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
-import { Observable, Subscription } from 'rxjs';
-import { take, filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
+import { filter } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
-import { AppService, AppState } from '../../core/services/app.service';
-import { DashboardStats } from '../../core/models';
+import { AppService } from '../../core/services/app.service';
+import { Product, Location, Sale, StockMovement } from '../../core/models';
+
+interface LocationInventoryItem {
+  id: string;
+  locationId: string;
+  locationName: string;
+  productSku: string;
+  productName: string;
+  quantity: number;
+  minStock: number;
+  maxStock: number;
+  reorderPoint: number;
+  cost: number;
+  salePrice: number;
+  wholesalePrice: number | null;
+  wholesaleMinQuantity: number | null;
+  product?: Product;
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
-  appState$: Observable<AppState>;
+  
+  // Signals for reactive state
+  locationInventory = signal<LocationInventoryItem[]>([]);
+  locations = signal<Location[]>([]);
+  selectedLocationId = signal<string>('');
+  products = signal<Product[]>([]);
+  sales = signal<Sale[]>([]);
+  stockMovements = signal<StockMovement[]>([]);
+  isLoading = signal<boolean>(false);
+
+  // Computed stats
+  stats = computed(() => {
+    const inventory = this.locationInventory();
+    const sales = this.sales();
+    const movements = this.stockMovements();
+    const isAllLocations = this.selectedLocationId() === '';
+
+    // If showing all locations, aggregate by product SKU
+    let aggregatedInventory = inventory;
+    let totalProducts = inventory.length;
+    
+    if (isAllLocations) {
+      // Group by product SKU and sum quantities
+      const productMap = new Map<string, LocationInventoryItem>();
+      inventory.forEach(item => {
+        const existing = productMap.get(item.productSku);
+        if (existing) {
+          // Aggregate quantities and use weighted average for prices
+          const totalQty = existing.quantity + item.quantity;
+          existing.quantity = totalQty;
+          existing.cost = ((existing.cost * existing.quantity) + (item.cost * item.quantity)) / totalQty;
+          existing.salePrice = ((existing.salePrice * existing.quantity) + (item.salePrice * item.quantity)) / totalQty;
+          // For minStock, use the sum across locations
+          existing.minStock = (existing.minStock || 0) + (item.minStock || 0);
+        } else {
+          productMap.set(item.productSku, { ...item });
+        }
+      });
+      aggregatedInventory = Array.from(productMap.values());
+      totalProducts = aggregatedInventory.length; // Unique products across all locations
+    }
+
+    const totalStock = aggregatedInventory.reduce((sum, item) => sum + item.quantity, 0);
+    const lowStockCount = aggregatedInventory.filter(item => 
+      item.minStock && item.quantity <= item.minStock
+    ).length;
+    
+    const inventoryValue = aggregatedInventory.reduce((sum, item) => 
+      sum + (item.quantity * item.cost), 0
+    );
+
+    // Recent sales (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const recentSales = sales.filter(sale => 
+      new Date(sale.createdAt) >= thirtyDaysAgo
+    );
+    const totalSales = recentSales.reduce((sum, sale) => sum + sale.total, 0);
+
+    // Recent movements (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentMovements = movements.filter(movement => 
+      new Date(movement.createdAt) >= sevenDaysAgo
+    );
+
+    return {
+      totalProducts,
+      totalStock,
+      lowStockCount,
+      inventoryValue,
+      totalSales,
+      recentSalesCount: recentSales.length,
+      recentMovementsCount: recentMovements.length
+    };
+  });
+
+  // Low stock items
+  lowStockItems = computed(() => {
+    const inventory = this.locationInventory();
+    const isAllLocations = this.selectedLocationId() === '';
+    
+    let itemsToCheck = inventory;
+    
+    // If showing all locations, aggregate by product SKU
+    if (isAllLocations) {
+      const productMap = new Map<string, LocationInventoryItem>();
+      inventory.forEach(item => {
+        const existing = productMap.get(item.productSku);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.minStock = (existing.minStock || 0) + (item.minStock || 0);
+        } else {
+          productMap.set(item.productSku, { ...item });
+        }
+      });
+      itemsToCheck = Array.from(productMap.values());
+    }
+    
+    return itemsToCheck
+      .filter(item => item.minStock && item.quantity <= item.minStock)
+      .sort((a, b) => {
+        const aPercent = a.minStock ? (a.quantity / a.minStock) : 1;
+        const bPercent = b.minStock ? (b.quantity / b.minStock) : 1;
+        return aPercent - bPercent;
+      })
+      .slice(0, 5);
+  });
+
+  // Top products by stock value
+  topProductsByValue = computed(() => {
+    const inventory = this.locationInventory();
+    const isAllLocations = this.selectedLocationId() === '';
+    
+    let itemsToRank = inventory;
+    
+    // If showing all locations, aggregate by product SKU
+    if (isAllLocations) {
+      const productMap = new Map<string, LocationInventoryItem>();
+      inventory.forEach(item => {
+        const existing = productMap.get(item.productSku);
+        if (existing) {
+          const totalQty = existing.quantity + item.quantity;
+          existing.quantity = totalQty;
+          // Use weighted average for sale price
+          existing.salePrice = ((existing.salePrice * existing.quantity) + (item.salePrice * item.quantity)) / totalQty;
+        } else {
+          productMap.set(item.productSku, { ...item });
+        }
+      });
+      itemsToRank = Array.from(productMap.values());
+    }
+    
+    return itemsToRank
+      .map(item => ({
+        ...item,
+        totalValue: item.quantity * item.salePrice
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, 5);
+  });
 
   constructor(
-    private authService: AuthService,
+    public authService: AuthService,
     private appService: AppService,
     private router: Router
-  ) {
-    this.appState$ = this.appService.appState$;
-  }
+  ) {}
 
   ngOnInit(): void {
-    // Ensure initial data is loaded once after auth
-    this.appService.appState$.pipe(take(1)).subscribe(state => {
-      if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Dashboard: initial data load failed', e)
-        });
-      }
-    });
-
-    // Start live auto-refresh (sales) for live stats
-    this.appService.startAutoRefresh(10000);
+    this.loadData();
+    this.setupLocationAutoSelect();
     
-    // Listen to navigation events and reload data when returning to dashboard
+    // Listen to navigation events and reload data
     this.routerSubscription = this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
-        if (event.url === '/dashboard' || event.url === '/') {
-          console.log('Dashboard: Refreshing data on navigation');
-          this.appService.loadInitialData().subscribe({
-            error: (e) => console.error('Dashboard: data refresh failed', e)
-          });
+        if (event.url.includes('/dashboard')) {
+          this.loadData();
         }
       });
   }
 
   ngOnDestroy(): void {
-    this.appService.stopAutoRefresh();
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
   }
 
-  getDashboardTitle(): string {
-    const user = this.authService.getCurrentUser();
-    switch (user?.role) {
-      case 'admin': return 'Admin Dashboard';
-      case 'sales': return 'Sales Dashboard';
-      case 'warehouse': return 'Warehouse Dashboard';
-      default: return 'Dashboard';
-    }
-  }
+  loadData(): void {
+    this.isLoading.set(true);
 
-  getDashboardSubtitle(): string {
-    const user = this.authService.getCurrentUser();
-    switch (user?.role) {
-      case 'admin': return 'Complete Business Overview';
-      case 'sales': return 'Track your sales performance';
-      case 'warehouse': return 'Inventory & Stock Management';
-      default: return 'Business Overview';
-    }
-  }
+    this.appService.loadInitialData().subscribe({
+      next: () => {
+        let subscription: any;
+        subscription = this.appService.appState$.subscribe(state => {
+          this.products.set(state.products || []);
+          this.sales.set(state.sales || []);
+          this.stockMovements.set(state.stockMovements || []);
+          this.locations.set(state.locations || []);
 
-  getLocationInfo(): string {
-    const user = this.authService.getCurrentUser();
-    if (user?.role === 'sales' || user?.role === 'warehouse') {
-      return user.locationName ? `Location: ${user.locationName}` : '';
-    }
-    return 'All Locations';
-  }
+          const currentUser = this.authService.getCurrentUser();
+          const isAdmin = this.authService.hasCrossLocationAccess();
+          const locs = state.locations || [];
 
-  getStats(appState: AppState): DashboardStats {
-    const user = this.authService.getCurrentUser();
-    const today = new Date();
-    
-    // Filter products by location for SALES/WAREHOUSE users
-    let products = appState.products;
-    if (user?.role === 'sales' || user?.role === 'warehouse') {
-      products = products.filter(p => p.locationId === user.locationId);
-    }
-    
-    // Filter sales by location for SALES/WAREHOUSE users
-    let sales = appState.sales;
-    if (user?.role === 'sales' || user?.role === 'warehouse') {
-      sales = sales.filter(sale => 
-        sale.items?.some(item => item.product.locationId === user.locationId)
-      );
-    }
-    
-    const todaySales = sales.filter(sale => {
-      const saleDate = new Date(sale.createdAt);
-      return saleDate.toDateString() === today.toDateString();
+          if (isAdmin) {
+            const locationId = this.selectedLocationId();
+            if (locationId) {
+              this.loadLocationInventory(parseInt(locationId));
+            } else if (locs.length > 0) {
+              // Default to "All Locations" for admin
+              this.selectedLocationId.set('');
+              this.loadAllLocationInventory();
+            } else {
+              this.isLoading.set(false);
+            }
+          } else if (currentUser?.locationId) {
+            this.selectedLocationId.set(currentUser.locationId);
+            this.loadLocationInventory(parseInt(currentUser.locationId));
+          } else {
+            this.isLoading.set(false);
+          }
+
+          if (subscription) {
+            subscription.unsubscribe();
+          }
+        });
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+      }
     });
-
-    return {
-      totalProducts: products.length,
-      lowStockItems: products.filter(p => p.stock <= p.minStock).length,
-      todaySales: todaySales.length,
-      totalRevenue: sales.reduce((sum, sale) => sum + sale.total, 0),
-    };
   }
 
-  navigateTo(route: string): void {
-    this.router.navigate([route]);
+  loadLocationInventory(locationId: number): void {
+    this.isLoading.set(true);
+    
+    this.appService.getLocationInventory(locationId).subscribe({
+      next: (inventory) => {
+        const productsMap = new Map(this.products().map(p => [p.sku, p]));
+        
+        const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
+          id: inv.id?.toString() || '',
+          locationId: inv.locationId?.toString() || locationId.toString(),
+          locationName: inv.locationName || '',
+          productSku: inv.productSku || '',
+          productName: inv.productName || '',
+          quantity: inv.quantity || 0,
+          minStock: inv.minStock || 0,
+          maxStock: inv.maxStock || 0,
+          reorderPoint: inv.reorderPoint || 0,
+          cost: inv.cost || 0,
+          salePrice: inv.salePrice || 0,
+          wholesalePrice: inv.wholesalePrice || null,
+          wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
+          product: productsMap.get(inv.productSku)
+        }));
+        
+        this.locationInventory.set(items);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        this.locationInventory.set([]);
+        this.isLoading.set(false);
+      }
+    });
   }
 
-  isAdmin(): boolean {
+  setupLocationAutoSelect(): void {
+    setTimeout(() => {
+      const currentUser = this.authService.getCurrentUser();
+      const isAdmin = this.authService.hasCrossLocationAccess();
+      
+      if (!isAdmin && currentUser?.locationId) {
+        this.selectedLocationId.set(currentUser.locationId);
+        this.loadLocationInventory(parseInt(currentUser.locationId));
+      } else if (isAdmin) {
+        const locs = this.locations();
+        if (locs.length > 0 && !this.selectedLocationId()) {
+          this.selectedLocationId.set(locs[0].id);
+          this.loadLocationInventory(parseInt(locs[0].id));
+        }
+      }
+    }, 500);
+  }
+
+  onLocationChange(): void {
+    const locationId = this.selectedLocationId();
+    if (locationId === '' || locationId === null) {
+      // "All Locations" selected - load all inventory
+      this.loadAllLocationInventory();
+    } else if (locationId) {
+      this.loadLocationInventory(parseInt(locationId));
+    }
+  }
+
+  loadAllLocationInventory(): void {
+    this.isLoading.set(true);
+    
+    this.appService.getAllLocationInventory().subscribe({
+      next: (inventory) => {
+        const productsMap = new Map(this.products().map(p => [p.sku, p]));
+        
+        const items: LocationInventoryItem[] = inventory.map((inv: any) => ({
+          id: inv.id?.toString() || '',
+          locationId: inv.locationId?.toString() || '',
+          locationName: inv.locationName || '',
+          productSku: inv.productSku || '',
+          productName: inv.productName || '',
+          quantity: inv.quantity || 0,
+          minStock: inv.minStock || 0,
+          maxStock: inv.maxStock || 0,
+          reorderPoint: inv.reorderPoint || 0,
+          cost: inv.cost || 0,
+          salePrice: inv.salePrice || 0,
+          wholesalePrice: inv.wholesalePrice || null,
+          wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
+          product: productsMap.get(inv.productSku)
+        }));
+        
+        this.locationInventory.set(items);
+        this.isLoading.set(false);
+      },
+      error: (error) => {
+        this.locationInventory.set([]);
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  canSwitchLocation(): boolean {
     return this.authService.hasCrossLocationAccess();
   }
 
-  getTopCategories(appState: AppState): Array<{ name: string; count: number; color: string }> {
-    const user = this.authService.getCurrentUser();
-    
-    // Filter sales by location for SALES/WAREHOUSE users
-    let sales = appState.sales;
-    if (user?.role === 'sales' || user?.role === 'warehouse') {
-      sales = sales.filter(sale => 
-        sale.items?.some(item => item.product.locationId === user.locationId)
-      );
-    }
-    
-    const counts: Record<string, number> = {};
-    sales.forEach(s => s.items.forEach(it => {
-      const cat = it.product.category;
-      counts[cat] = (counts[cat] || 0) + it.quantity;
-    }));
-    
-    // Fallback: if no sales, show categories from products with 0
-    if (Object.keys(counts).length === 0) {
-      let products = appState.products;
-      if (user?.role === 'sales' || user?.role === 'warehouse') {
-        products = products.filter(p => p.locationId === user.locationId);
-      }
-      products.forEach(p => { counts[p.category] = counts[p.category] || 0; });
-    }
-    
-    const palette: Record<string, string> = {
-      shirts: 'bg-purple-500',
-      accessories: 'bg-pink-500',
-      pants: 'bg-green-500',
-      dresses: 'bg-yellow-500',
-      jackets: 'bg-slate-500',
-      shoes: 'bg-emerald-500'
-    };
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name, count, color: palette[name] || 'bg-gray-400' }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 4);
+  getStockStatusClass(item: LocationInventoryItem): string {
+    if (!item.minStock) return 'bg-gray-100 text-gray-800';
+    const percent = (item.quantity / item.minStock) * 100;
+    if (percent <= 50) return 'bg-red-100 text-red-800';
+    if (percent <= 100) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-green-100 text-green-800';
   }
 
-  getLowStockProducts(appState: AppState) {
-    const user = this.authService.getCurrentUser();
-    
-    // Filter products by location for SALES/WAREHOUSE users
-    let products = appState.products;
-    if (user?.role === 'sales' || user?.role === 'warehouse') {
-      products = products.filter(p => p.locationId === user.locationId);
-    }
-    
-    return products
-      .filter(p => p.stock <= p.minStock)
-      .sort((a, b) => (a.stock - a.minStock) - (b.stock - b.minStock))
-      .slice(0, 3);
+  navigateTo(path: string): void {
+    this.router.navigate([path]);
   }
 
-  getRecentTransactions(appState: AppState) {
-    const user = this.authService.getCurrentUser();
-    
-    // Filter sales by location for SALES/WAREHOUSE users
-    let sales = appState.sales;
-    if (user?.role === 'sales' || user?.role === 'warehouse') {
-      sales = sales.filter(sale => 
-        sale.items?.some(item => item.product.locationId === user.locationId)
-      );
+  // Helper getters for template access (avoid calling signals directly in complex expressions)
+  get currentLocationName(): string {
+    const locationId = this.selectedLocationId();
+    if (!locationId || locationId === '') {
+      return 'All Locations';
     }
-    
-    return [...sales]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 3);
+    const location = this.locations().find(l => l.id === locationId);
+    return location?.name || 'My Location';
+  }
+
+  get statsData() {
+    const stats = this.stats();
+    return stats;
+  }
+
+  get lowStockItemsList() {
+    return this.lowStockItems();
+  }
+
+  get topProductsList() {
+    return this.topProductsByValue();
+  }
+
+  get locationsList() {
+    return this.locations();
+  }
+
+  get currentSelectedLocationId() {
+    return this.selectedLocationId();
+  }
+
+  set currentSelectedLocationId(value: string) {
+    this.selectedLocationId.set(value);
   }
 }

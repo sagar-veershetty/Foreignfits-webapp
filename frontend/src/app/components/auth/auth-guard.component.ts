@@ -34,9 +34,7 @@ export class AuthGuardComponent implements OnInit {
         take(1) // run exactly once
       )
       .subscribe(() => {
-        this.appService.loadInitialData().subscribe({
-          error: (error) => console.error('Failed to load initial data:', error)
-        });
+        this.appService.loadInitialData().subscribe();
       });
   }
 }

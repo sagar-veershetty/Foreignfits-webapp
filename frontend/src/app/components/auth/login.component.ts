@@ -32,9 +32,17 @@ export class LoginComponent {
       next: () => {
         // Reset app data when new user logs in to force fresh data load with correct role permissions
         this.appService.resetDataLoadedFlag();
-        this.router.navigate(['/dashboard'], { replaceUrl: true }); // replace login page in history
-      },
-      error: (err) => console.error('Login failed:', err)
+        
+        // Get the logged-in user to determine redirect destination
+        const user = this.authService.getCurrentUser();
+        
+        // Shipping agents go directly to Shipments, others to Dashboard
+        if (user?.role === 'shipping_agent_china' || user?.role === 'shipping_agent_india') {
+          this.router.navigate(['/shipments'], { replaceUrl: true });
+        } else {
+          this.router.navigate(['/dashboard'], { replaceUrl: true });
+        }
+      }
     });
   }
 
@@ -44,6 +52,10 @@ export class LoginComponent {
 
   goToSignup(): void {
     this.router.navigate(['/signup']);
+  }
+
+  goToAgentSignup(): void {
+    this.router.navigate(['/agent-signup']);
   }
 
   handleDemoLogin(role: 'admin' | 'warehouse1' | 'warehouse2' | 'sales-wholesale' | 'sales-retail'): void {

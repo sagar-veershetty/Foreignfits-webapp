@@ -1,189 +1,204 @@
-<div class="dashboard-container" *ngIf="appState$ | async as appState">
-  <!-- Dashboard Header -->
-  <div class="dashboard-header">
-    <div class="header-content">
-      <div class="header-text">
-        <h1 class="header-title">{{ getDashboardTitle() }}</h1>
-        <p class="header-subtitle">Foreign Fits - Global Fashion</p>
-        <p class="header-description">{{ getDashboardSubtitle() }}</p>
-        <p class="text-sm text-purple-200 mt-1">
-          <span class="inline-flex items-center gap-1">
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-            </svg>
-            {{ getLocationInfo() }}
-          </span>
-        </p>
+<div class="min-h-screen bg-gray-50 p-3 sm:p-6">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header with Location Selector -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+      <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+      
+      <!-- Location Selector (Admin only) -->
+      <div *ngIf="canSwitchLocation()" class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        <label class="text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">Location:</label>
+        <select 
+          [(ngModel)]="currentSelectedLocationId" 
+          (change)="onLocationChange()"
+          class="flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+          <option value="">All Locations</option>
+          <option *ngFor="let location of locationsList" [value]="location.id">
+            {{ location.name }} ({{ location.type }})
+          </option>
+        </select>
       </div>
-      <div class="header-icon">
-        <!-- Decorative icon (non-interactive) -->
-        <div class="icon-container">
-          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Section header -->
-  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between">
-    <div class="text-gray-900 font-semibold">Business Dashboard</div>
-    <div class="flex items-center gap-2 text-sm">
-      <button class="px-3 py-1.5 rounded-lg bg-gray-900 text-white">Overview</button>
-      <button class="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200" (click)="navigateTo('/sales-analytics')">Sales Analytics</button>
-    </div>
-  </div>
-
-  <!-- Stats Grid -->
-  <div class="stats-grid">
-    <div class="stat-card cursor-pointer hover:shadow-lg" (click)="navigateTo('/inventory')" (keydown.enter)="navigateTo('/inventory')" role="button" tabindex="0">
-      <div class="stat-content">
-        <div class="stat-info">
-          <p class="stat-label">Total Products</p>
-          <p class="stat-value">{{ getStats(appState).totalProducts }}</p>
-          <p class="stat-change positive">+12% from last month</p>
-        </div>
-        <div class="stat-icon blue">
-          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-          </svg>
-        </div>
+      <!-- Location Display (Non-admin) -->
+      <div *ngIf="!canSwitchLocation() && currentSelectedLocationId" class="flex items-center gap-2 bg-indigo-50 px-3 sm:px-4 py-2 rounded-lg w-full sm:w-auto">
+        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        <span class="text-xs sm:text-sm font-medium text-indigo-900 truncate">
+          {{ currentLocationName }}
+        </span>
       </div>
     </div>
 
-    <div class="stat-card cursor-pointer hover:shadow-lg" (click)="navigateTo('/sales-history')" (keydown.enter)="navigateTo('/sales-history')" role="button" tabindex="0">
-      <div class="stat-content">
-        <div class="stat-info">
-          <p class="stat-label">Total Revenue</p>
-          <p class="stat-value green">₹{{ getStats(appState).totalRevenue.toFixed(2) }}</p>
-          <p class="stat-change positive">+8% from last month</p>
-        </div>
-        <div class="stat-icon green">
-          <span class="currency-icon">₹</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="stat-card cursor-pointer hover:shadow-lg" (click)="navigateTo('/sales-history')" (keydown.enter)="navigateTo('/sales-history')" role="button" tabindex="0">
-      <div class="stat-content">
-        <div class="stat-info">
-          <p class="stat-label">Today's Sales</p>
-          <p class="stat-value blue">{{ getStats(appState).todaySales }}</p>
-          <p class="stat-change info">Transactions today</p>
-        </div>
-        <div class="stat-icon blue">
-          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"></path>
-          </svg>
-        </div>
-      </div>
-    </div>
-
-    <div class="stat-card cursor-pointer hover:shadow-lg" (click)="navigateTo('/inventory')" (keydown.enter)="navigateTo('/inventory')" role="button" tabindex="0">
-      <div class="stat-content">
-        <div class="stat-info">
-          <p class="stat-label">Low Stock Items</p>
-          <p class="stat-value amber">{{ getStats(appState).lowStockItems }}</p>
-          <p class="stat-change warning">Needs attention</p>
-        </div>
-        <div class="stat-icon amber">
-          <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Analytics Cards Row -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Top Selling Categories -->
-    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-      <div class="flex items-center gap-2 text-gray-900 font-semibold mb-3">
-        <svg class="h-5 w-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-        <span>Top Selling Categories</span>
-      </div>
-      <div *ngFor="let c of getTopCategories(appState)" class="flex items-center justify-between py-2 text-sm">
-        <div class="flex items-center gap-2">
-          <span class="inline-block h-2.5 w-2.5 rounded-full" [ngClass]="c.color"></span>
-          <span class="capitalize text-gray-700">{{ c.name }}</span>
-        </div>
-        <div class="text-gray-900 font-medium">{{ c.count }} sold</div>
-      </div>
-    </div>
-
-    <!-- Critical Stock Levels -->
-    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-      <div class="flex items-center gap-2 text-gray-900 font-semibold mb-3">
-        <svg class="h-5 w-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 5c-.77-1.33-2.7-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"/></svg>
-        <span>Critical Stock Levels</span>
-      </div>
-      <div *ngFor="let p of getLowStockProducts(appState)" class="p-3 mb-2 rounded-lg border border-amber-200 bg-amber-50 text-sm">
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+      <!-- Total Products -->
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
         <div class="flex items-center justify-between">
-          <div>
-            <div class="font-medium text-gray-900 truncate max-w-[220px]">{{ p.name }}</div>
-            <div class="text-xs text-gray-600">{{ p.size }} – {{ p.color }}</div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Total Products</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{{ statsData.totalProducts }}</p>
           </div>
-          <div class="text-right">
-            <div class="text-amber-600 font-semibold">{{ p.stock }}</div>
-            <div class="text-[11px] text-gray-500">Min: {{ p.minStock }}</div>
+          <div class="bg-blue-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
           </div>
         </div>
       </div>
-      <div *ngIf="getLowStockProducts(appState).length === 0" class="text-sm text-gray-500">No critical items.</div>
-    </div>
 
-    <!-- Recent Transactions -->
-    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-      <div class="flex items-center gap-2 text-gray-900 font-semibold mb-3">
-        <svg class="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17"/></svg>
-        <span>Recent Transactions</span>
-      </div>
-      <div *ngFor="let s of getRecentTransactions(appState)" class="flex items-center justify-between py-2 text-sm border-b last:border-b-0">
-        <div>
-          <div class="text-gray-900">Sale #{{ s.id }}</div>
-          <div class="text-xs text-gray-500">{{ s.items.length }} item{{ s.items.length > 1 ? 's' : '' }} • {{ s.paymentMethod | uppercase }}</div>
+      <!-- Total Stock -->
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Total Stock</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{{ statsData.totalStock }}</p>
+          </div>
+          <div class="bg-green-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
         </div>
-        <div class="text-emerald-600 font-semibold">₹{{ s.total | number:'1.2-2' }}</div>
       </div>
-      <div *ngIf="getRecentTransactions(appState).length === 0" class="text-sm text-gray-500">No recent sales.</div>
-    </div>
-  </div>
 
-  <!-- Quick Actions -->
-  <div class="quick-actions-card">
-    <h3 class="quick-actions-title">Quick Actions</h3>
-    <div class="quick-actions-grid">
-      <button *ngIf="isAdmin()" (click)="navigateTo('/add-product')" class="action-button blue">
-        <svg class="action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-        </svg>
-        <span class="action-label">Add Product</span>
-      </button>
-      
-      <button (click)="navigateTo('/sales')" class="action-button green">
-        <svg class="action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"></path>
-        </svg>
-        <span class="action-label">New Sale</span>
-      </button>
-      
-      <button (click)="navigateTo('/inventory')" class="action-button orange">
-        <svg class="action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H9.5a2 2 0 01-2-2V5a2 2 0 00-2-2H3"></path>
-        </svg>
-        <span class="action-label">View Inventory</span>
-      </button>
-      
-      <button (click)="navigateTo('/sales-history')" class="action-button purple">
-        <svg class="action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-        </svg>
-        <span class="action-label">View Reports</span>
-      </button>
+      <!-- Low Stock Alerts -->
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer" (click)="navigateTo('/inventory')">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Low Stock Alerts</p>
+            <p class="text-2xl sm:text-3xl font-bold text-orange-600 mt-1 sm:mt-2">{{ statsData.lowStockCount }}</p>
+          </div>
+          <div class="bg-orange-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inventory Value -->
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <p class="text-xs sm:text-sm font-medium text-gray-600">Inventory Value</p>
+            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">₹{{ statsData.inventoryValue.toFixed(2) }}</p>
+          </div>
+          <div class="bg-purple-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <svg class="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-6 sm:mb-8">
+      <!-- Low Stock Items -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+          <h2 class="text-lg sm:text-xl font-bold text-gray-900">Low Stock Alerts</h2>
+        </div>
+        <div class="p-4 sm:p-6">
+          <div *ngIf="lowStockItemsList.length === 0" class="text-center py-6 sm:py-8 text-gray-500">
+            <svg class="w-16 h-16 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <p>All products are well stocked!</p>
+          </div>
+          
+          <div class="space-y-3">
+            <div *ngFor="let item of lowStockItemsList" 
+                 class="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <div class="flex-1">
+                <p class="font-semibold text-gray-900">{{ item.productName }}</p>
+                <p class="text-sm text-gray-600">SKU: {{ item.productSku }}</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="text-right">
+                  <p class="text-sm text-gray-600">Stock</p>
+                  <p class="font-bold text-lg" [ngClass]="item.quantity <= (item.minStock || 0) / 2 ? 'text-red-600' : 'text-orange-600'">
+                    {{ item.quantity }}
+                  </p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm text-gray-600">Min</p>
+                  <p class="font-semibold text-gray-700">{{ item.minStock }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Products by Value -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="p-4 sm:p-6 border-b border-gray-200">
+          <h2 class="text-lg sm:text-xl font-bold text-gray-900">Top Products by Value</h2>
+        </div>
+        <div class="p-4 sm:p-6">
+          <div *ngIf="topProductsList.length === 0" class="text-center py-6 sm:py-8 text-gray-500">
+            <p class="text-sm sm:text-base">No inventory data available</p>
+          </div>
+          
+          <div class="space-y-2 sm:space-y-3">
+            <div *ngFor="let item of topProductsList; let i = index" 
+                 class="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-indigo-100 text-indigo-600 font-bold text-xs sm:text-sm flex-shrink-0">
+                  {{ i + 1 }}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-sm sm:text-base text-gray-900 truncate">{{ item.productName }}</p>
+                  <p class="text-xs sm:text-sm text-gray-600">{{ item.quantity }} units &#64; ₹{{ item.salePrice.toFixed(2) }}</p>
+                </div>
+              </div>
+              <div class="text-right flex-shrink-0 ml-2">
+                <p class="font-bold text-base sm:text-lg text-green-600">₹{{ (item.quantity * item.salePrice).toFixed(2) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+      <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Quick Actions</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+        <button (click)="navigateTo('/inventory')" 
+                class="flex items-center gap-3 p-3 sm:p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors text-left touch-manipulation active:scale-95">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm sm:text-base text-indigo-900">View Inventory</p>
+            <p class="text-xs sm:text-sm text-indigo-700">Manage stock levels</p>
+          </div>
+        </button>
+
+        <button (click)="navigateTo('/stock-movement')" 
+                class="flex items-center gap-3 p-3 sm:p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left touch-manipulation active:scale-95">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+          </svg>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm sm:text-base text-green-900">Stock Transfer</p>
+            <p class="text-xs sm:text-sm text-green-700">Move stock between locations</p>
+          </div>
+        </button>
+
+        <button *ngIf="authService.canViewSales()" (click)="navigateTo('/sales')" 
+                class="flex items-center gap-3 p-3 sm:p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left touch-manipulation active:scale-95">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm sm:text-base text-purple-900">Make Sale</p>
+            <p class="text-xs sm:text-sm text-purple-700">Process customer orders</p>
+          </div>
+        </button>
+      </div>
     </div>
   </div>
 </div>

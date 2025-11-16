@@ -22,8 +22,6 @@ import { map, filter } from 'rxjs/operators';
 export class AppComponent implements OnInit {
   onBarcodeScanned(barcode: string) {
     // TODO: Implement global barcode handling logic here
-    // For now, just log it
-    console.log('Barcode scanned:', barcode);
     // You can route, search, or dispatch actions as needed
   }
   isAuthenticated$: Observable<boolean>;
@@ -45,7 +43,7 @@ export class AppComponent implements OnInit {
       // Validate token on every navigation
       const currentUrl = this.router.url;
       const isHomePage = currentUrl === '/' || currentUrl === '';
-      const isLoginPage = currentUrl === '/login' || currentUrl === '/signup';
+      const isLoginPage = currentUrl === '/login' || currentUrl === '/signup' || currentUrl === '/agent-signup';
       const isUnauthorizedPage = currentUrl === '/unauthorized';
       const isValid = this.authService.isTokenValid();
 
@@ -62,10 +60,15 @@ export class AppComponent implements OnInit {
           this.router.navigate(['/unauthorized'], { replaceUrl: true });
         }
       } else {
-        // For login/signup pages, redirect to dashboard if already authenticated
+        // For login/signup pages, redirect to appropriate landing page if already authenticated
         if (isValid) {
-          // User is authenticated, redirect to dashboard
-          this.router.navigate(['/dashboard']);
+          // User is authenticated, redirect based on role
+          const user = this.authService.getCurrentUser();
+          if (user?.role === 'shipping_agent_china' || user?.role === 'shipping_agent_india') {
+            this.router.navigate(['/shipments']);
+          } else {
+            this.router.navigate(['/dashboard']);
+          }
         }
       }
     });
@@ -75,7 +78,7 @@ export class AppComponent implements OnInit {
       if (!document.hidden) {
         const currentUrl = this.router.url;
         const isHomePage = currentUrl === '/' || currentUrl === '';
-        const isLoginPage = currentUrl === '/login' || currentUrl === '/signup';
+        const isLoginPage = currentUrl === '/login' || currentUrl === '/signup' || currentUrl === '/agent-signup';
         const isUnauthorizedPage = currentUrl === '/unauthorized';
         const isValid = this.authService.isTokenValid();
 
@@ -89,9 +92,14 @@ export class AppComponent implements OnInit {
             this.router.navigate(['/unauthorized'], { replaceUrl: true });
           }
         } else {
-          // For login/signup pages, redirect to dashboard if already authenticated
+          // For login/signup pages, redirect to appropriate landing page if already authenticated
           if (isValid) {
-            this.router.navigate(['/dashboard']);
+            const user = this.authService.getCurrentUser();
+            if (user?.role === 'shipping_agent_china' || user?.role === 'shipping_agent_india') {
+              this.router.navigate(['/shipments']);
+            } else {
+              this.router.navigate(['/dashboard']);
+            }
           }
         }
       }

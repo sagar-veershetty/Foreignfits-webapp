@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,6 +22,13 @@ public class LocationInventoryDto {
     private Integer minStock;
     private Integer maxStock;
     private Integer reorderPoint;
+    
+    // Location-specific pricing
+    private BigDecimal cost;
+    private BigDecimal salePrice;
+    private BigDecimal wholesalePrice;
+    private Integer wholesaleMinQuantity;
+    
     private LocalDateTime lastRestockDate;
     private LocalDateTime lastSaleDate;
     private Long lastMovementId;

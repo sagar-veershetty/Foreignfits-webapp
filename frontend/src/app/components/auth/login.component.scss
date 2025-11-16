@@ -1,5 +1,5 @@
 .login-container {
-  @apply min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4;
+  @apply min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-3 sm:p-4;
 }
 
 .login-card {
@@ -7,67 +7,67 @@
 }
 
 .login-header {
-  @apply text-center mb-8;
+  @apply text-center mb-6 sm:mb-8;
 }
 
 .logo-container {
-  @apply flex items-center justify-center mb-4;
+  @apply flex items-center justify-center mb-3 sm:mb-4;
 }
 
 .logo-icon {
-  @apply p-3 bg-blue-600 rounded-full;
+  @apply p-2 sm:p-3 bg-blue-600 rounded-full;
 }
 
 .logo-svg {
-  @apply h-8 w-8 text-white;
+  @apply h-6 w-6 sm:h-8 sm:w-8 text-white;
 }
 
 .brand-title {
-  @apply text-3xl font-bold text-gray-900 mb-2;
+  @apply text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2;
 }
 
 .brand-subtitle {
-  @apply text-gray-600;
+  @apply text-sm sm:text-base text-gray-600;
 }
 
 .login-form-container {
-  @apply bg-white rounded-xl shadow-lg p-8;
+  @apply bg-white rounded-xl shadow-lg p-5 sm:p-8;
 }
 
 .form-header {
-  @apply mb-6;
+  @apply mb-5 sm:mb-6;
 }
 
 .form-title {
-  @apply text-2xl font-bold text-gray-900 mb-2;
+  @apply text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2;
 }
 
 .form-subtitle {
-  @apply text-gray-600;
+  @apply text-sm sm:text-base text-gray-600;
 }
 
 .error-container {
-  @apply mb-4 p-4 bg-red-50 border border-red-200 rounded-lg;
+  @apply mb-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg;
 }
 
 .error-content {
-  @apply flex items-center space-x-2 mb-2;
+  @apply flex items-center space-x-2 mb-1 sm:mb-2;
 }
 
 .error-icon {
-  @apply h-5 w-5 text-red-500 flex-shrink-0;
+  @apply h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0;
 }
 
 .error-title {
-  @apply text-red-700 font-medium;
+  @apply text-sm sm:text-base text-red-700 font-medium;
 }
 
 .error-message {
-  @apply text-red-600 text-sm;
+  @apply text-red-600 text-xs sm:text-sm;
 }
 
 .login-form {
-  @apply space-y-4;
+  @apply space-y-3 sm:space-y-4;
 }
 
 .form-group {
@@ -75,11 +75,11 @@
 }
 
 .form-label {
-  @apply block text-sm font-medium text-gray-700 mb-1;
+  @apply block text-xs sm:text-sm font-medium text-gray-700 mb-1;
 }
 
 .form-input {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+  @apply w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg text-sm sm:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent;
 }
 
 .password-container {
@@ -91,19 +91,19 @@
 }
 
 .password-toggle {
-  @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600;
+  @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 touch-manipulation;
 }
 
 .toggle-icon {
-  @apply h-4 w-4;
+  @apply h-4 w-4 sm:h-5 sm:w-5;
 }
 
 .submit-button {
-  @apply w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply w-full bg-blue-600 text-white py-2.5 sm:py-3 px-4 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base touch-manipulation;
 }
 
 .submit-spinner {
-  @apply h-4 w-4 animate-spin;
+  @apply h-4 w-4 sm:h-5 sm:w-5 animate-spin;
 }
 
 .spinner-circle {
@@ -115,11 +115,11 @@
 }
 
 .demo-section {
-  @apply mt-6 pt-6 border-t border-gray-200;
+  @apply mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-gray-200;
 }
 
 .demo-title {
-  @apply text-sm font-medium text-gray-700 mb-3 text-center;
+  @apply text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 text-center;
 }
 
 .demo-grid {
@@ -127,35 +127,35 @@
 }
 
 .demo-card {
-  @apply flex items-center space-x-3 p-3 rounded-lg border-2 transition-all duration-200 hover:shadow-md;
+  @apply flex items-center space-x-2 sm:space-x-3 p-2.5 sm:p-3 rounded-lg border-2 transition-all duration-200 active:shadow-md touch-manipulation;
 }
 
 .demo-admin {
-  @apply border-purple-300 bg-purple-50 hover:bg-purple-100 hover:border-purple-400;
+  @apply border-purple-300 bg-purple-50 active:bg-purple-100 hover:bg-purple-100 hover:border-purple-400;
 }
 
 .demo-warehouse {
-  @apply border-orange-300 bg-orange-50 hover:bg-orange-100 hover:border-orange-400;
+  @apply border-orange-300 bg-orange-50 active:bg-orange-100 hover:bg-orange-100 hover:border-orange-400;
 }
 
 .demo-sales {
-  @apply border-blue-300 bg-blue-50 hover:bg-blue-100 hover:border-blue-400;
+  @apply border-blue-300 bg-blue-50 active:bg-blue-100 hover:bg-blue-100 hover:border-blue-400;
 }
 
 .demo-icon {
-  @apply text-2xl flex-shrink-0;
+  @apply text-xl sm:text-2xl flex-shrink-0;
 }
 
 .demo-info {
-  @apply flex-1 text-left;
+  @apply flex-1 text-left min-w-0;
 }
 
 .demo-role {
-  @apply text-sm font-semibold text-gray-800;
+  @apply text-xs sm:text-sm font-semibold text-gray-800 truncate;
 }
 
 .demo-email {
-  @apply text-xs text-gray-600;
+  @apply text-[10px] sm:text-xs text-gray-600 truncate;
 }
 
 .demo-buttons {
@@ -175,9 +175,9 @@
 }
 
 .customer-text {
-  @apply text-gray-600 text-sm mb-2;
+  @apply text-gray-600 text-xs sm:text-sm mb-2;
 }
 
 .customer-link {
-  @apply inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium;
+  @apply inline-flex items-center space-x-2 px-4 py-2 sm:py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 active:bg-purple-800 transition-colors text-xs sm:text-sm font-medium touch-manipulation;
 }

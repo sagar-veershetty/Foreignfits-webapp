@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
@@ -25,6 +25,10 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   locations = signal<Location[]>([]);
   currentUser = signal<User | null>(null);
   
+  // Location inventory for filtering products
+  transferFromLocationInventory = signal<any[]>([]);
+  adjustmentLocationInventory = signal<any[]>([]);
+  
   // Filters
   filterType = signal<string>('all');
   filterDateRange = signal<string>('all');
@@ -33,13 +37,14 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   // Adjustment Form
   adjustmentForm = {
     productId: '',
+    locationId: '', // Add location for adjustment
     adjustmentType: 'increase' as 'increase' | 'decrease' | 'set',
     quantity: 0,
     reason: '',
     reference: ''
   };
   
-  // Transfer Form
+  // Transfer Form (Admin - quantity-based)
   transferForm = {
     productId: '',
     fromLocationId: '',
@@ -50,12 +55,34 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     notes: ''
   };
   
+  // Barcode Transfer Form (Warehouse/Store - barcode-based)
+  barcodeTransferForm = {
+    fromLocationId: '',
+    toLocationId: '',
+    barcodeNumbers: [] as string[],
+    reason: '',
+    reference: '',
+    notes: ''
+  };
+  
+  // Barcode scan input
+  currentBarcodeInput = signal<string>('');
+  scannedBarcodes = signal<Array<{barcode: string, productName?: string, status: 'valid' | 'invalid' | 'pending'}>>([]);
+  
   // Signal to track fromLocationId changes for reactive computed
   transferFromLocationId = signal<string>('');
+  adjustmentLocationId = signal<string>('');
   
   isLoading = signal<boolean>(false);
   successMessage = signal<string>('');
   errorMessage = signal<string>('');
+
+  // Camera scanner
+  @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
+  showCameraScanner = signal<boolean>(false);
+  cameraScannerError = signal<string>('');
+  private mediaStream: MediaStream | null = null;
+  private scanningInterval: any = null;
 
   constructor(
     private appService: AppService,
@@ -70,9 +97,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     // Ensure initial data is loaded (especially important after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
-        this.appService.loadInitialData().subscribe({
-          error: (e) => console.error('Stock Movement: initial data load failed', e)
-        });
+        this.appService.loadInitialData().subscribe();
       }
     });
     
@@ -81,8 +106,15 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         if (event.url.includes('/stock-movement')) {
-          console.log('Stock Movement: Refreshing data on navigation');
-          this.loadData();
+          // Force reload from backend to get fresh data
+          this.appService.loadInitialData().subscribe({
+            next: () => {
+              this.loadData();
+            },
+            error: (e) => {
+              this.loadData(); // Still load from cache if refresh fails
+            }
+          });
         }
       });
     
@@ -92,19 +124,38 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         const locationId = this.getUserLocationId() || '';
         this.transferForm.fromLocationId = locationId;
         this.transferFromLocationId.set(locationId); // Update signal to trigger computed
+        this.loadTransferLocationInventory(parseInt(locationId));
+      }
+      // Auto-set FROM location for sales users (can also transfer stock)
+      if (this.isSalesUser() && this.getUserLocationId()) {
+        const locationId = this.getUserLocationId() || '';
+        this.transferForm.fromLocationId = locationId;
+        this.transferFromLocationId.set(locationId); // Update signal to trigger computed
+        this.loadTransferLocationInventory(parseInt(locationId));
       }
       // Auto-set FROM location to SUPPLIER for admin users
       if (this.isAdmin()) {
         this.transferForm.fromLocationId = '1'; // SUPPLIER location ID
         this.transferFromLocationId.set('1'); // Update signal to trigger computed
+        this.loadTransferLocationInventory(1);
+        
+        // Auto-set adjustment location to admin's location
+        const adminLocationId = this.getUserLocationId() || '1';
+        this.adjustmentForm.locationId = adminLocationId;
+        this.adjustmentLocationId.set(adminLocationId);
+        this.loadAdjustmentLocationInventory(parseInt(adminLocationId));
       }
     }, 500);
   }
 
   ngOnDestroy() {
+    // Cleanup subscriptions
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+    
+    // Cleanup camera resources
+    this.closeCameraScanner();
   }
 
   loadData() {
@@ -133,6 +184,10 @@ export class StockMovementComponent implements OnInit, OnDestroy {
 
   isWarehouseUser(): boolean {
     return this.currentUser()?.role === 'warehouse';
+  }
+
+  isSalesUser(): boolean {
+    return this.currentUser()?.role === 'sales';
   }
 
   getUserLocationId(): string | undefined {
@@ -245,6 +300,55 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     if (this.transferForm.fromLocationId === this.transferForm.toLocationId) {
       this.transferForm.toLocationId = '';
     }
+    
+    // Load inventory for the selected FROM location
+    if (this.transferForm.fromLocationId) {
+      this.loadTransferLocationInventory(parseInt(this.transferForm.fromLocationId));
+    } else {
+      this.transferFromLocationInventory.set([]);
+    }
+    
+    // Clear selected product as it may not be available at new location
+    this.transferForm.productId = '';
+  }
+
+  // Handle adjustment location change
+  onAdjustmentLocationChange() {
+    this.adjustmentLocationId.set(this.adjustmentForm.locationId);
+    
+    // Load inventory for the selected location
+    if (this.adjustmentForm.locationId) {
+      this.loadAdjustmentLocationInventory(parseInt(this.adjustmentForm.locationId));
+    } else {
+      this.adjustmentLocationInventory.set([]);
+    }
+    
+    // Clear selected product as it may not be available at new location
+    this.adjustmentForm.productId = '';
+  }
+
+  // Load inventory for transfer FROM location
+  loadTransferLocationInventory(locationId: number) {
+    this.appService.getLocationInventory(locationId).subscribe({
+      next: (inventory) => {
+        this.transferFromLocationInventory.set(inventory);
+      },
+      error: (error) => {
+        this.transferFromLocationInventory.set([]);
+      }
+    });
+  }
+
+  // Load inventory for adjustment location
+  loadAdjustmentLocationInventory(locationId: number) {
+    this.appService.getLocationInventory(locationId).subscribe({
+      next: (inventory) => {
+        this.adjustmentLocationInventory.set(inventory);
+      },
+      error: (error) => {
+        this.adjustmentLocationInventory.set([]);
+      }
+    });
   }
 
   getSelectedProduct(): Product | undefined {
@@ -254,28 +358,38 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     return this.products().find(p => p.id === productId);
   }
 
-  // Get products filtered by user's location for stock transfer
+  // Get products available at the selected FROM location for transfer
   getTransferableProducts(): Product[] {
-    const user = this.currentUser();
+    const inventory = this.transferFromLocationInventory();
     const allProducts = this.products();
     
-    // Admin sees only products from SUPPLIER location (id=1)
-    if (this.isAdmin()) {
-      return allProducts.filter(p => p.locationId === '1');
+    if (!this.transferForm.fromLocationId || inventory.length === 0) {
+      return [];
     }
     
-    // Warehouse users only see products from their location
-    if (user?.locationId) {
-      return allProducts.filter(p => p.locationId === user.locationId);
+    // Only show products that have inventory at the FROM location
+    const availableSkus = new Set(inventory.map((inv: any) => inv.productSku));
+    return allProducts.filter(p => availableSkus.has(p.sku));
+  }
+
+  // Get products available at the selected location for adjustment
+  getAdjustableProducts(): Product[] {
+    const inventory = this.adjustmentLocationInventory();
+    const allProducts = this.products();
+    
+    if (!this.adjustmentForm.locationId || inventory.length === 0) {
+      return [];
     }
     
-    return [];
+    // Only show products that have inventory at the selected location
+    const availableSkus = new Set(inventory.map((inv: any) => inv.productSku));
+    return allProducts.filter(p => availableSkus.has(p.sku));
   }
 
   submitAdjustment() {
     this.clearMessages();
     
-    if (!this.adjustmentForm.productId || !this.adjustmentForm.quantity || !this.adjustmentForm.reason) {
+    if (!this.adjustmentForm.locationId || !this.adjustmentForm.productId || !this.adjustmentForm.quantity || !this.adjustmentForm.reason) {
       this.errorMessage.set('Please fill in all required fields');
       return;
     }
@@ -288,6 +402,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     
     this.appService.adjustStock({
+      locationId: this.adjustmentForm.locationId,
       productId: this.adjustmentForm.productId,
       adjustmentType: this.adjustmentForm.adjustmentType,
       quantity: this.adjustmentForm.quantity,
@@ -307,7 +422,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.isLoading.set(false);
         this.errorMessage.set(error.error?.message || 'Failed to record stock adjustment. Please try again.');
-        console.error('Stock adjustment error:', error);
       }
     });
   }
@@ -336,11 +450,9 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const selectedProduct = this.getSelectedProduct();
-    if (selectedProduct && this.transferForm.quantity > selectedProduct.stock) {
-      this.errorMessage.set(`Insufficient stock. Available: ${selectedProduct.stock}`);
-      return;
-    }
+    // NOTE: Product.stock is deprecated (backend returns null)
+    // Stock validation will be done by backend via LocationInventory
+    // Remove client-side stock check
     
     this.isLoading.set(true);
     
@@ -366,7 +478,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.isLoading.set(false);
         this.errorMessage.set(error.error?.message || 'Failed to create stock transfer. Please try again.');
-        console.error('Stock transfer error:', error);
       }
     });
   }
@@ -374,6 +485,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   resetAdjustmentForm() {
     this.adjustmentForm = {
       productId: '',
+      locationId: '',
       adjustmentType: 'increase',
       quantity: 0,
       reason: '',
@@ -439,7 +551,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
         this.pendingMovements.set(movements);
       },
       error: (err: any) => {
-        console.error('Error loading pending movements:', err);
         this.errorMessage.set('Failed to load pending movements');
       }
     });
@@ -483,7 +594,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
           this.loadData();
         },
         error: (err: any) => {
-          console.error('Error approving movement:', err);
           this.errorMessage.set('Failed to approve stock movement');
         }
       });
@@ -499,7 +609,6 @@ export class StockMovementComponent implements OnInit, OnDestroy {
           this.loadPendingMovements();
         },
         error: (err: any) => {
-          console.error('Error rejecting movement:', err);
           this.errorMessage.set('Failed to reject stock movement');
         }
       });
@@ -518,5 +627,322 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       return 'Pending';
     }
     return movement.status === 'APPROVED' ? 'Approved' : 'Rejected';
+  }
+  
+  // Barcode Transfer Methods (for Warehouse/Store users)
+  
+  addBarcode() {
+    const barcodeInput = this.currentBarcodeInput().trim();
+    if (!barcodeInput) {
+      this.errorMessage.set('Please enter a barcode');
+      return;
+    }
+    
+    // Check if barcode already scanned
+    const existing = this.scannedBarcodes().find(b => b.barcode === barcodeInput);
+    if (existing) {
+      this.errorMessage.set('Barcode already added to list');
+      setTimeout(() => this.clearMessages(), 3000);
+      this.currentBarcodeInput.set('');
+      return;
+    }
+    
+    // Get user's location for validation
+    const user = this.currentUser();
+    if (!user?.locationId) {
+      this.errorMessage.set('User location not found');
+      return;
+    }
+    
+    // Validate barcode with backend BEFORE adding to list
+    this.appService.validateBarcodeForTransfer(barcodeInput, parseInt(user.locationId)).subscribe({
+      next: (result: any) => {
+        if (result.success) {
+          // Barcode is valid - lookup product details and add to list
+          this.appService.lookupBarcode(barcodeInput).subscribe({
+            next: (response: any) => {
+              const newBarcodes = [...this.scannedBarcodes(), { 
+                barcode: barcodeInput, 
+                productName: response.productName || response.product?.name || 'Unknown',
+                status: 'valid' as const 
+              }];
+              this.scannedBarcodes.set(newBarcodes);
+              this.successMessage.set('Barcode added successfully');
+              setTimeout(() => this.clearMessages(), 2000);
+            },
+            error: (error) => {
+              // Still add it if validation passed, but without product name
+              const newBarcodes = [...this.scannedBarcodes(), { 
+                barcode: barcodeInput, 
+                productName: 'Unknown Product',
+                status: 'valid' as const 
+              }];
+              this.scannedBarcodes.set(newBarcodes);
+            }
+          });
+        } else {
+          // Validation failed - show detailed error message
+          let errorMsg = result.message || 'Barcode validation failed';
+          
+          if (result.errors && result.errors.length > 0) {
+            const error = result.errors[0];
+            
+            // Use the full error message from backend which has complete details
+            if (error.message) {
+              errorMsg = error.message;
+            } else {
+              // Fallback to constructing message if backend doesn't provide it
+              switch (error.errorType) {
+                case 'NOT_FOUND':
+                  errorMsg = `Barcode not found in system`;
+                  break;
+                case 'WRONG_LOCATION':
+                  errorMsg = `Barcode not at your location. Currently at: ${error.currentLocation}`;
+                  break;
+                case 'ALREADY_PENDING':
+                  errorMsg = `Already in pending transfer #${error.pendingTransferId}`;
+                  break;
+                case 'NOT_ACTIVE':
+                  errorMsg = `Barcode is not active`;
+                  break;
+                case 'ALREADY_TRANSFERRED':
+                  errorMsg = `Already transferred to ${error.currentLocation}`;
+                  break;
+                default:
+                  errorMsg = error.message || errorMsg;
+              }
+            }
+          }
+          
+          this.errorMessage.set(errorMsg);
+          setTimeout(() => this.clearMessages(), 5000);
+        }
+      },
+      error: (error) => {
+        const errorMsg = error.error?.message || error.message || 'Failed to validate barcode';
+        this.errorMessage.set(errorMsg);
+        setTimeout(() => this.clearMessages(), 5000);
+      }
+    });
+    
+    this.currentBarcodeInput.set('');
+  }
+  
+  removeBarcode(barcode: string) {
+    this.scannedBarcodes.set(this.scannedBarcodes().filter(b => b.barcode !== barcode));
+  }
+  
+  clearBarcodes() {
+    this.scannedBarcodes.set([]);
+    this.currentBarcodeInput.set('');
+  }
+  
+  submitBarcodeTransfer() {
+    this.clearMessages();
+    
+    const validBarcodes = this.scannedBarcodes().filter(b => b.status === 'valid');
+    
+    if (validBarcodes.length === 0) {
+      this.errorMessage.set('Please scan at least one valid barcode');
+      return;
+    }
+    
+    if (!this.barcodeTransferForm.toLocationId || 
+        !this.barcodeTransferForm.reason || 
+        !this.barcodeTransferForm.reason.trim()) {
+      this.errorMessage.set('Please fill in all required fields');
+      return;
+    }
+    
+    // Set FROM location based on user
+    const user = this.currentUser();
+    if (!user?.locationId) {
+      this.errorMessage.set('User location not found');
+      return;
+    }
+    
+    this.barcodeTransferForm.fromLocationId = user.locationId;
+    
+    if (this.barcodeTransferForm.fromLocationId === this.barcodeTransferForm.toLocationId) {
+      this.errorMessage.set('Source and destination locations must be different');
+      return;
+    }
+    
+    this.isLoading.set(true);
+    
+    // Call new barcode transfer endpoint
+    this.appService.createBarcodeStockTransfer({
+      fromLocationId: parseInt(this.barcodeTransferForm.fromLocationId),
+      toLocationId: parseInt(this.barcodeTransferForm.toLocationId),
+      barcodeNumbers: validBarcodes.map(b => b.barcode),
+      reason: this.barcodeTransferForm.reason,
+      reference: this.barcodeTransferForm.reference || '',
+      notes: this.barcodeTransferForm.notes || ''
+    }).subscribe({
+      next: (result: any) => {
+        this.isLoading.set(false);
+        
+        if (result.success) {
+          this.successMessage.set(`Transfer created successfully with ${validBarcodes.length} barcode(s)!`);
+          this.resetBarcodeTransferForm();
+          
+          setTimeout(() => {
+            this.clearMessages();
+            this.setActiveTab('movements');
+          }, 2000);
+        } else {
+          // Show detailed error messages for each barcode
+          let errorMsg = result.message || 'Some barcodes cannot be transferred';
+          if (result.errors && result.errors.length > 0) {
+            errorMsg += ':\n\n';
+            result.errors.forEach((err: any) => {
+              switch (err.errorType) {
+                case 'ALREADY_PENDING':
+                  errorMsg += `• ${err.barcodeNumber}: Already in pending transfer #${err.pendingTransferId} (${err.currentLocation})\n`;
+                  break;
+                case 'WRONG_LOCATION':
+                  errorMsg += `• ${err.barcodeNumber}: Not at your location (currently at: ${err.currentLocation})\n`;
+                  break;
+                case 'NOT_FOUND':
+                  errorMsg += `• ${err.barcodeNumber}: Barcode not found in system\n`;
+                  break;
+                case 'NOT_ACTIVE':
+                  errorMsg += `• ${err.barcodeNumber}: ${err.message}\n`;
+                  break;
+                default:
+                  errorMsg += `• ${err.barcodeNumber}: ${err.message}\n`;
+              }
+            });
+          }
+          this.errorMessage.set(errorMsg);
+        }
+      },
+      error: (error) => {
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Failed to create barcode transfer. Please try again.');
+      }
+    });
+  }
+  
+  resetBarcodeTransferForm() {
+    this.barcodeTransferForm = {
+      fromLocationId: '',
+      toLocationId: '',
+      barcodeNumbers: [],
+      reason: '',
+      reference: '',
+      notes: ''
+    };
+    this.clearBarcodes();
+  }
+  
+  getTotalScannedQuantity(): number {
+    return this.scannedBarcodes().filter(b => b.status === 'valid').length;
+  }
+
+  async openCameraScanner() {
+    try {
+      this.cameraScannerError.set('');
+      this.showCameraScanner.set(true);
+      
+      // Wait for video element to be available in the DOM
+      setTimeout(async () => {
+        try {
+          // Request camera access with rear camera preference for mobile
+          this.mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: 'environment', // Use rear camera on mobile
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          });
+          
+          if (this.videoElement && this.videoElement.nativeElement) {
+            this.videoElement.nativeElement.srcObject = this.mediaStream;
+            this.startBarcodeDetection();
+          }
+        } catch (error: any) {
+          if (error.name === 'NotAllowedError') {
+            this.cameraScannerError.set('Camera permission denied. Please enable camera access in browser settings.');
+          } else if (error.name === 'NotFoundError') {
+            this.cameraScannerError.set('No camera found on this device.');
+          } else {
+            this.cameraScannerError.set('Unable to access camera. Error: ' + error.message);
+          }
+        }
+      }, 100);
+    } catch (error) {
+      this.cameraScannerError.set('Failed to initialize camera scanner.');
+    }
+  }
+
+  closeCameraScanner() {
+    // Stop barcode detection interval
+    if (this.scanningInterval) {
+      clearInterval(this.scanningInterval);
+      this.scanningInterval = null;
+    }
+
+    // Stop all media tracks to release camera
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+
+    // Reset video element
+    if (this.videoElement && this.videoElement.nativeElement) {
+      this.videoElement.nativeElement.srcObject = null;
+    }
+
+    // Close modal and clear errors
+    this.showCameraScanner.set(false);
+    this.cameraScannerError.set('');
+  }
+
+  private startBarcodeDetection() {
+    // For now, we'll use a simple approach with canvas to capture frames
+    // You can install a barcode detection library like @zxing/library for better results
+    
+    const video = this.videoElement.nativeElement;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      this.cameraScannerError.set('Canvas not supported in this browser.');
+      return;
+    }
+
+    // Scan for barcodes every 500ms to reduce CPU usage
+    this.scanningInterval = setInterval(() => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Get image data for barcode detection
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Try to detect barcode using a library
+        // For now, showing a message that barcode detection library is needed
+        // Uncomment and install @zxing/library for actual detection:
+        /*
+        import { BrowserMultiFormatReader } from '@zxing/library';
+        const codeReader = new BrowserMultiFormatReader();
+        codeReader.decodeFromImageData(imageData).then(result => {
+          if (result && result.getText()) {
+            const barcode = result.getText();
+            this.addBarcode(barcode);
+            this.closeCameraScanner();
+          }
+        }).catch(err => {
+          // No barcode detected in this frame, continue scanning
+        });
+        */
+      }
+    }, 500);
+
+    // Show a temporary message about barcode library
+    // Camera scanner active. Install @zxing/library for barcode detection.
+    // Run: npm install @zxing/library --save
   }
 }

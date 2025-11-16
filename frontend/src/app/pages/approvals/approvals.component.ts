@@ -340,8 +340,7 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
           const filtered = users.filter(u => u.locationId === currentUser?.locationId);
           this.pendingUsers.set(filtered);
         }
-      },
-      error: (err) => console.error('Error loading pending users:', err)
+      }
     });
   }
 
@@ -352,8 +351,7 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
 
   loadPendingMovements() {
     this.appService.getPendingStockMovements().subscribe({
-      next: (movements: StockMovement[]) => this.pendingMovements.set(movements),
-      error: (err: any) => console.error('Error loading pending movements:', err)
+      next: (movements: StockMovement[]) => this.pendingMovements.set(movements)
     });
   }
 
@@ -362,8 +360,7 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
       return; // Only admin can see all users
     }
     this.http.get<User[]>(`${environment.apiUrl}/admin/all-users`).subscribe({
-      next: (users) => this.allUsers.set(users),
-      error: (err) => console.error('Error loading all users:', err)
+      next: (users) => this.allUsers.set(users)
     });
   }
 
@@ -398,7 +395,6 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
           this.loadPendingMovements();
         },
         error: (err: any) => {
-          console.error('Error approving movement:', err);
           const errorMessage = err.error || 'Failed to approve stock movement';
           alert(errorMessage);
         }
@@ -415,7 +411,6 @@ export class ApprovalsComponent implements OnInit, OnDestroy {
           this.loadPendingMovements();
         },
         error: (err: any) => {
-          console.error('Error rejecting movement:', err);
           alert('Failed to reject stock movement');
         }
       });

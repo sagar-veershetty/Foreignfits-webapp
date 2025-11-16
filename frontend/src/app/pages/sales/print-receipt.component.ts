@@ -21,7 +21,6 @@ export class PrintReceiptComponent {
     const printWindow = window.open('', '_blank', 'width=302,height=600');
     if (!printWindow) {
       alert('Popup blocked! Please allow popups for this site to print receipts.');
-      console.error('Print window was blocked by the browser.');
       return;
     }
     printWindow.document.write('<html><head><title>Loading...</title></head><body>Loading receipt...</body></html>');
@@ -31,12 +30,10 @@ export class PrintReceiptComponent {
     setTimeout(() => {
       let receiptElement = this.receiptPaperRef?.nativeElement;
       if (!receiptElement) {
-        console.warn('ViewChild not found, falling back to querySelector.');
         receiptElement = document.querySelector('.receipt-paper');
       }
       if (!receiptElement) {
         alert('Could not find receipt content to print.');
-        console.error('No receipt element found for printing.');
         printWindow.close();
         return;
       }
@@ -91,7 +88,6 @@ export class PrintReceiptComponent {
         </html>
       `);
       printWindow.document.close();
-      console.log('Print window opened and content written for thermal printer.');
     }, 150);
     
     // Close the modal after initiating print

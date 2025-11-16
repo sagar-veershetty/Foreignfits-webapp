@@ -10,6 +10,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "sale_items")
@@ -47,6 +49,15 @@ public class SaleItem {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal total;
     
+    // Track which specific barcodes were sold in this item
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "sale_item_barcodes",
+        joinColumns = @JoinColumn(name = "sale_item_id"),
+        inverseJoinColumns = @JoinColumn(name = "barcode_id")
+    )
+    private List<Barcode> barcodes = new ArrayList<>();
+    
     // Manual getters and setters to ensure compatibility
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -65,4 +76,7 @@ public class SaleItem {
     
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
+    
+    public List<Barcode> getBarcodes() { return barcodes; }
+    public void setBarcodes(List<Barcode> barcodes) { this.barcodes = barcodes; }
 }

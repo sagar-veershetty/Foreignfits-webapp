@@ -1,0 +1,43 @@
+// Additional custom styles for expense component
+// Most styling is handled by Tailwind CSS in the HTML
+
+// Modal animation
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// Apply animation to modal content
+.fixed .bg-white {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+// Smooth transitions for interactive elements
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+// Custom scrollbar for modal
+.max-h-\[90vh\]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-\[90vh\]::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.max-h-\[90vh\]::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.max-h-\[90vh\]::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
