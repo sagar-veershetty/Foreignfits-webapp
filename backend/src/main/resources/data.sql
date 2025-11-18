@@ -1,5 +1,6 @@
 -- Sample data for Foreign Fits Inventory Management System
--- H2 Database compatible SQL
+-- Compatible with both H2 and PostgreSQL databases
+-- Only includes locations and users (core data needed for application to function)
 
 -- Insert INITIAL location (used as fromLocation for initial stock/product creation)
 INSERT INTO locations (id, name, type, address, city, state, zip_code, phone, manager, capacity, is_active, created_at, updated_at) VALUES
@@ -32,43 +33,15 @@ INSERT INTO users (id, name, email, password, role, location_id, is_active, crea
 (9, 'Karl Chen', 'karl@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SHIPPING_AGENT_CHINA', 1, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 (10, 'Girish Patel', 'girish@foreignfits.com', '$2a$10$vJy.i0LNXteM4vRN5W5k1ug6sDxYToqHEfT8kPE6fd6mKNVehBnAK', 'SHIPPING_AGENT_INDIA', 2, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-
--- Ensure IDENTITY sequences continue after seeded IDs (H2 syntax)
+-- Update sequences for both H2 and PostgreSQL
+-- H2 syntax
 ALTER TABLE locations ALTER COLUMN id RESTART WITH 6;
 ALTER TABLE users ALTER COLUMN id RESTART WITH 11;
 ALTER TABLE products ALTER COLUMN id RESTART WITH 1;
 ALTER TABLE location_inventory ALTER COLUMN id RESTART WITH 1;
 
--- Insert sample expenses for testing
-INSERT INTO expenses (id, type, amount, description, expense_date, location_id, payment_method, receipt_url, notes, created_by, approved_by, status, created_at, updated_at) VALUES
--- Wholesale Store expenses
-(1, 'RENT', 25000.00, 'Monthly store rent - November 2025', CURRENT_TIMESTAMP - 5, 4, 'BANK_TRANSFER', null, 'Rent paid for November 2025', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 5, CURRENT_TIMESTAMP - 5),
-(2, 'ELECTRICITY', 3500.00, 'Electricity bill - October 2025', CURRENT_TIMESTAMP - 4, 4, 'UPI', null, 'Monthly electricity charges', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 4, CURRENT_TIMESTAMP - 4),
-(3, 'SALARY', 18000.00, 'Sales Representative salary - November 2025', CURRENT_TIMESTAMP - 3, 4, 'BANK_TRANSFER', null, 'Monthly salary payment', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 3, CURRENT_TIMESTAMP - 3),
-(4, 'DAILY_MAINTENANCE', 500.00, 'Store cleaning and maintenance', CURRENT_TIMESTAMP - 2, 4, 'CASH', null, 'Daily cleaning supplies and minor repairs', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 2, CURRENT_TIMESTAMP - 2),
-(5, 'INTERNET', 1500.00, 'Internet and phone bill - November 2025', CURRENT_TIMESTAMP - 1, 4, 'UPI', null, 'Monthly connectivity charges', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 1, CURRENT_TIMESTAMP - 1),
--- Retail Store expenses
-(6, 'RENT', 20000.00, 'Monthly store rent - November 2025', CURRENT_TIMESTAMP - 5, 5, 'BANK_TRANSFER', null, 'Rent paid for November 2025', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 5, CURRENT_TIMESTAMP - 5),
-(7, 'ELECTRICITY', 2800.00, 'Electricity bill - October 2025', CURRENT_TIMESTAMP - 4, 5, 'UPI', null, 'Monthly electricity charges', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 4, CURRENT_TIMESTAMP - 4),
-(8, 'SALARY', 15000.00, 'Sales Representative salary - November 2025', CURRENT_TIMESTAMP - 3, 5, 'BANK_TRANSFER', null, 'Monthly salary payment', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 3, CURRENT_TIMESTAMP - 3),
-(9, 'CLEANING', 300.00, 'Professional cleaning service', CURRENT_TIMESTAMP - 2, 5, 'CASH', null, 'Weekly deep cleaning', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 2, CURRENT_TIMESTAMP - 2),
-(10, 'MARKETING', 5000.00, 'Social media advertising campaign', CURRENT_TIMESTAMP - 1, 5, 'CARD', null, 'Instagram and Facebook ads for new collection', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 1, CURRENT_TIMESTAMP - 1),
--- Warehouse expenses
-(11, 'RENT', 35000.00, 'Warehouse rent - November 2025', CURRENT_TIMESTAMP - 4, 2, 'BANK_TRANSFER', null, 'Monthly warehouse rental', 'warehouse1@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 4, CURRENT_TIMESTAMP - 4),
-(12, 'EQUIPMENT', 12000.00, 'Pallet jack repair and maintenance', CURRENT_TIMESTAMP - 3, 2, 'CARD', null, 'Equipment maintenance for warehouse operations', 'warehouse1@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 3, CURRENT_TIMESTAMP - 3),
-(13, 'SECURITY', 8000.00, 'Security services - November 2025', CURRENT_TIMESTAMP - 2, 2, 'BANK_TRANSFER', null, 'Monthly security guard services', 'warehouse1@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP - 2, CURRENT_TIMESTAMP - 2),
--- Recent/Miscellaneous expenses
-(14, 'OFFICE_SUPPLIES', 1200.00, 'Stationery and office supplies', CURRENT_TIMESTAMP, 4, 'CARD', null, 'Pens, papers, tags, and packaging materials', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(15, 'TRANSPORTATION', 2500.00, 'Delivery vehicle fuel and maintenance', CURRENT_TIMESTAMP, 5, 'CASH', null, 'Monthly transportation costs', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(16, 'MISCELLANEOUS', 800.00, 'Emergency repair - AC unit', CURRENT_TIMESTAMP, 5, 'CASH', null, 'Urgent AC repair during hot day', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-(17, 'WATER', 500.00, 'Water bill - October 2025', CURRENT_TIMESTAMP, 4, 'UPI', null, 'Monthly water charges', 'salesmanager@foreignfits.com', 'admin@foreignfits.com', 'APPROVED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
-ALTER TABLE expenses ALTER COLUMN id RESTART WITH 18;
-
--- Insert sample shipments for testing
-INSERT INTO shipments (id, shipping_id, total_cost, total_packages, total_cbm, is_branded, per_cbm_rate, etd, eta, origin_location, destination_location, tracking_url, payment_status, paid_amount, pending_amount, status, created_by_agent, india_warehouse_address, india_contact_phone, created_at, updated_at) VALUES
-(1, 'FF-2025-001', 150000.00, 50, 25.5, true, 5880.00, '2025-11-01', '2025-11-20', 'Shanghai, China', 'Mumbai, India', 'https://www.maersk.com/tracking/1234567', 'UNPAID', 0.00, 150000.00, 'DELIVERED_TO_WAREHOUSE', 'karl@foreignfits.com', '123 Warehouse District, Mumbai, India 400001', '+912212345678', CURRENT_TIMESTAMP - 10, CURRENT_TIMESTAMP - 1),
-(2, 'FF-2025-002', 200000.00, 75, 35.0, false, 5714.00, '2025-11-05', '2025-11-25', 'Guangzhou, China', 'Mumbai, India', 'https://www.cma-cgm.com/tracking/9876543', 'PARTIALLY_PAID', 50000.00, 150000.00, 'IN_TRANSIT', 'karl@foreignfits.com', '456 Industrial Zone, Mumbai, India 400004', '+912298765432', CURRENT_TIMESTAMP - 8, CURRENT_TIMESTAMP - 2),
-(3, 'FF-2025-003', 180000.00, 60, 30.0, true, 6000.00, '2025-11-10', '2025-11-30', 'Shenzhen, China', 'Mumbai, India', 'https://www.evergreen-line.com/tracking/5555555', 'UNPAID', 0.00, 180000.00, 'CREATED', 'karl@foreignfits.com', '789 Storage Complex, Mumbai, India 400002', '+912255556666', CURRENT_TIMESTAMP - 5, CURRENT_TIMESTAMP);
-
-ALTER TABLE shipments ALTER COLUMN id RESTART WITH 4;
+-- PostgreSQL syntax (will be ignored by H2)
+SELECT setval('locations_id_seq', 6, false);
+SELECT setval('users_id_seq', 11, false);
+SELECT setval('products_id_seq', 1, false);
+SELECT setval('location_inventory_id_seq', 1, false);
