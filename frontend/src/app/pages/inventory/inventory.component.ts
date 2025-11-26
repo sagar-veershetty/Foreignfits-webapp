@@ -67,6 +67,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const lowStock = this.lowStockOnly();
 
     return inventory.filter(item => {
+      // Hide products with 0 quantity
+      if (item.quantity === 0) {
+        return false;
+      }
+
       const matchesSearch = !search || 
         item.productName.toLowerCase().includes(search) ||
         item.productSku.toLowerCase().includes(search);
@@ -89,12 +94,17 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const lowStockCount = inventory.filter(item => 
       item.minStock && item.quantity <= item.minStock
     ).length;
-    // Use cost price for inventory valuation (standard accounting practice)
-    const totalValue = inventory.reduce((sum, item) => 
-      sum + (item.quantity * item.cost), 0
-    );
+    
+    // Only calculate cost-based value for admin users
+    // Sales managers and warehouse managers should not see cost/inventory value
+    const currentUser = this.authService.getCurrentUser();
+    const canSeeCost = currentUser?.role === 'admin';
+    
+    const totalValue = canSeeCost 
+      ? inventory.reduce((sum, item) => sum + (item.quantity * item.cost), 0)
+      : inventory.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0);
 
-    return { totalItems, totalStock, lowStockCount, totalValue };
+    return { totalItems, totalStock, lowStockCount, totalValue, canSeeCost };
   });
 
   categories = ['SHIRTS', 'PANTS', 'JACKETS', 'DRESSES', 'SHOES', 'ACCESSORIES'];

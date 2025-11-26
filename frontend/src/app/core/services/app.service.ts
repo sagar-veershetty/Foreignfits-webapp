@@ -477,6 +477,19 @@ export class AppService {
       );
   }
 
+  /**
+   * Fetch a single sale by ID
+   */
+  getSaleById(saleId: string): Observable<Sale> {
+    return this.http.get<any>(`${this.API_BASE_URL}/sales/${saleId}`)
+      .pipe(
+        map(apiSale => this.convertApiSaleToSale(apiSale)),
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
   // Auto-refresh utilities (for live-updating dashboards)
   startAutoRefresh(intervalMs: number = 15000): void {
     this.stopAutoRefresh();

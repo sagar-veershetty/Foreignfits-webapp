@@ -47,6 +47,25 @@ public class SaleController {
         return ResponseEntity.ok(sales);
     }
     
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('view:sales')")
+    public ResponseEntity<SaleDto> getSaleById(@PathVariable Long id, Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        SaleDto sale = saleService.getSaleById(id);
+        
+        // If user is SALES, verify they have access to this sale's location
+        if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+            if (!sale.getLocation().getId().equals(currentUser.getLocationId())) {
+                return ResponseEntity.status(403).build(); // Forbidden
+            }
+        }
+        
+        return ResponseEntity.ok(sale);
+    }
+    
     @GetMapping("/today")
     @PreAuthorize("hasAuthority('view:sales')")
     public ResponseEntity<List<SaleDto>> getTodaysSales(Authentication authentication) {

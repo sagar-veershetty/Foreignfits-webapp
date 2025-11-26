@@ -10,6 +10,70 @@
     <button (click)="closeSuccessMessage()" class="ml-2 text-white hover:text-gray-200">×</button>
   </div>
 
+  <!-- Exchange Quick Access -->
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="p-2 bg-blue-600 rounded-lg">
+        <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+        </svg>
+      </div>
+      <div>
+        <h3 class="font-semibold text-gray-900">Exchange Items</h3>
+        <p class="text-sm text-gray-600">Return and exchange items from previous sales</p>
+      </div>
+    </div>
+    <button (click)="toggleExchangeSearch()"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+      Start Exchange
+    </button>
+  </div>
+
+  <!-- Exchange Search Section (Expandable) -->
+  <div *ngIf="showExchangeSearch" class="bg-white rounded-2xl shadow-lg border-2 border-blue-300 p-6 mb-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900">Scan Product to Exchange</h3>
+      <button (click)="toggleExchangeSearch()" class="text-gray-500 hover:text-gray-700">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="space-y-4">
+      <!-- Barcode Scanner Input -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Scan Product Barcode to Find Sale
+        </label>
+        <app-barcode-input
+          [value]="exchangeBarcodeInput"
+          (valueChange)="exchangeBarcodeInput = $event"
+          (scan)="searchSaleByBarcode($event)"
+          placeholder="Scan the barcode on the product being returned...">
+        </app-barcode-input>
+        
+        <div *ngIf="isSearchingSale" class="mt-2 text-sm text-blue-600 flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Searching for sale with this barcode...</span>
+        </div>
+        
+        <p class="mt-2 text-xs text-gray-500 bg-gray-50 rounded p-2">
+          <strong>💡 Instructions:</strong> Scan the barcode on the product the customer wants to return or exchange. 
+          The system will automatically find which sale that product was part of.
+        </p>
+      </div>
+
+      <!-- Error Message -->
+      <div *ngIf="exchangeSearchError" class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        {{ exchangeSearchError }}
+      </div>
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     
     <!-- LEFT: Barcode Scanner & Cart -->
@@ -272,6 +336,16 @@
           <span>Complete Sale</span>
         </button>
 
+        <!-- Exchange Button (shown after sale is completed) -->
+        <button *ngIf="completedSale"
+                (click)="openExchangeModal()"
+                class="w-full mt-3 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 flex items-center justify-center gap-2">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+          </svg>
+          <span>Exchange Items</span>
+        </button>
+
         <div *ngIf="appState.currentSale.length === 0" class="mt-2 text-center text-sm text-gray-500">
           Scan items to enable checkout
         </div>
@@ -289,3 +363,10 @@
                    [show]="showReceiptModal"
                    (close)="onReceiptModalClose()">
 </app-print-receipt>
+
+<!-- Exchange Modal -->
+<app-exchange-modal *ngIf="showExchangeModal && exchangeSale"
+                    [sale]="exchangeSale"
+                    (closed)="closeExchangeModal()"
+                    (exchangeCreated)="onExchangeCreated()">
+</app-exchange-modal>

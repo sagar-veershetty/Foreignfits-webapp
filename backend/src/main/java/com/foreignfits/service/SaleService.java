@@ -53,6 +53,12 @@ public class SaleService {
                 .collect(Collectors.toList());
     }
     
+    public SaleDto getSaleById(Long id) {
+        Sale sale = saleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + id));
+        return convertToDto(sale);
+    }
+    
     public SaleDto createSale(CreateSaleRequest request, Long soldById) {
         System.out.println("Creating sale with salesPersonName: " + request.getSalesPersonName());
         

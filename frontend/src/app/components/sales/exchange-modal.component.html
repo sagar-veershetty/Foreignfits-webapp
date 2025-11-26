@@ -1,0 +1,210 @@
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <!-- Header -->
+    <div class="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
+      <h2 class="text-xl font-bold">Exchange Items - Sale #{{ sale.id }}</h2>
+      <button (click)="close()" class="text-white hover:text-gray-200">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Column: Items to Return -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900">Items to Return</h3>
+          
+          <div class="space-y-2">
+            <div *ngFor="let item of sale.items" class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex-1">
+                  <p class="font-medium text-gray-900">{{ item.product.name }}</p>
+                  <p class="text-sm text-gray-600">{{ item.product.size }} | {{ item.product.color }}</p>
+                  <p class="text-sm text-gray-500">₹{{ item.price }} each</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm text-gray-600">Max: {{ item.quantity }}</p>
+                </div>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700">Return Qty:</label>
+                <input
+                  type="number"
+                  min="0"
+                  [max]="item.quantity"
+                  [value]="selectedReturnItems().get(item.product.id) || 0"
+                  (input)="updateReturnQuantity(item.product.id, +$any($event.target).value, item.quantity)"
+                  class="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span class="text-sm text-gray-600">
+                  = ₹{{ ((selectedReturnItems().get(item.product.id) || 0) * item.price).toFixed(2) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p class="text-sm font-medium text-gray-700">Total Return Value:</p>
+            <p class="text-2xl font-bold text-blue-600">₹{{ returnedTotal().toFixed(2) }}</p>
+          </div>
+        </div>
+
+        <!-- Right Column: New Items to Exchange -->
+        <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-gray-900">New Items for Exchange</h3>
+          
+          <!-- Barcode Search -->
+          <div class="border border-gray-300 rounded-lg p-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Scan/Enter Barcode</label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                [(ngModel)]="searchBarcode"
+                (keyup.enter)="searchProduct()"
+                placeholder="Scan barcode..."
+                class="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                (click)="searchProduct()"
+                [disabled]="isLoading() || !searchBarcode().trim()"
+                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Search
+              </button>
+            </div>
+            
+            <!-- Search Results -->
+            <div *ngIf="searchResults().length > 0" class="mt-3 space-y-2">
+              <div *ngFor="let product of searchResults()" 
+                   class="flex justify-between items-center p-3 bg-white border border-gray-200 rounded">
+                <div>
+                  <p class="font-medium">{{ product.name }}</p>
+                  <p class="text-sm text-gray-600">{{ product.size }} | {{ product.color }}</p>
+                </div>
+                <button
+                  (click)="addExchangeItem(product)"
+                  class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Exchange Items List -->
+          <div class="space-y-2">
+            <div *ngFor="let item of exchangeItems(); let i = index" 
+                 class="border border-gray-200 rounded-lg p-4 bg-white">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex-1">
+                  <p class="font-medium text-gray-900">{{ item.product.name }}</p>
+                  <p class="text-sm text-gray-600">{{ item.product.size }} | {{ item.product.color }}</p>
+                  <p class="text-sm text-gray-500">₹{{ $any(item.product).salePrice || 0 }}</p>
+                </div>
+                <button
+                  (click)="removeExchangeItem(i)"
+                  class="text-red-600 hover:text-red-800"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700">Quantity:</label>
+                <input
+                  type="number"
+                  min="1"
+                  [value]="item.quantity"
+                  (input)="updateExchangeQuantity(i, +$any($event.target).value)"
+                  class="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <span class="text-sm text-gray-600">
+                  = ₹{{ (item.quantity * ($any(item.product).salePrice || 0)).toFixed(2) }}
+                </span>
+              </div>
+            </div>
+
+            <div *ngIf="exchangeItems().length === 0" class="text-center py-8 text-gray-500">
+              No items added yet. Scan barcodes to add items.
+            </div>
+          </div>
+
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <p class="text-sm font-medium text-gray-700">Total Exchange Value:</p>
+            <p class="text-2xl font-bold text-green-600">₹{{ exchangedTotal().toFixed(2) }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Exchange Details -->
+      <div class="mt-6 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p class="text-sm font-medium text-gray-600">Returned</p>
+            <p class="text-xl font-bold text-red-600">₹{{ returnedTotal().toFixed(2) }}</p>
+          </div>
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p class="text-sm font-medium text-gray-600">Exchanged</p>
+            <p class="text-xl font-bold text-green-600">₹{{ exchangedTotal().toFixed(2) }}</p>
+          </div>
+          <div class="bg-blue-50 border border-blue-300 rounded-lg p-4">
+            <p class="text-sm font-medium text-gray-700">Price Difference</p>
+            <p class="text-xl font-bold" [class.text-green-600]="priceDifference() < 0" [class.text-red-600]="priceDifference() > 0">
+              {{ priceDifference() >= 0 ? '+' : '' }}₹{{ priceDifference().toFixed(2) }}
+            </p>
+            <p class="text-xs text-gray-600 mt-1">
+              {{ priceDifference() > 0 ? 'Customer pays' : priceDifference() < 0 ? 'Refund to customer' : 'No difference' }}
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Exchange Reason *</label>
+          <input
+            type="text"
+            [(ngModel)]="exchangeReason"
+            placeholder="e.g., Wrong size, color preference, defective item..."
+            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+          <textarea
+            [(ngModel)]="notes"
+            rows="3"
+            placeholder="Additional notes about the exchange..."
+            class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          ></textarea>
+        </div>
+
+        <div *ngIf="errorMessage()" class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-red-800">{{ errorMessage() }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="border-t border-gray-200 px-6 py-4 flex justify-end gap-3 bg-gray-50">
+      <button
+        (click)="close()"
+        class="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="submitExchange()"
+        [disabled]="!canSubmit() || isLoading()"
+        class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+      >
+        {{ isLoading() ? 'Processing...' : 'Complete Exchange' }}
+      </button>
+    </div>
+  </div>
+</div>

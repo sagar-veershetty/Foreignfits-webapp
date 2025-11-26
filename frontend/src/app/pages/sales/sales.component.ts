@@ -10,12 +10,13 @@ import { LoyaltyService } from '../../core/services/loyalty.service';
 import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation, BarcodeInfo } from '../../core/models';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { PrintReceiptComponent } from './print-receipt.component';
+import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
 
 
 @Component({
   selector: 'app-sales',
   standalone: true,
-  imports: [CommonModule, FormsModule, BarcodeInputComponent, PrintReceiptComponent],
+  imports: [CommonModule, FormsModule, BarcodeInputComponent, PrintReceiptComponent, ExchangeModalComponent],
   templateUrl: './sales.component.html'
 })
 export class SalesComponent implements OnInit {
@@ -32,6 +33,16 @@ export class SalesComponent implements OnInit {
   showSuccessMessage = false;
   successMessage = '';
   isProcessingBarcode = false;
+  
+  // Exchange modal properties
+  showExchangeModal = false;
+  exchangeSale: Sale | null = null;
+  
+  // Exchange search properties
+  showExchangeSearch = false;
+  exchangeBarcodeInput = '';
+  isSearchingSale = false;
+  exchangeSearchError = '';
   
   // Split payment support
   payments: Array<{
@@ -347,6 +358,9 @@ export class SalesComponent implements OnInit {
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
+        // Store the completed sale for exchange option
+        this.completedSale = sale;
+        
         // Build receipt data
         const now = new Date();
         const receiptItems: ReceiptItem[] = appState.currentSale.map(item => ({
@@ -492,5 +506,108 @@ export class SalesComponent implements OnInit {
     }
     
     return true; // Single payment mode is always valid if cart has items
+  }
+
+  /**
+   * Open exchange modal for the last completed sale
+   */
+  openExchangeModal(): void {
+    if (!this.completedSale) {
+      alert('No recent sale found. Please complete a sale first or use Sales History for older sales.');
+      return;
+    }
+    
+    this.exchangeSale = this.completedSale;
+    this.showExchangeModal = true;
+  }
+
+  /**
+   * Close exchange modal
+   */
+  closeExchangeModal(): void {
+    this.showExchangeModal = false;
+    this.exchangeSale = null;
+  }
+
+  /**
+   * Handle successful exchange creation
+   */
+  onExchangeCreated(): void {
+    this.successMessage = 'Exchange completed successfully!';
+    this.showSuccessMessage = true;
+    setTimeout(() => this.showSuccessMessage = false, 5000);
+  }
+
+  /**
+   * Toggle exchange search panel
+   */
+  toggleExchangeSearch(): void {
+    this.showExchangeSearch = !this.showExchangeSearch;
+    if (this.showExchangeSearch) {
+      this.exchangeBarcodeInput = '';
+      this.exchangeSearchError = '';
+    }
+  }
+
+  /**
+   * Search for a sale by scanning product barcode
+   */
+  searchSaleByBarcode(barcodeNumber: string): void {
+    if (!barcodeNumber || !barcodeNumber.trim()) {
+      this.exchangeSearchError = 'Please scan a product barcode';
+      return;
+    }
+
+    this.isSearchingSale = true;
+    this.exchangeSearchError = '';
+
+    // First, lookup the barcode to get its history
+    this.appService.getBarcodeHistoryForBarcode(barcodeNumber).subscribe({
+      next: (history) => {
+        // Find the most recent SOLD event to get the sale ID
+        const soldEvent = history
+          .filter(h => h.eventType === 'SOLD')
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (!soldEvent || !soldEvent.referenceId) {
+          this.isSearchingSale = false;
+          this.exchangeSearchError = `Barcode ${barcodeNumber} has not been sold yet or sale information is not available.`;
+          this.exchangeBarcodeInput = '';
+          return;
+        }
+
+        // Fetch the sale using the reference ID (sale ID)
+        const saleId = soldEvent.referenceId.toString();
+        this.appService.getSaleById(saleId).subscribe({
+          next: (sale) => {
+            this.exchangeSale = sale;
+            this.showExchangeModal = true;
+            this.showExchangeSearch = false;
+            this.isSearchingSale = false;
+            this.exchangeBarcodeInput = '';
+          },
+          error: (error) => {
+            this.isSearchingSale = false;
+            this.exchangeBarcodeInput = '';
+            if (error.status === 404) {
+              this.exchangeSearchError = `Sale not found for barcode ${barcodeNumber}. Please try another barcode.`;
+            } else if (error.status === 403) {
+              this.exchangeSearchError = 'You do not have permission to access this sale.';
+            } else {
+              this.exchangeSearchError = 'Failed to fetch sale. Please try again.';
+            }
+          }
+        });
+      },
+      error: (error) => {
+        this.isSearchingSale = false;
+        this.exchangeBarcodeInput = '';
+        if (error.status === 404) {
+          this.exchangeSearchError = `Barcode ${barcodeNumber} not found in system. Please check and try again.`;
+        } else {
+          this.exchangeSearchError = 'Failed to lookup barcode. Please try again.';
+        }
+      }
+    });
   }
 }

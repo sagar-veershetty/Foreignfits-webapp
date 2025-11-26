@@ -56,4 +56,16 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long> {
      */
     @Query("SELECT b FROM Barcode b JOIN b.product p WHERE p.sku = :sku AND b.currentLocation = :location")
     List<Barcode> findByProductSkuAndLocation(@Param("sku") String sku, @Param("location") Location location);
+    
+    /**
+     * Find ACTIVE barcodes by product SKU and location (for printing)
+     */
+    @Query("SELECT b FROM Barcode b JOIN b.product p WHERE p.sku = :sku AND b.currentLocation = :location AND b.status = 'ACTIVE'")
+    List<Barcode> findActiveBarcodesByProductSkuAndLocation(@Param("sku") String sku, @Param("location") Location location);
+    
+    /**
+     * Count ACTIVE barcodes for a specific product at a specific location
+     */
+    @Query("SELECT COUNT(b) FROM Barcode b WHERE b.product = :product AND b.currentLocation = :location AND b.status = 'ACTIVE'")
+    Long countActiveByProductAndCurrentLocation(@Param("product") Product product, @Param("location") Location location);
 }

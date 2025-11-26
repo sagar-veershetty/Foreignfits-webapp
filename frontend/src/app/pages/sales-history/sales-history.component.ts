@@ -9,11 +9,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { Sale } from '../../core/models';
 import { PrintReceiptComponent } from '../sales/print-receipt.component';
 import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
+import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
 
 @Component({
   selector: 'app-sales-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, PrintReceiptComponent],
+  imports: [CommonModule, FormsModule, PrintReceiptComponent, ExchangeModalComponent],
   templateUrl: './sales-history.component.html'
 })
 export class SalesHistoryComponent implements OnInit, OnDestroy {
@@ -35,6 +36,10 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   // Receipt modal
   showReceiptModal = false;
   receiptData: ReceiptData | null = null;
+
+  // Exchange modal
+  showExchangeModal = false;
+  exchangeSale: Sale | null = null;
 
   constructor(
     private appService: AppService,
@@ -272,5 +277,22 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     // Close sale details modal and open receipt modal
     this.showSaleDetails = false;
     this.showReceiptModal = true;
+  }
+
+  openExchangeModal(sale: Sale): void {
+    this.exchangeSale = sale;
+    this.showExchangeModal = true;
+    this.showSaleDetails = false; // Close sale details if open
+  }
+
+  closeExchangeModal(): void {
+    this.showExchangeModal = false;
+    this.exchangeSale = null;
+  }
+
+  onExchangeCreated(): void {
+    // Reload sales data to reflect the exchange
+    this.appService.loadInitialData().subscribe();
+    this.closeExchangeModal();
   }
 }

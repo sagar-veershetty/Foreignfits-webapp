@@ -56,10 +56,17 @@ public class BarcodeController {
         System.out.println("====== Location found: " + location.getName());
         
         // Use SKU-based query to find barcodes (works across different product instances)
+        // Filter to only return ACTIVE barcodes for printing
         List<Barcode> barcodes = barcodeService.getBarcodesBySkuAtLocation(product.getSku(), location);
-        System.out.println("====== Barcodes found: " + barcodes.size());
+        System.out.println("====== Total barcodes found: " + barcodes.size());
         
-        List<Map<String, Object>> barcodeData = barcodes.stream().map(barcode -> {
+        // Filter for ACTIVE status only (exclude SOLD, DAMAGED, LOST, etc.)
+        List<Barcode> activeBarcodes = barcodes.stream()
+                .filter(b -> "ACTIVE".equals(b.getStatus()))
+                .collect(Collectors.toList());
+        System.out.println("====== Active barcodes found: " + activeBarcodes.size());
+        
+        List<Map<String, Object>> barcodeData = activeBarcodes.stream().map(barcode -> {
             Map<String, Object> data = new HashMap<>();
             data.put("id", barcode.getId());
             data.put("barcodeNumber", barcode.getBarcodeNumber());
