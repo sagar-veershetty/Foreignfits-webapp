@@ -14,7 +14,7 @@ interface SignupData {
   email: string;
   password: string;
   confirmPassword: string;
-  role: 'admin' | 'sales' | 'warehouse';
+  role: 'sales' | 'warehouse'; // Removed 'admin' - admin accounts must be created by existing admins
   locationId: number | null;
 }
 
@@ -33,7 +33,7 @@ export class SignupComponent implements OnInit {
   
   allLocations = signal<Location[]>([]);
   isLoadingLocations = signal(false);
-  selectedRole = signal<'admin' | 'sales' | 'warehouse'>('sales');
+  selectedRole = signal<'sales' | 'warehouse'>('sales'); // Removed 'admin' option
 
   signupData: SignupData = {
     name: '',
@@ -49,9 +49,7 @@ export class SignupComponent implements OnInit {
     const role = this.selectedRole();
     const locations = this.allLocations();
 
-    if (role === 'admin') {
-      return []; // ADMIN doesn't need location
-    } else if (role === 'sales') {
+    if (role === 'sales') {
       // Show only stores for sales users
       return locations.filter(loc => loc.type.toLowerCase() === 'store');
     } else if (role === 'warehouse') {
@@ -64,9 +62,9 @@ export class SignupComponent implements OnInit {
     return [];
   });
 
-  // Computed: Check if location is required
+  // Computed: Check if location is required (always true for sales and warehouse)
   isLocationRequired = computed(() => {
-    return this.selectedRole() === 'sales' || this.selectedRole() === 'warehouse';
+    return true; // Both sales and warehouse require location
   });
 
   constructor(

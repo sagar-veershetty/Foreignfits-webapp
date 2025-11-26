@@ -63,7 +63,7 @@
       </div>
 
       <!-- Low Stock Alerts -->
-      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer" (click)="navigateTo('/inventory')">
+      <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer" (click)="navigateToLowStock()">
         <div class="flex items-center justify-between">
           <div class="flex-1 min-w-0">
             <p class="text-xs sm:text-sm font-medium text-gray-600">Low Stock Alerts</p>
@@ -79,14 +79,15 @@
 
       <!-- Inventory Value -->
       <div class="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 hover:shadow-md transition-shadow">
-        <div class="flex items-center justify-between">
-          <div class="flex-1 min-w-0">
-            <p class="text-xs sm:text-sm font-medium text-gray-600">Inventory Value</p>
-            <p class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">₹{{ statsData.inventoryValue.toFixed(2) }}</p>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex-1 min-w-0 overflow-hidden">
+            <p class="text-xs sm:text-sm font-medium text-gray-600 mb-1">Inventory Value</p>
+            <p class="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 whitespace-nowrap overflow-x-auto scrollbar-hide">₹{{ formatIndianCurrency(statsData.inventoryValue) }}</p>
           </div>
           <div class="bg-purple-50 p-2 sm:p-3 rounded-lg flex-shrink-0">
+            <!-- Indian Rupee Icon -->
             <svg class="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
           </div>
         </div>

@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:5000}
   servlet:
     context-path: /api
 
@@ -8,21 +8,34 @@ spring:
     name: foreign-fits-inventory
   
   datasource:
-    url: jdbc:h2:file:./data/foreignfits;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password: 
-    driver-class-name: org.h2.Driver
+    url: ${DATABASE_URL:jdbc:h2:mem:foreignfits;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
+    driver-class-name: ${DATABASE_DRIVER:org.h2.Driver}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:2}
+      connection-timeout: ${DB_CONN_TIMEOUT:30000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_MAX_LIFETIME:1800000}
     
   jpa:
     hibernate:
-      ddl-auto: create
-    show-sql: true
-    database-platform: org.hibernate.dialect.H2Dialect
+      ddl-auto: ${DDL_AUTO:create}
+    show-sql: ${SHOW_SQL:true}
+    database-platform: ${DATABASE_PLATFORM:org.hibernate.dialect.H2Dialect}
     defer-datasource-initialization: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
     
   sql:
     init:
-      mode: always
+      mode: ${SQL_INIT_MODE:always}
       data-locations: classpath:data.sql
       continue-on-error: false
       
@@ -44,6 +57,8 @@ logging:
     com.foreignfits: DEBUG
     org.springframework.security: DEBUG
     org.hibernate: INFO
+    org.springframework.jdbc: DEBUG
+    org.springframework.boot.autoconfigure: DEBUG
 
 # Management endpoints
 management:

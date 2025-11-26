@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, NavigationEnd } from '@angular/router';
+import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { AppService } from '../../core/services/app.service';
@@ -89,8 +89,9 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const lowStockCount = inventory.filter(item => 
       item.minStock && item.quantity <= item.minStock
     ).length;
+    // Use cost price for inventory valuation (standard accounting practice)
     const totalValue = inventory.reduce((sum, item) => 
-      sum + (item.quantity * item.salePrice), 0
+      sum + (item.quantity * item.cost), 0
     );
 
     return { totalItems, totalStock, lowStockCount, totalValue };
@@ -101,10 +102,18 @@ export class InventoryComponent implements OnInit, OnDestroy {
   constructor(
     public authService: AuthService,
     private appService: AppService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    // Check for lowStock query parameter from navigation
+    this.route.queryParams.subscribe(params => {
+      if (params['lowStock'] === 'true') {
+        this.lowStockOnly.set(true);
+      }
+    });
+
     this.loadData();
     this.setupLocationAutoSelect();
 
@@ -432,5 +441,39 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   get currentEditingItem() {
     return this.editingItem();
+  }
+
+  // Format currency in Indian numbering system
+  formatIndianCurrency(value: number): string {
+    if (value === 0) return '0.00';
+    
+    // Convert to string and split into integer and decimal parts
+    const parts = value.toFixed(2).split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1];
+    
+    // Format integer part with Indian numbering system (lakhs, crores)
+    let formatted = '';
+    const length = integerPart.length;
+    
+    if (length <= 3) {
+      // Less than 1000
+      formatted = integerPart;
+    } else {
+      // Split into groups: last 3 digits, then groups of 2
+      const lastThree = integerPart.substring(length - 3);
+      const remaining = integerPart.substring(0, length - 3);
+      
+      // Format remaining digits in groups of 2 from right to left
+      const groups: string[] = [];
+      for (let i = remaining.length; i > 0; i -= 2) {
+        const start = Math.max(0, i - 2);
+        groups.unshift(remaining.substring(start, i));
+      }
+      
+      formatted = groups.join(',') + ',' + lastThree;
+    }
+    
+    return formatted + '.' + decimalPart;
   }
 }

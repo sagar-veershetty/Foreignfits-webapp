@@ -80,7 +80,16 @@ public class AuthController {
             @RequestParam User.UserRole role,
             @RequestParam(required = false) Long locationId) {
         try {
+            // Prevent admin registration through public signup
+            if (role == User.UserRole.ADMIN) {
+                log.warn("Attempted admin registration blocked for email={}", email);
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Admin accounts cannot be created through signup. Please contact an administrator.");
+                return ResponseEntity.status(403).body(error);
+            }
+            
             UserDto user = userService.createUser(name, email, password, role, locationId);
+            log.info("User registered successfully: email={}, role={}", email, role);
             
             Map<String, Object> response = new HashMap<>();
             response.put("user", user);
@@ -89,6 +98,7 @@ public class AuthController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
+            log.error("Registration error for email={}: {}", email, e.getMessage());
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
