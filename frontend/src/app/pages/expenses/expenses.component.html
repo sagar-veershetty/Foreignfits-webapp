@@ -177,6 +177,17 @@
             </td>
           </tr>
         </tbody>
+        <tfoot class="bg-gray-50 border-t-2 border-gray-300 sticky bottom-0">
+          <tr>
+            <td class="px-6 py-4 text-sm font-bold text-gray-900" colspan="3">
+              Total ({{ filteredExpenses().length }} entries)
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-indigo-600">
+              {{ formatCurrency(totalExpenses()) }}
+            </td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>

@@ -1,17 +1,19 @@
-import { Component, OnInit, signal, computed, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, signal, computed, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ExpenseService } from '../../core/services/expense.service';
 import { AppService } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Expense, ExpenseRequest, ExpenseSummary, ExpenseType, ExpenseStatus, PaymentMethod, Location } from '../../core/models';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-expenses',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './expenses.component.html',
-  styleUrls: ['./expenses.component.scss']
+  styleUrls: ['./expenses.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ExpensesComponent implements OnInit {
   // Signals
@@ -96,9 +98,21 @@ export class ExpensesComponent implements OnInit {
       this.filterLocation.set(user.locationId.toString());
     }
     
-    this.loadLocations();
-    this.loadExpenses();
-    this.loadSummary();
+    // Ensure locations are loaded first
+    this.appService.loadInitialData().subscribe({
+      next: () => {
+        this.loadLocations();
+        this.loadExpenses();
+        this.loadSummary();
+      },
+      error: (err) => {
+        console.error('Error loading initial data:', err);
+        // Still try to load locations from current state
+        this.loadLocations();
+        this.loadExpenses();
+        this.loadSummary();
+      }
+    });
   }
 
   loadLocations() {
@@ -252,11 +266,20 @@ export class ExpensesComponent implements OnInit {
   openAddModal() {
     this.currentEditingExpense.set(null);
     
+    // Ensure locations are loaded
+    const availableLocs = this.availableLocations();
+    if (availableLocs.length === 0) {
+      // Reload locations if not available
+      this.appService.loadInitialData().subscribe(() => {
+        this.loadLocations();
+      });
+    }
+    
     // Set default location based on user role
     const user = this.currentUser();
     const defaultLocationId = user?.role === 'admin' 
-      ? (this.availableLocations()[0]?.id || '') 
-      : (user?.locationId || '');
+      ? (availableLocs[0]?.id.toString() || '') 
+      : (user?.locationId?.toString() || '');
     
     this.expenseForm.set({
       type: 'DAILY_MAINTENANCE',
@@ -314,11 +337,39 @@ export class ExpensesComponent implements OnInit {
 
     operation.subscribe({
       next: () => {
+        console.log('Expense saved successfully, reloading data...');
         this.isAddingExpense.set(false);
         this.closeModal();
         
-        // Force refresh by calling applyFilters which reloads both expenses and summary
-        this.applyFilters();
+        // Reload both expenses and summary
+        const expensesLoad = this.expenseService.getExpensesWithFilters(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined,
+          this.filterType() || undefined,
+          this.filterStatus() || undefined
+        );
+        
+        const summaryLoad = this.expenseService.getExpenseSummary(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined
+        );
+        
+        forkJoin([expensesLoad, summaryLoad]).subscribe({
+          next: ([expensesData, summaryData]) => {
+            console.log('Data reloaded:', expensesData.length, 'expenses');
+            // Create a new array reference to trigger change detection
+            this.expenses.set([...expensesData]);
+            this.summary.set(summaryData);
+            // Force Angular to check for changes
+            this.cdr.markForCheck();
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error reloading data:', err);
+          }
+        });
       },
       error: (err) => {
         console.error('Error saving expense:', err);
@@ -335,7 +386,31 @@ export class ExpensesComponent implements OnInit {
 
     this.expenseService.deleteExpense(expense.id).subscribe({
       next: () => {
-        this.applyFilters();
+        // Reload both expenses and summary
+        const expensesLoad = this.expenseService.getExpensesWithFilters(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined,
+          this.filterType() || undefined,
+          this.filterStatus() || undefined
+        );
+        
+        const summaryLoad = this.expenseService.getExpenseSummary(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined
+        );
+        
+        forkJoin([expensesLoad, summaryLoad]).subscribe({
+          next: ([expensesData, summaryData]) => {
+            this.expenses.set(expensesData);
+            this.summary.set(summaryData);
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error reloading data:', err);
+          }
+        });
       },
       error: (err) => {
         console.error('Error deleting expense:', err);
@@ -346,7 +421,33 @@ export class ExpensesComponent implements OnInit {
 
   approveExpense(expense: Expense) {
     this.expenseService.approveExpense(expense.id).subscribe({
-      next: () => this.applyFilters(),
+      next: () => {
+        // Reload both expenses and summary
+        const expensesLoad = this.expenseService.getExpensesWithFilters(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined,
+          this.filterType() || undefined,
+          this.filterStatus() || undefined
+        );
+        
+        const summaryLoad = this.expenseService.getExpenseSummary(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined
+        );
+        
+        forkJoin([expensesLoad, summaryLoad]).subscribe({
+          next: ([expensesData, summaryData]) => {
+            this.expenses.set(expensesData);
+            this.summary.set(summaryData);
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error reloading data:', err);
+          }
+        });
+      },
       error: (err) => {
         console.error('Error approving expense:', err);
         alert('Failed to approve expense');
@@ -356,7 +457,33 @@ export class ExpensesComponent implements OnInit {
 
   rejectExpense(expense: Expense) {
     this.expenseService.rejectExpense(expense.id).subscribe({
-      next: () => this.applyFilters(),
+      next: () => {
+        // Reload both expenses and summary
+        const expensesLoad = this.expenseService.getExpensesWithFilters(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined,
+          this.filterType() || undefined,
+          this.filterStatus() || undefined
+        );
+        
+        const summaryLoad = this.expenseService.getExpenseSummary(
+          this.filterStartDate(),
+          this.filterEndDate(),
+          this.filterLocation() || undefined
+        );
+        
+        forkJoin([expensesLoad, summaryLoad]).subscribe({
+          next: ([expensesData, summaryData]) => {
+            this.expenses.set(expensesData);
+            this.summary.set(summaryData);
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error reloading data:', err);
+          }
+        });
+      },
       error: (err) => {
         console.error('Error rejecting expense:', err);
         alert('Failed to reject expense');

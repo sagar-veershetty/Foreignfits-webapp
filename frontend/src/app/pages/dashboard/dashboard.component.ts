@@ -61,11 +61,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
       inventory.forEach(item => {
         const existing = productMap.get(item.productSku);
         if (existing) {
-          // Aggregate quantities and use weighted average for prices
-          const totalQty = existing.quantity + item.quantity;
+          // Save the old quantity before updating
+          const oldQty = existing.quantity;
+          const newQty = item.quantity;
+          const totalQty = oldQty + newQty;
+          
+          // Update quantity
           existing.quantity = totalQty;
-          existing.cost = ((existing.cost * existing.quantity) + (item.cost * item.quantity)) / totalQty;
-          existing.salePrice = ((existing.salePrice * existing.quantity) + (item.salePrice * item.quantity)) / totalQty;
+          
+          // Calculate weighted average for prices using old quantities
+          existing.cost = ((existing.cost * oldQty) + (item.cost * newQty)) / totalQty;
+          existing.salePrice = ((existing.salePrice * oldQty) + (item.salePrice * newQty)) / totalQty;
+          
           // For minStock, use the sum across locations
           existing.minStock = (existing.minStock || 0) + (item.minStock || 0);
         } else {
@@ -77,7 +84,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     const totalStock = aggregatedInventory.reduce((sum, item) => sum + item.quantity, 0);
-    const lowStockCount = aggregatedInventory.filter(item => 
+    
+    // For low stock count, use the original inventory (before aggregation)
+    // This matches the Inventory page behavior where each location-product pair is counted
+    const lowStockCount = inventory.filter(item => 
       item.minStock && item.quantity <= item.minStock
     ).length;
     
@@ -290,10 +300,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.selectedLocationId.set(currentUser.locationId);
         this.loadLocationInventory(parseInt(currentUser.locationId));
       } else if (isAdmin) {
-        const locs = this.locations();
-        if (locs.length > 0 && !this.selectedLocationId()) {
-          this.selectedLocationId.set(locs[0].id);
-          this.loadLocationInventory(parseInt(locs[0].id));
+        // Admin: Default to "All Locations" if not already selected
+        if (!this.selectedLocationId()) {
+          this.selectedLocationId.set('');
+          this.loadAllLocationInventory();
         }
       }
     }, 500);
@@ -359,6 +369,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.router.navigate([path]);
   }
 
+  navigateToLowStock(): void {
+    // Navigate to inventory page with low stock filter enabled
+    this.router.navigate(['/inventory'], { 
+      queryParams: { lowStock: 'true' } 
+    });
+  }
+
   // Helper getters for template access (avoid calling signals directly in complex expressions)
   get currentLocationName(): string {
     const locationId = this.selectedLocationId();
@@ -392,5 +409,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   set currentSelectedLocationId(value: string) {
     this.selectedLocationId.set(value);
+  }
+
+  // Format currency in Indian numbering system
+  formatIndianCurrency(value: number): string {
+    if (value === 0) return '0.00';
+    
+    // Convert to string and split into integer and decimal parts
+    const parts = value.toFixed(2).split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1];
+    
+    // Format integer part with Indian numbering system (lakhs, crores)
+    let formatted = '';
+    const length = integerPart.length;
+    
+    if (length <= 3) {
+      // Less than 1000
+      formatted = integerPart;
+    } else {
+      // Split into groups: last 3 digits, then groups of 2
+      const lastThree = integerPart.substring(length - 3);
+      const remaining = integerPart.substring(0, length - 3);
+      
+      // Format remaining digits in groups of 2 from right to left
+      const groups: string[] = [];
+      for (let i = remaining.length; i > 0; i -= 2) {
+        const start = Math.max(0, i - 2);
+        groups.unshift(remaining.substring(start, i));
+      }
+      
+      formatted = groups.join(',') + ',' + lastThree;
+    }
+    
+    return formatted + '.' + decimalPart;
   }
 }

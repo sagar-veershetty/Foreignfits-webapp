@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://foreign-fits-env.eba-ketahdmd.ap-south-1.elasticbeanstalk.com/api',
+  apiUrl: 'http://localhost:8080/api',
   version: '1.0.0'
 };

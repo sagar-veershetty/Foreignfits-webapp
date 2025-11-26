@@ -179,12 +179,16 @@ import { Product, Location } from '../../core/models';
 
           <!-- Actions -->
           <div class="flex gap-3">
-            <button type="submit" [disabled]="!productForm.valid || isCheckingSku || skuError"
+            <button type="submit" [disabled]="!productForm.valid || isCheckingSku || skuError || isSubmitting"
                     class="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h2m0 0h9a2 2 0 002-2v-9a2 2 0 00-2-2h-2m0 0V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0h4"/></svg>
-              <span>{{ isEditMode ? 'Update Product' : 'Add Product' }}</span>
+              <svg *ngIf="!isSubmitting" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h2m0 0h9a2 2 0 002-2v-9a2 2 0 00-2-2h-2m0 0V5a2 2 0 00-2-2H9a2 2 0 00-2 2v2m0 0h4"/></svg>
+              <svg *ngIf="isSubmitting" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>{{ isSubmitting ? 'Processing...' : (isEditMode ? 'Update Product' : 'Add Product') }}</span>
             </button>
-            <button type="button" (click)="resetForm()" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">Reset</button>
+            <button type="button" (click)="resetForm()" [disabled]="isSubmitting" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed">Reset</button>
           </div>
         </form>
       </div>
@@ -218,6 +222,7 @@ export class AddProductComponent implements OnInit {
   creationSuccess = false;
   isEditMode = false;
   editingProductId: string | null = null;
+  isSubmitting = false; // Loading state for form submission
 
   constructor(
     private appService: AppService, 
@@ -325,12 +330,15 @@ export class AddProductComponent implements OnInit {
         location: selectedLocation,
       };
 
+      this.isSubmitting = true; // Start loading
       this.appService.updateProduct(this.editingProductId, product).subscribe({
         next: () => {
+          this.isSubmitting = false; // Stop loading
           alert('Product updated successfully!');
           this.router.navigate(['/inventory']);
         },
         error: (err) => {
+          this.isSubmitting = false; // Stop loading on error
           alert('Failed to update product. Please try again.');
         }
       });
@@ -382,12 +390,15 @@ export class AddProductComponent implements OnInit {
         };
 
         // NEW: createProduct now requires locationId and pricing as separate params
+        this.isSubmitting = true; // Start loading
         this.appService.createProduct(product, locationId, pricing).subscribe({
           next: () => {
+            this.isSubmitting = false; // Stop loading
             // Product added successfully - redirect to dashboard silently (no popup)
             this.router.navigate(['/dashboard']);
           },
           error: (err) => {
+            this.isSubmitting = false; // Stop loading on error
             alert('Failed to add product. Please try again.');
           }
         });
