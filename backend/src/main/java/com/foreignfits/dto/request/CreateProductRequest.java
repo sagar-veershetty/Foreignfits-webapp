@@ -51,12 +51,18 @@ public class CreateProductRequest {
     
     private Boolean isManualSku = false; // True if SKU was manually entered, false if auto-generated
     
+    @Size(max = 50, message = "Bag number cannot exceed 50 characters")
+    private String bagNumber;
+    
     private String description;
     
     private List<String> imageUrls;
     
     @NotNull(message = "Location ID is required")
     private Long locationId;
+    
+    // Whether to apply sale price to all generated barcodes (default: true)
+    private Boolean applyPriceToBarcode = true;
     
     // Manual getters and setters to ensure compatibility
     public String getName() { return name; }
@@ -103,6 +109,9 @@ public class CreateProductRequest {
     public Boolean getIsManualSku() { return isManualSku; }
     public void setIsManualSku(Boolean isManualSku) { this.isManualSku = isManualSku; }
     
+    public String getBagNumber() { return bagNumber; }
+    public void setBagNumber(String bagNumber) { this.bagNumber = bagNumber; }
+    
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     
@@ -111,4 +120,7 @@ public class CreateProductRequest {
     
     public Long getLocationId() { return locationId; }
     public void setLocationId(Long locationId) { this.locationId = locationId; }
+    
+    public Boolean getApplyPriceToBarcode() { return applyPriceToBarcode != null ? applyPriceToBarcode : true; }
+    public void setApplyPriceToBarcode(Boolean applyPriceToBarcode) { this.applyPriceToBarcode = applyPriceToBarcode; }
 }

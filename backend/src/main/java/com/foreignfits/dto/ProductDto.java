@@ -25,6 +25,7 @@ public class ProductDto {
     private Integer stock;
     private Integer minStock;
     private String sku;
+    private String bagNumber;
     private String description;
     private List<String> imageUrls;
     private LocationDto location;
@@ -71,6 +72,9 @@ public class ProductDto {
     
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
+    
+    public String getBagNumber() { return bagNumber; }
+    public void setBagNumber(String bagNumber) { this.bagNumber = bagNumber; }
     
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

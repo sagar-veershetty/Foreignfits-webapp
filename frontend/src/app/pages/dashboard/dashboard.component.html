@@ -164,7 +164,7 @@
       </div>
     </div>
     <!-- Quick Actions -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
       <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Quick Actions</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <button (click)="navigateTo('/inventory')" 
@@ -199,125 +199,6 @@
             <p class="text-xs sm:text-sm text-purple-700">Process customer orders</p>
           </div>
         </button>
-      </div>
-    </div>
-
-    <!-- Product Catalog Section -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
-      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div>
-          <h2 class="text-lg sm:text-xl font-bold text-gray-900">Product Catalog</h2>
-          <p class="text-xs sm:text-sm text-gray-600 mt-1">Browse our available products</p>
-        </div>
-        <div class="flex items-center gap-2 text-sm text-gray-600">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-          </svg>
-          <span class="font-semibold">{{ catalogProducts.length }}</span> products available
-        </div>
-      </div>
-
-      <!-- Search and Filter -->
-      <div class="flex flex-col sm:flex-row gap-3 mb-4 sm:mb-6">
-        <!-- Search Bar -->
-        <div class="flex-1 relative">
-          <input 
-            type="text" 
-            [(ngModel)]="currentSearchQuery"
-            placeholder="Search by name, SKU, size, or color..."
-            class="w-full px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-          <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-        </div>
-
-        <!-- Category Filter -->
-        <div class="w-full sm:w-48">
-          <select 
-            [(ngModel)]="currentSelectedCategory"
-            class="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-            <option value="all">All Categories</option>
-            <option *ngFor="let category of availableCategories" [value]="category">
-              {{ category | titlecase }}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Product Grid -->
-      <div *ngIf="catalogProducts.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div *ngFor="let item of catalogProducts" 
-             class="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
-          <!-- Product Image Placeholder -->
-          <div class="bg-gradient-to-br from-indigo-100 to-purple-100 h-48 flex items-center justify-center relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 group-hover:from-indigo-500/20 group-hover:to-purple-500/20 transition-all"></div>
-            <svg class="w-20 h-20 text-indigo-300 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
-            </svg>
-            <!-- Stock badge -->
-            <div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-full text-xs font-semibold"
-                 [ngClass]="item.quantity > 10 ? 'text-green-700' : item.quantity > 5 ? 'text-yellow-700' : 'text-orange-700'">
-              {{ item.quantity }} in stock
-            </div>
-          </div>
-
-          <!-- Product Details -->
-          <div class="p-4">
-            <h3 class="font-semibold text-gray-900 mb-1 truncate" title="{{ item.productName }}">
-              {{ item.productName }}
-            </h3>
-            
-            <!-- Product Meta -->
-            <div class="flex flex-wrap gap-2 mb-3">
-              <span *ngIf="item.size" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                {{ item.size }}
-              </span>
-              <span *ngIf="item.color" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                {{ item.color }}
-              </span>
-              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-                {{ item.category | titlecase }}
-              </span>
-            </div>
-
-            <!-- Pricing -->
-            <div class="flex items-baseline justify-between">
-              <div>
-                <p class="text-2xl font-bold text-indigo-600">₹{{ item.salePrice.toFixed(2) }}</p>
-                <p class="text-xs text-gray-500">SKU: {{ item.productSku }}</p>
-              </div>
-              
-              <!-- Availability indicator -->
-              <div class="text-right">
-                <div class="flex items-center gap-1"
-                     [ngClass]="item.quantity > 10 ? 'text-green-600' : item.quantity > 5 ? 'text-yellow-600' : 'text-orange-600'">
-                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                  </svg>
-                  <span class="text-xs font-medium">Available</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Wholesale Price (if applicable) -->
-            <div *ngIf="item.wholesalePrice && item.wholesaleMinQuantity" 
-                 class="mt-3 pt-3 border-t border-gray-200">
-              <p class="text-xs text-gray-600">
-                Wholesale: <span class="font-semibold text-gray-900">₹{{ item.wholesalePrice.toFixed(2) }}</span>
-                <span class="text-gray-500">(min {{ item.wholesaleMinQuantity }} units)</span>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div *ngIf="catalogProducts.length === 0" class="text-center py-12">
-        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
-        </svg>
-        <p class="text-gray-600 font-medium">No products found</p>
-        <p class="text-sm text-gray-500 mt-1">Try adjusting your search or filter</p>
       </div>
     </div>
   </div>

@@ -33,7 +33,7 @@ public class BarcodeService {
     private BarcodeHistoryService barcodeHistoryService;
     
     /**
-     * Generate unique barcodes for a product at a location
+     * Generate unique barcodes for a product at a location (legacy method - uses null prices)
      * @param product The product to generate barcodes for
      * @param location The initial location for the barcodes
      * @param quantity Number of barcodes to generate
@@ -41,11 +41,26 @@ public class BarcodeService {
      */
     @Transactional
     public List<Barcode> generateBarcodes(Product product, Location location, int quantity) {
+        return generateBarcodes(product, location, quantity, null, null);
+    }
+    
+    /**
+     * Generate unique barcodes for a product at a location with individual pricing
+     * @param product The product to generate barcodes for
+     * @param location The initial location for the barcodes
+     * @param quantity Number of barcodes to generate
+     * @param purchasePrice Individual purchase price for each barcode (can be null)
+     * @param salePrice Individual sale price for each barcode (can be null)
+     * @return List of generated barcodes
+     */
+    @Transactional
+    public List<Barcode> generateBarcodes(Product product, Location location, int quantity, 
+                                          Double purchasePrice, Double salePrice) {
         List<Barcode> barcodes = new ArrayList<>();
         
         for (int i = 0; i < quantity; i++) {
             String barcodeNumber = generateUniqueBarcodeNumber(product);
-            Barcode barcode = new Barcode(barcodeNumber, product, location);
+            Barcode barcode = new Barcode(barcodeNumber, product, location, purchasePrice, salePrice);
             Barcode savedBarcode = barcodeRepository.save(barcode);
             barcodes.add(savedBarcode);
             
@@ -72,16 +87,19 @@ public class BarcodeService {
     
     /**
      * Generate a unique barcode number for a product
-     * Format: SKU-UUID(8 chars)
+     * Format: SKU(4 chars)-UUID(5 chars) = 10 chars total
      */
     private String generateUniqueBarcodeNumber(Product product) {
         String barcodeNumber;
         int attempts = 0;
         
         do {
-            // Generate barcode: SKU + 8 random characters
-            String uniqueId = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
-            barcodeNumber = product.getSku() + "-" + uniqueId;
+            // Generate barcode: First 4 chars of SKU + 5 random characters = 10 chars total
+            String skuPrefix = product.getSku().length() >= 4 ? 
+                product.getSku().substring(0, 4).toUpperCase() : 
+                String.format("%-4s", product.getSku()).replace(' ', 'X').toUpperCase();
+            String uniqueId = UUID.randomUUID().toString().replace("-", "").substring(0, 5).toUpperCase();
+            barcodeNumber = skuPrefix + uniqueId;
             attempts++;
             
             if (attempts > 100) {
@@ -187,6 +205,51 @@ public class BarcodeService {
         }
         
         return barcodeRepository.save(barcode);
+    }
+    
+    /**
+     * Update individual barcode price
+     * @param barcodeId The barcode ID to update
+     * @param purchasePrice New purchase price (null to keep existing)
+     * @param salePrice New sale price (null to keep existing)
+     * @return Updated barcode
+     */
+    @Transactional
+    public Barcode updateBarcodePrice(Long barcodeId, Double purchasePrice, Double salePrice) {
+        Barcode barcode = barcodeRepository.findById(barcodeId)
+            .orElseThrow(() -> new RuntimeException("Barcode not found with id: " + barcodeId));
+        
+        if (purchasePrice != null) {
+            barcode.setPurchasePrice(purchasePrice);
+        }
+        if (salePrice != null) {
+            barcode.setSalePrice(salePrice);
+        }
+        
+        return barcodeRepository.save(barcode);
+    }
+    
+    /**
+     * Update multiple barcode prices at once
+     * @param barcodeIds List of barcode IDs to update
+     * @param purchasePrice Purchase price to apply to all (null to skip)
+     * @param salePrice Sale price to apply to all (null to skip)
+     * @return List of updated barcodes
+     */
+    @Transactional
+    public List<Barcode> updateBarcodePricesBulk(List<Long> barcodeIds, Double purchasePrice, Double salePrice) {
+        List<Barcode> updatedBarcodes = new ArrayList<>();
+        
+        for (Long barcodeId : barcodeIds) {
+            try {
+                Barcode updated = updateBarcodePrice(barcodeId, purchasePrice, salePrice);
+                updatedBarcodes.add(updated);
+            } catch (Exception e) {
+                log.error("Failed to update price for barcode ID: " + barcodeId, e);
+            }
+        }
+        
+        return updatedBarcodes;
     }
     
     /**

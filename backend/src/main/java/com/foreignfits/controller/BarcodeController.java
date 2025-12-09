@@ -76,6 +76,8 @@ public class BarcodeController {
             data.put("status", barcode.getStatus());
             data.put("remark", barcode.getRemark());
             data.put("createdAt", barcode.getCreatedAt());
+            data.put("purchasePrice", barcode.getPurchasePrice());
+            data.put("salePrice", barcode.getSalePrice());
             return data;
         }).collect(Collectors.toList());
         
@@ -133,6 +135,8 @@ public class BarcodeController {
             "type", barcode.getCurrentLocation().getType()
         ));
         data.put("createdAt", barcode.getCreatedAt());
+        data.put("purchasePrice", barcode.getPurchasePrice());
+        data.put("salePrice", barcode.getSalePrice());
         
         return ResponseEntity.ok(data);
     }
@@ -205,6 +209,97 @@ public class BarcodeController {
         response.put("barcodeNumber", barcode.getBarcodeNumber());
         response.put("status", barcode.getStatus());
         response.put("remark", barcode.getRemark());
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Update individual barcode price
+     * Allows updating purchase and/or sale price for a specific barcode
+     */
+    @PatchMapping("/{barcodeId}/price")
+    @PreAuthorize("hasAnyAuthority('edit:inventory', 'manage:inventory', 'manage:products')")
+    public ResponseEntity<Map<String, Object>> updateBarcodePrice(
+            @PathVariable Long barcodeId,
+            @RequestBody Map<String, Double> priceData
+    ) {
+        Double purchasePrice = priceData.get("purchasePrice");
+        Double salePrice = priceData.get("salePrice");
+        
+        Barcode barcode = barcodeService.updateBarcodePrice(barcodeId, purchasePrice, salePrice);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("barcodeNumber", barcode.getBarcodeNumber());
+        response.put("purchasePrice", barcode.getPurchasePrice());
+        response.put("salePrice", barcode.getSalePrice());
+        response.put("message", "Barcode price updated successfully");
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Update multiple barcode prices at once
+     * Useful for bulk price adjustments
+     */
+    @PatchMapping("/bulk-price")
+    @PreAuthorize("hasAnyAuthority('manage:inventory', 'manage:products')")
+    public ResponseEntity<Map<String, Object>> updateBarcodePricesBulk(
+            @RequestBody Map<String, Object> requestData
+    ) {
+        @SuppressWarnings("unchecked")
+        List<Long> barcodeIds = (List<Long>) requestData.get("barcodeIds");
+        Double purchasePrice = requestData.get("purchasePrice") != null ? 
+            ((Number) requestData.get("purchasePrice")).doubleValue() : null;
+        Double salePrice = requestData.get("salePrice") != null ? 
+            ((Number) requestData.get("salePrice")).doubleValue() : null;
+        
+        List<Barcode> updatedBarcodes = barcodeService.updateBarcodePricesBulk(
+            barcodeIds, purchasePrice, salePrice
+        );
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("updatedCount", updatedBarcodes.size());
+        response.put("message", updatedBarcodes.size() + " barcode(s) updated successfully");
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get price statistics for a product
+     * Returns min, max, and average prices for all barcodes of a product
+     */
+    @GetMapping("/product/{productId}/price-stats")
+    @PreAuthorize("hasAnyAuthority('view:inventory', 'view:products')")
+    public ResponseEntity<Map<String, Object>> getProductPriceStats(@PathVariable Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+        
+        // Get all barcodes for this product (across all locations)
+        List<Barcode> barcodes = barcodeRepository.findByProductSku(product.getSku());
+        
+        // Calculate price statistics
+        List<Double> salePrices = barcodes.stream()
+                .map(Barcode::getSalePrice)
+                .filter(price -> price != null && price > 0)
+                .collect(Collectors.toList());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("productId", productId);
+        response.put("productSku", product.getSku());
+        response.put("totalBarcodes", barcodes.size());
+        response.put("barcodesWithPrice", salePrices.size());
+        
+        if (!salePrices.isEmpty()) {
+            response.put("minPrice", salePrices.stream().min(Double::compareTo).orElse(0.0));
+            response.put("maxPrice", salePrices.stream().max(Double::compareTo).orElse(0.0));
+            response.put("avgPrice", salePrices.stream().mapToDouble(Double::doubleValue).average().orElse(0.0));
+        } else {
+            response.put("minPrice", null);
+            response.put("maxPrice", null);
+            response.put("avgPrice", null);
+        }
         
         return ResponseEntity.ok(response);
     }

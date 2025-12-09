@@ -186,82 +186,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .slice(0, 5);
   });
 
-  // Product catalog for customers - all products with stock > 0
-  productCatalog = computed(() => {
-    const inventory = this.locationInventory();
-    const products = this.products();
-    const isAllLocations = this.selectedLocationId() === '';
-    
-    let catalogItems = inventory;
-    
-    // If showing all locations, aggregate by product SKU
-    if (isAllLocations) {
-      const productMap = new Map<string, LocationInventoryItem>();
-      inventory.forEach(item => {
-        const existing = productMap.get(item.productSku);
-        if (existing) {
-          const oldQty = existing.quantity;
-          const newQty = item.quantity;
-          const totalQty = oldQty + newQty;
-          existing.quantity = totalQty;
-          // Use weighted average for sale price
-          existing.salePrice = ((existing.salePrice * oldQty) + (item.salePrice * newQty)) / totalQty;
-        } else {
-          productMap.set(item.productSku, { ...item });
-        }
-      });
-      catalogItems = Array.from(productMap.values());
-    }
-    
-    // Filter to only show products with stock > 0 and enrich with product details
-    return catalogItems
-      .filter(item => item.quantity > 0)
-      .map(item => {
-        const product = products.find(p => p.sku === item.productSku);
-        return {
-          ...item,
-          product: product,
-          category: product?.category || 'general',
-          size: product?.size || '',
-          color: product?.color || ''
-        };
-      })
-      .sort((a, b) => a.productName.localeCompare(b.productName));
-  });
-
-  // Search and filter state
-  searchQuery = signal<string>('');
-  selectedCategory = signal<string>('all');
-
-  // Filtered product catalog based on search and category
-  filteredProductCatalog = computed(() => {
-    const catalog = this.productCatalog();
-    const query = this.searchQuery().toLowerCase();
-    const category = this.selectedCategory();
-    
-    return catalog.filter(item => {
-      // Category filter
-      if (category !== 'all' && item.category !== category) {
-        return false;
-      }
-      
-      // Search filter
-      if (query) {
-        const searchIn = `${item.productName} ${item.productSku} ${item.size} ${item.color}`.toLowerCase();
-        return searchIn.includes(query);
-      }
-      
-      return true;
-    });
-  });
-
-  // Get unique categories from products
-  categories = computed(() => {
-    const products = this.products();
-    const uniqueCategories = new Set(products.map(p => p.category));
-    return Array.from(uniqueCategories).sort();
-  });
-
   constructor(
     public authService: AuthService,
     private appService: AppService,
@@ -485,30 +409,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   set currentSelectedLocationId(value: string) {
     this.selectedLocationId.set(value);
-  }
-
-  get catalogProducts() {
-    return this.filteredProductCatalog();
-  }
-
-  get availableCategories() {
-    return this.categories();
-  }
-
-  get currentSearchQuery() {
-    return this.searchQuery();
-  }
-
-  set currentSearchQuery(value: string) {
-    this.searchQuery.set(value);
-  }
-
-  get currentSelectedCategory() {
-    return this.selectedCategory();
-  }
-
-  set currentSelectedCategory(value: string) {
-    this.selectedCategory.set(value);
   }
 
   // Format currency in Indian numbering system

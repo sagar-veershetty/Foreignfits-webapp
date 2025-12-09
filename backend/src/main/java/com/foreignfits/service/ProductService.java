@@ -129,6 +129,7 @@ public class ProductService {
         
         product.setSku(request.getSku());
         product.setIsManualSku(request.getIsManualSku() != null ? request.getIsManualSku() : false);
+        product.setBagNumber(request.getBagNumber()); // Set bag number
         product.setDescription(request.getDescription());
         product.setImageUrls(request.getImageUrls());
         // Location removed from Product - it's organization-wide master data
@@ -214,10 +215,16 @@ public class ProductService {
             
             // Generate unique barcodes for each unit of initial stock
             if (isAdminAtSupplier) {
+                // Determine if we should apply price to barcodes
+                Double purchasePrice = request.getApplyPriceToBarcode() ? request.getCost().doubleValue() : null;
+                Double salePrice = request.getApplyPriceToBarcode() ? request.getSalePrice().doubleValue() : null;
+                
                 List<Barcode> generatedBarcodes = barcodeService.generateBarcodes(
                     savedProduct, 
                     location, 
-                    request.getStock()
+                    request.getStock(),
+                    purchasePrice,
+                    salePrice
                 );
                 System.out.println("Generated " + generatedBarcodes.size() + " barcodes for product " + savedProduct.getSku());
             }
@@ -247,6 +254,7 @@ public class ProductService {
         // Pricing removed from Product - use LocationInventory
         // minStock removed - use LocationInventory
         product.setSku(request.getSku());
+        product.setBagNumber(request.getBagNumber()); // Update bag number
         product.setDescription(request.getDescription());
         // barcode removed - use Barcode table
         product.setImageUrls(request.getImageUrls());
@@ -283,6 +291,7 @@ public class ProductService {
         dto.setMinStock(0); // Deprecated - use LocationInventory for location-specific min stock
         
         dto.setSku(product.getSku());
+        dto.setBagNumber(product.getBagNumber()); // Include bag number
         dto.setDescription(product.getDescription());
         dto.setImageUrls(product.getImageUrls());
         dto.setCreatedBy(product.getCreatedBy());

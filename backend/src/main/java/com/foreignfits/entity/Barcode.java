@@ -52,6 +52,12 @@ public class Barcode {
     @Column(name = "remark", length = 255)
     private String remark; // Additional notes: "Damaged - small tear", "Customer return", etc.
     
+    @Column(name = "purchase_price")
+    private Double purchasePrice; // Individual purchase/cost price for this specific barcode
+    
+    @Column(name = "sale_price")
+    private Double salePrice; // Individual sale price for this specific barcode
+    
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -67,5 +73,16 @@ public class Barcode {
         this.barcodeNumber = barcodeNumber;
         this.product = product;
         this.currentLocation = location;
+    }
+    
+    /**
+     * Constructor for creating a new barcode with individual prices
+     */
+    public Barcode(String barcodeNumber, Product product, Location location, Double purchasePrice, Double salePrice) {
+        this.barcodeNumber = barcodeNumber;
+        this.product = product;
+        this.currentLocation = location;
+        this.purchasePrice = purchasePrice;
+        this.salePrice = salePrice;
     }
 }

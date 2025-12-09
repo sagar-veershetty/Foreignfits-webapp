@@ -155,8 +155,13 @@ export class SalesComponent implements OnInit {
         updatedAt: new Date()
       };
 
-      // Use sale price from location inventory
-      const unitPrice = inventory.salePrice;
+      // Use individual barcode sale price if available, fallback to location inventory price
+      const unitPrice = barcodeInfo.salePrice || inventory.salePrice;
+      
+      // Warn if barcode doesn't have individual price
+      if (!barcodeInfo.salePrice || barcodeInfo.salePrice <= 0) {
+        console.warn(`Barcode ${barcodeNumber} does not have an individual sale price. Using location inventory price: ${inventory.salePrice}`);
+      }
 
       // Check if there's already an item for this product (to group multiple barcodes of same product)
       const existingProductItem = appState.currentSale.find(item => item.productId === product.id);
@@ -164,8 +169,22 @@ export class SalesComponent implements OnInit {
       if (existingProductItem && existingProductItem.barcodes) {
         // Add this barcode to existing item
         existingProductItem.barcodes.push(barcodeNumber);
+        
+        // Store individual barcode price
+        if (!existingProductItem.barcodePrices) {
+          existingProductItem.barcodePrices = {};
+        }
+        existingProductItem.barcodePrices[barcodeNumber] = unitPrice;
+        
+        // Update quantity
         existingProductItem.quantity = existingProductItem.barcodes.length;
-        existingProductItem.total = existingProductItem.quantity * existingProductItem.price;
+        
+        // Calculate total by summing all individual barcode prices
+        existingProductItem.total = Object.values(existingProductItem.barcodePrices).reduce((sum, price) => sum + price, 0);
+        
+        // Update average price for display
+        existingProductItem.price = existingProductItem.total / existingProductItem.quantity;
+        
         // Trigger state update
         this.appService.appStateBehaviorSubject.next({
           ...appState,
@@ -179,7 +198,8 @@ export class SalesComponent implements OnInit {
           quantity: 1,
           price: unitPrice,
           total: unitPrice,
-          barcodes: [barcodeNumber] // Store the scanned barcode
+          barcodes: [barcodeNumber], // Store the scanned barcode
+          barcodePrices: { [barcodeNumber]: unitPrice } // Store individual barcode price
         };
 
         this.appService.addToSale(saleItem);

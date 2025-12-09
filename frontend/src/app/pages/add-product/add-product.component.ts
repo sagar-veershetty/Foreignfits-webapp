@@ -81,6 +81,16 @@ import { Product, Location } from '../../core/models';
               <label class="block text-sm font-medium text-gray-700 mb-2">Initial Stock *</label>
               <input type="number" required min="0" [(ngModel)]="formData.stock" name="stock" placeholder="0"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <div *ngIf="formData.stock > 0" class="mt-2">
+                <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input type="checkbox" [(ngModel)]="applyPriceToBarcode" name="applyPriceToBarcode" 
+                         class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                  <span>Apply sale price to all barcodes (₹{{ formData.price.toFixed(2) }})</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-1 ml-6">
+                  When checked, all {{ formData.stock }} barcodes will have the sale price. Uncheck to set prices individually later.
+                </p>
+              </div>
             </div>
             <!-- Min Stock -->
             <div>
@@ -145,10 +155,20 @@ import { Product, Location } from '../../core/models';
             <div *ngIf="skuError" class="mt-1 text-sm text-red-600">{{ skuError }}</div>
             <div *ngIf="!skuError && isCheckingSku" class="mt-1 text-sm text-gray-500">Checking SKU...</div>
             <p class="text-xs text-gray-500 mt-1">
-              <span *ngIf="!isManualSku">Auto-generated from Name(2) + Category(3) + Size + Color(3) + Random(4)</span>
+              <span *ngIf="!isManualSku">Auto-generated from Name(2) + Category(3) + Random(4)</span>
               <span *ngIf="isManualSku">Enter a unique SKU manually</span>
               <span class="ml-2" *ngIf="formData.stock > 0">• {{ formData.stock }} barcodes will be generated</span>
             </p>
+          </div>
+
+          <!-- Bag Number -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Bag Number</label>
+            <input type="text" [(ngModel)]="formData.bagNumber" name="bagNumber" 
+                   placeholder="e.g., BAG-001, A-12, Rack-3-Shelf-2"
+                   maxlength="50"
+                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            <p class="text-xs text-gray-500 mt-1">Physical location identifier to help warehouse staff locate this product quickly</p>
           </div>
 
           <!-- Images uploader -->
@@ -210,6 +230,7 @@ export class AddProductComponent implements OnInit {
     stock: 150,
     minStock: 20,
     sku: '',
+    bagNumber: '',
     description: 'Premium quality denim jacket with vintage wash finish. Features button closure, chest pockets, and comfortable fit.',
     imageUrls: [] as string[],
     locationId: '',
@@ -219,6 +240,7 @@ export class AddProductComponent implements OnInit {
   skuError: string | null = null;
   isCheckingSku = false;
   isManualSku = false; // Toggle for manual SKU entry
+  applyPriceToBarcode = true; // Toggle for applying price to barcodes (default: true)
   creationSuccess = false;
   isEditMode = false;
   editingProductId: string | null = null;
@@ -286,6 +308,7 @@ export class AddProductComponent implements OnInit {
             stock: prod.stock || 0,
             minStock: prod.minStock || 0,
             sku: prod.sku,
+            bagNumber: prod.bagNumber || '',
             description: prod.description || '',
             imageUrls: prod.imageUrls || [],
             locationId: prod.locationId || '',
@@ -367,6 +390,7 @@ export class AddProductComponent implements OnInit {
           size: this.formData.size,
           color: this.formData.color,
           sku: this.formData.sku,
+          bagNumber: this.formData.bagNumber,
           description: this.formData.description,
           imageUrls: this.formData.imageUrls,
           // Deprecated fields - set to null for compatibility
@@ -391,7 +415,7 @@ export class AddProductComponent implements OnInit {
 
         // NEW: createProduct now requires locationId and pricing as separate params
         this.isSubmitting = true; // Start loading
-        this.appService.createProduct(product, locationId, pricing).subscribe({
+        this.appService.createProduct(product, locationId, pricing, this.applyPriceToBarcode).subscribe({
           next: () => {
             this.isSubmitting = false; // Stop loading
             // Product added successfully - redirect to dashboard silently (no popup)
@@ -423,6 +447,7 @@ export class AddProductComponent implements OnInit {
       stock: 0,
       minStock: 0,
       sku: '',
+      bagNumber: '',
       description: '',
       imageUrls: [],
       locationId: '',

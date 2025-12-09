@@ -2,8 +2,10 @@ package com.foreignfits.controller;
 
 import com.foreignfits.dto.LocationInventoryDto;
 import com.foreignfits.entity.LocationInventory;
+import com.foreignfits.entity.Product;
 import com.foreignfits.entity.User;
 import com.foreignfits.repository.LocationInventoryRepository;
+import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.service.LocationInventoryService;
 import com.foreignfits.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/inventory")
@@ -24,6 +27,7 @@ public class LocationInventoryController {
     private final LocationInventoryService inventoryService;
     private final UserService userService;
     private final LocationInventoryRepository inventoryRepository;
+    private final ProductRepository productRepository;
     
     /**
      * Get all inventory across all locations (Admin only)
@@ -32,6 +36,57 @@ public class LocationInventoryController {
     @PreAuthorize("hasAuthority('view:inventory')")
     public ResponseEntity<List<LocationInventoryDto>> getAllInventory() {
         return ResponseEntity.ok(inventoryService.getAllInventory());
+    }
+    
+    /**
+     * Public endpoint: Get product catalog for marketing/promotional purposes
+     * Returns basic product information without sensitive data like cost
+     * No authentication required
+     */
+    @GetMapping("/public/catalog")
+    public ResponseEntity<List<Map<String, Object>>> getPublicCatalog() {
+        List<LocationInventoryDto> allInventory = inventoryService.getAllInventory();
+        
+        // Get all unique product IDs
+        Map<Long, Product> productCache = new HashMap<>();
+        List<Long> productIds = allInventory.stream()
+            .map(LocationInventoryDto::getProductId)
+            .distinct()
+            .toList();
+        
+        // Fetch all products at once
+        productRepository.findAllById(productIds).forEach(p -> productCache.put(p.getId(), p));
+        
+        // Transform to public catalog format - remove sensitive information
+        List<Map<String, Object>> catalog = allInventory.stream()
+            .filter(inv -> inv.getQuantity() > 0) // Only show in-stock items
+            .map(inv -> {
+                Map<String, Object> item = new HashMap<>();
+                Product product = productCache.get(inv.getProductId());
+                
+                item.put("productSku", inv.getProductSku());
+                item.put("productName", inv.getProductName());
+                item.put("salePrice", inv.getSalePrice());
+                item.put("category", product != null ? product.getCategory() : "general");
+                item.put("size", product != null ? product.getSize() : "");
+                item.put("color", product != null ? product.getColor() : "");
+                item.put("available", inv.getQuantity() > 0);
+                
+                // Include product images if available
+                if (product != null && product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
+                    item.put("imageUrls", product.getImageUrls());
+                }
+                
+                // Optionally include wholesale pricing if available
+                if (inv.getWholesalePrice() != null && inv.getWholesaleMinQuantity() != null) {
+                    item.put("wholesalePrice", inv.getWholesalePrice());
+                    item.put("wholesaleMinQuantity", inv.getWholesaleMinQuantity());
+                }
+                return item;
+            })
+            .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(catalog);
     }
     
     /**

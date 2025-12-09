@@ -206,6 +206,13 @@ export class AppService {
     return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}`, { status, remark });
   }
 
+  updateBarcodePrice(barcodeId: number, purchasePrice: number, salePrice: number): Observable<any> {
+    return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}/price`, { 
+      purchasePrice, 
+      salePrice 
+    });
+  }
+
   // Barcode History Methods
   getBarcodeHistory(params?: {
     barcodeNumber?: string;
@@ -325,11 +332,12 @@ export class AppService {
   createProduct(
     product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
     locationId: number,
-    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number }
+    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number },
+    applyPriceToBarcode?: boolean
   ): Observable<Product> {
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
-    const request = this.convertProductToCreateRequest(product, locationId, pricing);
+    const request = this.convertProductToCreateRequest(product, locationId, pricing, applyPriceToBarcode);
     return this.http.post<Product>(`${this.API_BASE_URL}/products`, request)
       .pipe(
         tap(apiProduct => {
@@ -366,6 +374,7 @@ export class AppService {
       size: product.size,
       color: product.color,
       sku: product.sku,
+      bagNumber: product.bagNumber, // Include bag number
       description: product.description,
       imageUrls: product.imageUrls,
     };
@@ -632,6 +641,7 @@ export class AppService {
       size: apiProduct.size,
       color: apiProduct.color,
       sku: apiProduct.sku,
+      bagNumber: apiProduct.bagNumber, // Include bag number
       description: apiProduct.description,
       imageUrls: apiProduct.imageUrls || [],
       createdAt: new Date(apiProduct.createdAt),
@@ -772,7 +782,8 @@ export class AppService {
   private convertProductToCreateRequest(
     product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>,
     locationId: number,
-    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number }
+    pricing: { cost: number; salePrice: number; wholesalePrice?: number; wholesaleMinQuantity?: number },
+    applyPriceToBarcode?: boolean
   ): any {
     return {
       name: product.name,
@@ -780,6 +791,7 @@ export class AppService {
       size: product.size,
       color: product.color,
       sku: product.sku,
+      bagNumber: product.bagNumber, // Include bag number
       description: product.description,
       imageUrls: product.imageUrls,
       locationId: locationId,
@@ -791,6 +803,8 @@ export class AppService {
       // Initial stock for first location
       stock: product.stock || 0,
       minStock: product.minStock || 0,
+      // Barcode pricing (optional)
+      applyPriceToBarcode: applyPriceToBarcode !== false, // Default to true
     };
   }
 
@@ -939,6 +953,20 @@ export class AppService {
     return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/all`)
       .pipe(
         catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+  
+  /**
+   * Get public product catalog (no authentication required)
+   * Returns products without sensitive information like cost
+   */
+  getPublicCatalog(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/public/catalog`)
+      .pipe(
+        catchError(error => {
+          console.error('Failed to load public catalog:', error);
           return throwError(() => error);
         })
       );

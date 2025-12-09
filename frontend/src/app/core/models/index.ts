@@ -8,6 +8,7 @@ export interface Product {
   color: string;
   sku: string;
   isManualSku?: boolean;
+  bagNumber?: string;
   description?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -33,8 +34,11 @@ export interface LocationInventory {
   id: string;
   locationId: string;
   locationName: string;
+  locationType?: string;
   productSku: string;
+  productId?: string;
   productName: string;
+  product?: Product; // Full product details including bagNumber
   quantity: number;
   minStock: number;
   maxStock: number;
@@ -46,6 +50,13 @@ export interface LocationInventory {
   wholesalePrice?: number;
   wholesaleMinQuantity?: number;
   
+  lastRestockDate?: Date;
+  lastSaleDate?: Date;
+  lastMovementId?: number;
+  isLowStock?: boolean;
+  isOverStock?: boolean;
+  shouldReorder?: boolean;
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,9 +67,11 @@ export interface Barcode {
   productSku: string;
   productName: string;
   locationName: string;
-  status: 'ACTIVE' | 'DAMAGED' | 'LOST' | 'SOLD';
+  status: 'ACTIVE' | 'DAMAGED' | 'LOST' | 'SOLD' | 'PENDING_TRANSFER' | 'INACTIVE';
   remark?: string;
   createdAt: Date;
+  purchasePrice?: number;  // Individual barcode purchase price
+  salePrice?: number;       // Individual barcode sale price
 }
 
 export interface BarcodeHistory {
@@ -101,6 +114,8 @@ export interface BarcodeInfo {
   barcodeNumber: string;
   status: string;
   remark?: string;
+  purchasePrice?: number;  // Individual barcode purchase price
+  salePrice?: number;       // Individual barcode sale price
   product: {
     id: string;
     name: string;
@@ -120,9 +135,10 @@ export interface SaleItem {
   productId: string;
   product: Product;
   quantity: number;
-  price: number;
+  price: number; // Average or first barcode price (for display compatibility)
   total: number;
   barcodes?: string[]; // Scanned barcode numbers for this item
+  barcodePrices?: { [barcodeNumber: string]: number }; // Individual barcode prices
 }
 
 export interface SalePayment {

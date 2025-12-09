@@ -187,6 +187,144 @@
     </div>
   </div>
 
+  <!-- Product Catalog Section -->
+  <div class="bg-gradient-to-br from-gray-50 to-blue-50 py-20">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center mb-12">
+        <h2 class="text-4xl font-bold text-gray-900 mb-4">Browse Our Collection</h2>
+        <p class="text-xl text-gray-600">Discover our latest fashion products</p>
+        <p *ngIf="!isLoadingProducts && catalogProducts.length > 0" class="text-sm text-gray-500 mt-2">
+          {{ catalogProducts.length }} products available
+        </p>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="flex flex-col sm:flex-row gap-4 mb-8 max-w-3xl mx-auto">
+        <!-- Search Bar -->
+        <div class="flex-1 relative">
+          <input 
+            type="text" 
+            [(ngModel)]="currentSearchQuery"
+            placeholder="Search by name, SKU, size, or color..."
+            class="w-full px-4 py-3 pl-12 text-sm border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+          <svg class="absolute left-4 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="w-full sm:w-56">
+          <select 
+            [(ngModel)]="currentSelectedCategory"
+            class="w-full px-4 py-3 text-sm border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+            <option value="all">All Categories</option>
+            <option *ngFor="let category of availableCategories" [value]="category">
+              {{ category | titlecase }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoadingProducts" class="text-center py-16">
+        <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-600"></div>
+        <p class="mt-4 text-gray-600">Loading products...</p>
+      </div>
+
+      <!-- Product Grid -->
+      <div *ngIf="!isLoadingProducts && catalogProducts.length > 0" 
+           class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div *ngFor="let item of catalogProducts" 
+             class="bg-white border-2 border-gray-200 rounded-2xl overflow-hidden hover:shadow-2xl hover:border-blue-300 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer">
+          <!-- Product Image -->
+          <div class="h-56 bg-gray-100 flex items-center justify-center relative overflow-hidden group">
+            <!-- Actual Product Image -->
+            <img 
+              *ngIf="item.product?.imageUrls && (item.product?.imageUrls?.length || 0) > 0" 
+              [src]="item.product!.imageUrls![0]" 
+              [alt]="item.productName"
+              class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+              (error)="$any($event.target).src='/logo.jpeg'">
+            
+            <!-- Placeholder when no image -->
+            <div *ngIf="!item.product?.imageUrls || (item.product?.imageUrls?.length || 0) === 0" 
+                 class="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 w-full h-full flex items-center justify-center relative">
+              <div class="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 group-hover:from-blue-500/20 group-hover:to-purple-500/20 transition-all"></div>
+              <svg class="w-24 h-24 text-blue-300 group-hover:text-blue-400 transition-colors group-hover:scale-110 transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+              </svg>
+            </div>
+            
+            <!-- Stock badge -->
+            <div class="absolute top-3 right-3 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold shadow-lg"
+                 [ngClass]="item.quantity > 10 ? 'text-green-700' : item.quantity > 5 ? 'text-yellow-700' : 'text-orange-700'">
+              ✓ In Stock
+            </div>
+          </div>
+
+          <!-- Product Details -->
+          <div class="p-5">
+            <h3 class="font-bold text-gray-900 mb-2 text-lg truncate" title="{{ item.productName }}">
+              {{ item.productName }}
+            </h3>
+            
+            <!-- Product Meta -->
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span *ngIf="item.size" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                {{ item.size }}
+              </span>
+              <span *ngIf="item.color" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                {{ item.color }}
+              </span>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                {{ item.category | titlecase }}
+              </span>
+            </div>
+
+            <!-- Pricing -->
+            <div class="flex items-center justify-between pt-3 border-t border-gray-200">
+              <div>
+                <p class="text-2xl font-bold text-blue-600">₹{{ item.salePrice.toFixed(2) }}</p>
+                <p class="text-xs text-gray-500 mt-1">SKU: {{ item.productSku }}</p>
+              </div>
+              
+              <!-- View Details Button -->
+              <button (click)="navigateToLogin()" 
+                      class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg">
+                View
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoadingProducts && catalogProducts.length === 0" class="text-center py-16">
+        <svg class="w-20 h-20 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+        </svg>
+        <p class="text-gray-600 font-medium text-lg">No products found</p>
+        <p class="text-sm text-gray-500 mt-2">Try adjusting your search or filter</p>
+      </div>
+
+      <!-- Call to Action -->
+      <div *ngIf="!isLoadingProducts && catalogProducts.length > 0" class="text-center mt-12">
+        <!-- Show "Go to Dashboard" for authenticated users -->
+        <button *ngIf="(isAuthenticated$ | async)"
+                (click)="navigateToDashboard()"
+                class="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-2xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105">
+          Go to Dashboard
+        </button>
+        <!-- Show "Sign Up" for non-authenticated users -->
+        <button *ngIf="!(isAuthenticated$ | async)"
+                (click)="navigateToSignup()"
+                class="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-2xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105">
+          Sign Up to Shop
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <div class="bg-gray-900 text-white py-12">
     <div class="max-w-7xl mx-auto px-6">

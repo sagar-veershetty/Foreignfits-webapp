@@ -17,7 +17,7 @@ INSERT INTO locations (id, name, type, address, city, state, zip_code, phone, ma
 -- Password for all accounts: admin123
 -- This is a BCrypt hash for the password "admin123"
 -- Admin assigned to Supplier location (ID 1)
--- 1 Warehouse user (for Gaumukh Warehouse)
+-- Warehouse user for Gaumukh Warehouse
 -- 1 Sales Manager (manages all stores)
 -- 2 Sales Representatives (one for each store)
 INSERT INTO users (id, name, email, password, role, location_id, is_active, created_at, updated_at) VALUES

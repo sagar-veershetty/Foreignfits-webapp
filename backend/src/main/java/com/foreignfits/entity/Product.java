@@ -57,6 +57,10 @@ public class Product {
     @Column(name = "is_manual_sku", nullable = false)
     private Boolean isManualSku = false; // True if SKU was manually entered, false if auto-generated
     
+    @Size(max = 50, message = "Bag number cannot exceed 50 characters")
+    @Column(name = "bag_number", length = 50)
+    private String bagNumber; // Physical bag number for warehouse organization
+    
     @Column(columnDefinition = "TEXT")
     private String description;
     
@@ -161,6 +165,9 @@ public class Product {
     
     public Boolean getIsManualSku() { return isManualSku; }
     public void setIsManualSku(Boolean isManualSku) { this.isManualSku = isManualSku; }
+    
+    public String getBagNumber() { return bagNumber; }
+    public void setBagNumber(String bagNumber) { this.bagNumber = bagNumber; }
     
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

@@ -255,6 +255,12 @@ export class PrintBarcodeComponent implements OnInit {
   currentUserLocation: any = null;
   locationInventory: any[] = []; // Store location-specific inventory
   
+  // Price editing state
+  expandedPriceEditors: { [productId: string]: boolean } = {}; // Track which price editors are expanded
+  savingPrices: { [barcodeId: string]: boolean } = {}; // Track saving state for individual barcodes (string key for barcode.id)
+  savingBulkPrices: { [productId: string]: boolean } = {}; // Track bulk update state
+  bulkPrices: { [productId: string]: { purchase?: number; sale?: number } } = {}; // Bulk price inputs
+  
   ngOnInit() {
     const user = this.authService.getCurrentUser();
     
@@ -560,17 +566,17 @@ export class PrintBarcodeComponent implements OnInit {
         const barcode = availableBarcodes[i];
         const code = barcode?.barcodeNumber || product.sku || product.id;
         
-        // Render barcode SVG
+        // Render barcode SVG with MAXIMUM thickness for scanner
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         try {
-          JsBarcode(svg, code, { format: 'CODE128', width: 2, height: 48, displayValue: false, margin: 0 });
+          JsBarcode(svg, code, { format: 'CODE128', width: 5.0, height: 70, displayValue: false, margin: 10 });
         } catch (e) {
-          try { JsBarcode(svg, code, { format: 'CODE39', width: 2, height: 48, displayValue: false, margin: 0 }); } catch {}
+          try { JsBarcode(svg, code, { format: 'CODE39', width: 5.0, height: 70, displayValue: false, margin: 10 }); } catch {}
         }
         const svgMarkup = new XMLSerializer().serializeToString(svg);
         
-        // Compose label HTML with price
-        const price = this.productPrices[product.id] || 0;
+        // Use individual barcode price, fallback to product price if not set
+        const price = barcode?.salePrice || this.productPrices[product.id] || 0;
         let labelHtml = ''
           + '<div class="sticker-card-mock">'
           + '<div class="sticker-brand-header">FOREIGN FITS</div>'
@@ -617,7 +623,7 @@ export class PrintBarcodeComponent implements OnInit {
               flex-direction: column;
               align-items: center;
               justify-content: flex-start;
-              gap: 0;
+              gap: 0.5mm;
               width: 100%;
               min-height: 0;
               margin: 0 auto;
@@ -626,7 +632,7 @@ export class PrintBarcodeComponent implements OnInit {
             .sticker-card-mock {
               background: #fff;
               border: 1px solid #e5e7eb;
-              margin: 2px;
+              margin: 4px 0;
               padding: 2px 4px;
               display: flex;
               flex-direction: column;
@@ -787,6 +793,203 @@ export class PrintBarcodeComponent implements OnInit {
   escapeHtml(text: string): string {
     const map: { [key: string]: string } = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
     return String(text).replace(/[&<>"']/g, (m) => map[m]);
+  }
+
+  // Get price range for a product's barcodes
+  getProductPriceRange(productId: string): string {
+    const barcodes = this.productBarcodes[productId] || [];
+    const prices = barcodes
+      .map(b => b.salePrice)
+      .filter((p): p is number => p !== null && p !== undefined && p > 0);
+    
+    if (prices.length === 0) {
+      const fallbackPrice = this.productPrices[productId] || 0;
+      return `₹${fallbackPrice.toFixed(2)}`;
+    }
+    
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    
+    if (minPrice === maxPrice) {
+      return `₹${minPrice.toFixed(2)}`;
+    }
+    
+    return `₹${minPrice.toFixed(2)} - ₹${maxPrice.toFixed(2)}`;
+  }
+
+  // Check if product has variable pricing
+  hasVariablePricing(productId: string): boolean {
+    const barcodes = this.productBarcodes[productId] || [];
+    const prices = barcodes
+      .map(b => b.salePrice)
+      .filter((p): p is number => p !== null && p !== undefined && p > 0);
+    
+    if (prices.length <= 1) return false;
+    
+    const uniquePrices = new Set(prices);
+    return uniquePrices.size > 1;
+  }
+
+  // Check if any barcode is missing price
+  hasMissingPrices(productId: string): boolean {
+    const barcodes = this.productBarcodes[productId] || [];
+    return barcodes.some(b => !b.salePrice || b.salePrice <= 0);
+  }
+
+  // Toggle price editor for a product
+  togglePriceEditor(productId: string): void {
+    this.expandedPriceEditors[productId] = !this.expandedPriceEditors[productId];
+    
+    // Initialize bulk prices if not exists
+    if (!this.bulkPrices[productId]) {
+      this.bulkPrices[productId] = {};
+    }
+  }
+
+  // Update bulk price value (needed for proper two-way binding)
+  updateBulkPrice(productId: string, field: 'purchase' | 'sale', value: number): void {
+    if (!this.bulkPrices[productId]) {
+      this.bulkPrices[productId] = {};
+    }
+    this.bulkPrices[productId][field] = value;
+  }
+
+  // Get only the barcodes that will be printed (based on print quantity)
+  getBarcodesToPrint(productId: string): Barcode[] {
+    const allBarcodes = this.productBarcodes[productId] || [];
+    const printQuantity = this.productQuantities[productId] || 1;
+    const availableCount = this.getAvailableBarcodeCount(productId);
+    const countToPrint = Math.min(printQuantity, availableCount);
+    
+    // Return only the first N barcodes that will actually be printed
+    return allBarcodes.slice(0, countToPrint);
+  }
+
+  // Get count to show in UI
+  getPrintableCount(productId: string): number {
+    const printQuantity = this.productQuantities[productId] || 1;
+    const availableCount = this.getAvailableBarcodeCount(productId);
+    return Math.min(printQuantity, availableCount);
+  }
+
+  // Save individual barcode price
+  saveBarcodePrice(productId: string, barcode: Barcode): void {
+    if (!barcode.id || barcode.salePrice === undefined || barcode.salePrice === null) {
+      alert('Please enter sale price.');
+      return;
+    }
+
+    if (barcode.salePrice < 0) {
+      alert('Price cannot be negative.');
+      return;
+    }
+
+    this.savingPrices[barcode.id] = true;
+
+    // Convert string ID to number for API call
+    const barcodeIdNum = parseInt(barcode.id, 10);
+    
+    // Use existing purchase price or 0 if not set
+    const purchasePrice = barcode.purchasePrice || 0;
+    
+    this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, barcode.salePrice).subscribe({
+      next: () => {
+        this.savingPrices[barcode.id] = false;
+        
+        // Reload barcodes for this product to get updated data
+        this.loadBarcodesForProduct(productId);
+        
+        // Show success feedback
+        console.log('Price updated successfully');
+      },
+      error: (err) => {
+        this.savingPrices[barcode.id] = false;
+        console.error('Failed to update barcode price:', err);
+        alert('Failed to update price. Please try again.');
+      }
+    });
+  }
+
+  // Bulk update all barcode prices for a product
+  bulkUpdatePrices(productId: string): void {
+    const bulkPrice = this.bulkPrices[productId];
+    
+    if (!bulkPrice || bulkPrice.sale === undefined || bulkPrice.sale === null) {
+      alert('Please enter sale price.');
+      return;
+    }
+
+    if (bulkPrice.sale < 0) {
+      alert('Price cannot be negative.');
+      return;
+    }
+
+    // Only update barcodes that will be printed
+    const barcodes = this.getBarcodesToPrint(productId);
+    if (barcodes.length === 0) {
+      alert('No barcodes found for this product.');
+      return;
+    }
+
+    const confirmMsg = `Update ${barcodes.length} barcode(s) that will be printed with:\n` +
+      `Sale Price: ₹${bulkPrice.sale.toFixed(2)}\n` +
+      '\nContinue?';
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    this.savingBulkPrices[productId] = true;
+    let updateCount = 0;
+    let errorCount = 0;
+
+    // Update each barcode
+    barcodes.forEach((barcode, index) => {
+      const purchasePrice = barcode.purchasePrice || 0; // Keep existing or use 0
+      const salePrice = bulkPrice.sale!; // Use the bulk sale price
+
+      // Convert string ID to number for API call
+      const barcodeIdNum = parseInt(barcode.id, 10);
+
+      this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, salePrice).subscribe({
+        next: () => {
+          updateCount++;
+          
+          // Update local data
+          barcode.purchasePrice = purchasePrice;
+          barcode.salePrice = salePrice;
+          
+          // If all updates complete, reload and show success
+          if (updateCount + errorCount === barcodes.length) {
+            this.savingBulkPrices[productId] = false;
+            this.loadBarcodesForProduct(productId);
+            
+            if (errorCount === 0) {
+              alert(`Successfully updated ${updateCount} barcode(s).`);
+            } else {
+              alert(`Updated ${updateCount} barcode(s). ${errorCount} failed.`);
+            }
+            
+            // Clear bulk price inputs
+            this.bulkPrices[productId] = {};
+          }
+        },
+        error: (err) => {
+          errorCount++;
+          console.error(`Failed to update barcode ${barcode.barcodeNumber}:`, err);
+          
+          // If all updates complete (even with errors), show result
+          if (updateCount + errorCount === barcodes.length) {
+            this.savingBulkPrices[productId] = false;
+            this.loadBarcodesForProduct(productId);
+            alert(`Updated ${updateCount} barcode(s). ${errorCount} failed.`);
+            
+            // Clear bulk price inputs
+            this.bulkPrices[productId] = {};
+          }
+        }
+      });
+    });
   }
 
   close() {

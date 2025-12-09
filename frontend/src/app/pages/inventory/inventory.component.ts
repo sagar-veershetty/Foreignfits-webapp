@@ -213,7 +213,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
           salePrice: inv.salePrice || 0,  // Already in rupees from backend
           wholesalePrice: inv.wholesalePrice || null,  // Already in rupees from backend
           wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
-          product: productsMap.get(inv.productSku)
+          // Use product from API response if available (includes bagNumber), otherwise fallback to local products
+          product: inv.product || productsMap.get(inv.productSku)
         }));
         this.locationInventory.set(items);
         this.isLoading.set(false);
@@ -244,7 +245,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
           salePrice: inv.salePrice || 0,
           wholesalePrice: inv.wholesalePrice || null,
           wholesaleMinQuantity: inv.wholesaleMinQuantity || null,
-          product: productsMap.get(inv.productSku)
+          // Use product from API response if available (includes bagNumber), otherwise fallback to local products
+          product: inv.product || productsMap.get(inv.productSku)
         }));
         this.locationInventory.set(items);
         this.isLoading.set(false);

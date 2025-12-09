@@ -101,6 +101,8 @@ public class SaleService {
             
             // Validate each barcode
             List<com.foreignfits.entity.Barcode> validatedBarcodes = new ArrayList<>();
+            BigDecimal itemTotal = BigDecimal.ZERO;
+            
             for (String barcodeNumber : itemRequest.getBarcodeNumbers()) {
                 com.foreignfits.entity.Barcode barcode = barcodeService.findByBarcodeNumber(barcodeNumber);
                 
@@ -121,8 +123,17 @@ public class SaleService {
                         barcode.getProduct().getName());
                 }
                 
+                // Use individual barcode price
+                if (barcode.getSalePrice() == null || barcode.getSalePrice() <= 0) {
+                    throw new RuntimeException("Barcode " + barcodeNumber + " does not have a valid sale price. Please set a price before selling.");
+                }
+                
+                itemTotal = itemTotal.add(BigDecimal.valueOf(barcode.getSalePrice()));
                 validatedBarcodes.add(barcode);
             }
+            
+            // Calculate average unit price for display purposes
+            BigDecimal avgUnitPrice = itemTotal.divide(new BigDecimal(itemRequest.getQuantity()), 2, RoundingMode.HALF_UP);
             
             // Products are now organization-wide - no location check needed on product
             // Check inventory at sale location
@@ -136,20 +147,12 @@ public class SaleService {
                     ". Available: " + inventory.getQuantity() + ", Requested: " + itemRequest.getQuantity());
             }
             
-            // Determine price from LocationInventory (wholesale vs retail)
-            BigDecimal unitPrice = (inventory.getWholesaleMinQuantity() != null && 
-                                   itemRequest.getQuantity() >= inventory.getWholesaleMinQuantity() &&
-                                   inventory.getWholesalePrice() != null)
-                ? inventory.getWholesalePrice() 
-                : inventory.getSalePrice();
-            
-            BigDecimal itemTotal = unitPrice.multiply(new BigDecimal(itemRequest.getQuantity()));
-            
+            // Create sale item using individual barcode prices
             SaleItem saleItem = new SaleItem();
             saleItem.setProduct(product);
             saleItem.setQuantity(itemRequest.getQuantity());
-            saleItem.setPrice(unitPrice);
-            saleItem.setTotal(itemTotal);
+            saleItem.setPrice(avgUnitPrice); // Store average price for display
+            saleItem.setTotal(itemTotal); // Use actual sum of individual prices
             saleItem.setBarcodes(validatedBarcodes); // ✅ Store the actual barcodes used
             
             saleItems.add(saleItem);
@@ -246,8 +249,8 @@ public class SaleService {
             
             // ✅ BARCODE INTEGRATION: Mark the specific scanned barcodes as SOLD
             for (com.foreignfits.entity.Barcode barcode : item.getBarcodes()) {
-                barcode.setStatus("SOLD");
-                barcode.setRemark("Sold in Sale #" + savedSale.getId() + " at " + LocalDateTime.now());
+                // Update barcode status to SOLD
+                barcodeService.updateBarcodeRemark(barcode.getId(), "SOLD", "Sold in Sale #" + savedSale.getId() + " at " + LocalDateTime.now());
                 
                 // Record barcode sale in history
                 try {

@@ -1,6 +1,7 @@
 package com.foreignfits.service;
 
 import com.foreignfits.dto.LocationInventoryDto;
+import com.foreignfits.dto.ProductDto;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.LocationInventory;
 import com.foreignfits.entity.Product;
@@ -255,6 +256,26 @@ public class LocationInventoryService {
         if (inventory.getProduct() != null) {
             dto.setProductId(inventory.getProduct().getId());
             dto.setProductName(inventory.getProduct().getName());
+            
+            // Include full product details
+            ProductDto productDto = new ProductDto();
+            productDto.setId(inventory.getProduct().getId());
+            productDto.setName(inventory.getProduct().getName());
+            productDto.setCategory(inventory.getProduct().getCategory());
+            productDto.setSize(inventory.getProduct().getSize());
+            productDto.setColor(inventory.getProduct().getColor());
+            productDto.setSku(inventory.getProduct().getSku());
+            productDto.setBagNumber(inventory.getProduct().getBagNumber());
+            productDto.setDescription(inventory.getProduct().getDescription());
+            productDto.setImageUrls(inventory.getProduct().getImageUrls());
+            productDto.setCreatedBy(inventory.getProduct().getCreatedBy());
+            productDto.setIsApproved(inventory.getProduct().getIsApproved());
+            productDto.setApprovedBy(inventory.getProduct().getApprovedBy());
+            productDto.setApprovedAt(inventory.getProduct().getApprovedAt());
+            productDto.setCreatedAt(inventory.getProduct().getCreatedAt());
+            productDto.setUpdatedAt(inventory.getProduct().getUpdatedAt());
+            
+            dto.setProduct(productDto);
         }
         
         dto.setQuantity(inventory.getQuantity());

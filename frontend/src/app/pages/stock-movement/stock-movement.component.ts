@@ -55,6 +55,9 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     notes: ''
   };
   
+  // Product search for transfer
+  transferProductSearch = signal<string>('');
+  
   // Barcode Transfer Form (Warehouse/Store - barcode-based)
   barcodeTransferForm = {
     fromLocationId: '',
@@ -310,6 +313,9 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     
     // Clear selected product as it may not be available at new location
     this.transferForm.productId = '';
+    
+    // Clear search query
+    this.transferProductSearch.set('');
   }
 
   // Handle adjustment location change
@@ -362,6 +368,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   getTransferableProducts(): Product[] {
     const inventory = this.transferFromLocationInventory();
     const allProducts = this.products();
+    const searchQuery = this.transferProductSearch().toLowerCase().trim();
     
     if (!this.transferForm.fromLocationId || inventory.length === 0) {
       return [];
@@ -369,7 +376,26 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     
     // Only show products that have inventory at the FROM location
     const availableSkus = new Set(inventory.map((inv: any) => inv.productSku));
-    return allProducts.filter(p => availableSkus.has(p.sku));
+    let availableProducts = allProducts.filter(p => availableSkus.has(p.sku));
+    
+    // Apply search filter if search query exists
+    if (searchQuery) {
+      availableProducts = availableProducts.filter(product => {
+        const matchesName = product.name.toLowerCase().includes(searchQuery);
+        const matchesSku = product.sku.toLowerCase().includes(searchQuery);
+        const matchesBagNumber = product.bagNumber?.toLowerCase().includes(searchQuery);
+        return matchesName || matchesSku || matchesBagNumber;
+      });
+    }
+    
+    return availableProducts;
+  }
+  
+  // Get available quantity for a specific product at the FROM location
+  getProductAvailableQuantity(productSku: string): number {
+    const inventory = this.transferFromLocationInventory();
+    const item = inventory.find((inv: any) => inv.productSku === productSku);
+    return item?.quantity || 0;
   }
 
   // Get products available at the selected location for adjustment
@@ -507,6 +533,8 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     if (preserveFromLocation) {
       this.transferFromLocationId.set(preserveFromLocation);
     }
+    // Clear search
+    this.transferProductSearch.set('');
   }
 
   clearMessages() {

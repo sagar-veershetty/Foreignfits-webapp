@@ -18,6 +18,7 @@ public class LocationInventoryDto {
     private String productSku;
     private Long productId;
     private String productName;
+    private ProductDto product; // Full product details including bagNumber
     private Integer quantity;
     private Integer minStock;
     private Integer maxStock;
