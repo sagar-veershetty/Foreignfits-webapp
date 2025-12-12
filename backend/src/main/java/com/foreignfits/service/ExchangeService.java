@@ -60,7 +60,7 @@ public class ExchangeService {
         newSale.setSubtotal(exchangedTotal);
         newSale.setTax(BigDecimal.ZERO);
         newSale.setTotal(exchangedTotal);
-        newSale.setPaymentMethod(Sale.PaymentMethod.OTHER);
+        newSale.setPaymentMethod(Sale.PaymentMethod.UPI);
         newSale.setSoldBy(user);
         newSale.setCreatedAt(LocalDateTime.now());
         newSale = saleRepository.save(newSale);

@@ -212,7 +212,7 @@ public class SaleService {
                     payments.add(salePaymentRepository.save(payment));
                 } catch (IllegalArgumentException e) {
                     throw new RuntimeException("Invalid payment method: " + paymentDto.getPaymentMethod() + 
-                        ". Valid values are: CASH, CARD, OTHER");
+                        ". Valid values are: CASH, CARD, UPI, OTHER");
                 }
             }
             savedSale.setPayments(payments);

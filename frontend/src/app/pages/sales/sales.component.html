@@ -251,8 +251,8 @@
             <button (click)="paymentMethod = 'card'" [class]="paymentMethod === 'card' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
               Card
             </button>
-            <button (click)="paymentMethod = 'other'" [class]="paymentMethod === 'other' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
-              Other
+            <button (click)="paymentMethod = 'upi'" [class]="paymentMethod === 'upi' ? 'flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg' : 'flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'">
+              UPI
             </button>
           </div>
 
@@ -263,7 +263,7 @@
               <select [(ngModel)]="payment.paymentMethod" class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-shrink-0 w-24">
                 <option value="CASH">Cash</option>
                 <option value="CARD">Card</option>
-                <option value="OTHER">Other</option>
+                <option value="UPI">UPI</option>
               </select>
               <div class="flex-1">
                 <input 

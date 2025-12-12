@@ -7,21 +7,22 @@ import { Subscription } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Sale, SaleItem } from '../../core/models';
+import { SalesChartsComponent } from '../../components/sales-charts/sales-charts.component';
 
 type Period = 'today' | 'week' | 'month' | 'custom';
 
 @Component({
   selector: 'app-sales-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SalesChartsComponent],
   template: `
-    <div class="max-w-7xl mx-auto px-4 space-y-6" *ngIf="state as s">
-      <button class="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700" (click)="router.navigate(['/dashboard'])">
+    <div class="max-w-7xl mx-auto px-4 py-6" *ngIf="appState$ | async as state">
+      <button class="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 mb-4" (click)="router.navigate(['/dashboard'])">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         <span>Back to Overview</span>
       </button>
 
-      <div class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-8 rounded-xl shadow-lg">
+      <div class="bg-gradient-to-r from-purple-600 to-indigo-700 text-white p-8 rounded-xl shadow-lg mb-6">
         <div class="flex items-center justify-between">
           <div>
             <h1 class="text-3xl font-bold mb-2">Sales Analytics</h1>
@@ -35,36 +36,37 @@ type Period = 'today' | 'week' | 'month' | 'custom';
       </div>
 
       <!-- Filters -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center gap-2">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center gap-2 mb-6">
         <div class="text-gray-700 font-medium mr-2">Sales Period: {{ periodLabel }}</div>
         <div class="flex gap-2">
-          <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('today')" (click)="setPeriod('today')">Today</button>
-          <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('week')" (click)="setPeriod('week')">This Week</button>
-          <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('month')" (click)="setPeriod('month')">This Month</button>
+          <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('today')" (click)="setPeriod('today'); updateData(state)">Today</button>
+          <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('week')" (click)="setPeriod('week'); updateData(state)">This Week</button>
+          <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('month')" (click)="setPeriod('month'); updateData(state)">This Month</button>
           <button class="px-3 py-1.5 rounded-lg" [ngClass]="btnClass('custom')" (click)="setPeriod('custom')">Custom</button>
         </div>
         <div *ngIf="period==='custom'" class="flex items-center gap-2 ml-2">
           <input type="date" [(ngModel)]="from" class="px-3 py-1.5 border border-gray-300 rounded-lg"/>
           <span class="text-gray-400">to</span>
           <input type="date" [(ngModel)]="to" class="px-3 py-1.5 border border-gray-300 rounded-lg"/>
-          <button class="px-3 py-1.5 rounded-lg bg-gray-900 text-white" (click)="refresh()">Apply</button>
+          <button class="px-3 py-1.5 rounded-lg bg-gray-900 text-white" (click)="updateData(state)">Apply</button>
         </div>
         <div class="flex-1"></div>
-        <select *ngIf="isAdmin()" [(ngModel)]="locationFilter" class="px-3 py-1.5 border border-gray-300 rounded-lg">
+        <select *ngIf="isAdmin()" [(ngModel)]="locationFilter" (change)="updateData(state)" class="px-3 py-1.5 border border-gray-300 rounded-lg">
           <option value="all">All Locations</option>
-          <option *ngFor="let location of s.locations" [value]="location.id">{{ location.name }} ({{ location.type }})</option>
+          <option *ngFor="let location of state.locations" [value]="location.id">{{ location.name }} ({{ location.type }})</option>
         </select>
-        <select [(ngModel)]="paymentFilter" class="px-3 py-1.5 border border-gray-300 rounded-lg">
+        <select [(ngModel)]="paymentFilter" (change)="updateData(state)" class="px-3 py-1.5 border border-gray-300 rounded-lg">
           <option value="all">All Payments</option>
           <option value="cash">Cash</option>
           <option value="card">Card</option>
+          <option value="upi">UPI</option>
           <option value="other">Other</option>
         </select>
         <button class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700" (click)="exportCsv()">Export CSV</button>
       </div>
 
       <!-- KPI Row -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <div class="text-sm text-gray-600">Total Sales</div>
           <div class="text-3xl font-bold text-gray-900">{{ filtered.length }}</div>
@@ -87,11 +89,14 @@ type Period = 'today' | 'week' | 'month' | 'custom';
         </div>
       </div>
 
+      <!-- Sales Charts -->
+      <app-sales-charts [sales]="filtered" [products]="state.products"></app-sales-charts>
+
       <!-- Payment Methods and Top Products -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <div class="text-gray-900 font-semibold mb-3">Payment Methods</div>
-          <div *ngIf="payments.length; else noPay" class="space-y-1 text-sm">
+          <div *ngIf="payments.length > 0; else noPay" class="space-y-1 text-sm">
             <div *ngFor="let p of payments" class="flex items-center justify-between">
               <span class="capitalize">{{ p.method }}</span>
               <span class="font-medium">{{ p.count }}</span>
@@ -104,7 +109,7 @@ type Period = 'today' | 'week' | 'month' | 'custom';
 
         <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
           <div class="text-gray-900 font-semibold mb-3">Top Products by Revenue</div>
-          <div *ngIf="topProducts.length; else noTop" class="space-y-1 text-sm">
+          <div *ngIf="topProducts.length > 0; else noTop" class="space-y-1 text-sm">
             <div *ngFor="let t of topProducts" class="flex items-center justify-between">
               <span class="truncate max-w-[220px]" [title]="t.name">{{ t.name }}</span>
               <span class="font-medium">₹{{ t.revenue | number:'1.2-2' }}</span>
@@ -136,14 +141,14 @@ type Period = 'today' | 'week' | 'month' | 'custom';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let s of filtered" class="border-t">
-                <td class="px-3 py-2">{{ s.createdAt | date:'short' }}</td>
-                <td class="px-3 py-2">#{{ s.id }}</td>
-                <td class="px-3 py-2">{{ s.items.length }}</td>
-                <td class="px-3 py-2 text-right">₹{{ s.subtotal | number:'1.2-2' }}</td>
-                <td class="px-3 py-2 text-right">₹{{ s.tax | number:'1.2-2' }}</td>
-                <td class="px-3 py-2 text-right">₹{{ s.total | number:'1.2-2' }}</td>
-                <td class="px-3 py-2 capitalize">{{ s.paymentMethod }}</td>
+              <tr *ngFor="let sale of filtered" class="border-t">
+                <td class="px-3 py-2">{{ sale.createdAt | date:'short' }}</td>
+                <td class="px-3 py-2">#{{ sale.id }}</td>
+                <td class="px-3 py-2">{{ sale.items.length }}</td>
+                <td class="px-3 py-2 text-right">₹{{ sale.subtotal | number:'1.2-2' }}</td>
+                <td class="px-3 py-2 text-right">₹{{ sale.tax | number:'1.2-2' }}</td>
+                <td class="px-3 py-2 text-right">₹{{ sale.total | number:'1.2-2' }}</td>
+                <td class="px-3 py-2 capitalize">{{ sale.paymentMethod }}</td>
               </tr>
             </tbody>
           </table>
@@ -154,43 +159,85 @@ type Period = 'today' | 'week' | 'month' | 'custom';
 })
 export class SalesAnalyticsComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
-  state: AppState | null = null;
+  appState$ = this.app.appState$;
   period: Period = 'today';
   from = '';
   to = '';
-  paymentFilter: 'all'|'cash'|'card'|'other' = 'all';
-  locationFilter: string = 'all'; // Location filter for ADMIN
+  paymentFilter: 'all'|'cash'|'card'|'upi'|'other' = 'all';
+  locationFilter: string = 'all';
   showDetails = false;
+  
+  // Computed values (updated by updateData)
+  filtered: Sale[] = [];
+  totalRevenue = 0;
+  avgOrder = 0;
+  itemsSold = 0;
+  payments: Array<{method: string; count: number}> = [];
+  topProducts: Array<{name: string; revenue: number}> = [];
 
   constructor(
     public router: Router, 
     private app: AppService,
     private authService: AuthService
-  ) {
-    this.app.appState$.subscribe(s => { this.state = s; });
-  }
+  ) {}
 
   ngOnInit(): void {
+    // Load initial data
     this.app.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
         this.app.loadInitialData().subscribe();
+      } else {
+        this.updateData(state);
       }
     });
     
-    // Listen to navigation events and reload data when returning to this component
-    this.routerSubscription = this.router.events
-      .pipe(filter(event => event instanceof NavigationEnd))
-      .subscribe((event: any) => {
-        if (event.url.includes('/sales-analytics')) {
-          this.app.loadInitialData().subscribe();
-        }
-      });
+    // Update data whenever state changes
+    this.routerSubscription = this.app.appState$.subscribe(state => {
+      if (state.dataLoaded) {
+        this.updateData(state);
+      }
+    });
   }
 
   ngOnDestroy(): void {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
     }
+  }
+
+  updateData(state: AppState): void {
+    // Filter sales
+    this.filtered = this.getFilteredSales(state);
+    
+    // Calculate metrics once
+    this.totalRevenue = this.filtered.reduce((sum, s) => sum + s.total, 0);
+    this.avgOrder = this.filtered.length ? this.totalRevenue / this.filtered.length : 0;
+    this.itemsSold = this.filtered.reduce((sum, s) => 
+      sum + s.items.reduce((n, i) => n + i.quantity, 0), 0
+    );
+    
+    // Payment method distribution
+    const paymentMap: Record<string, number> = {};
+    this.filtered.forEach(s => {
+      const method = s.paymentMethod.toLowerCase();
+      paymentMap[method] = (paymentMap[method] || 0) + 1;
+    });
+    this.payments = Object.entries(paymentMap).map(([method, count]) => ({method, count}));
+    
+    // Top products by revenue
+    const productMap: Record<string, {name: string; revenue: number}> = {};
+    this.filtered.forEach(s => {
+      s.items.forEach((it: SaleItem) => {
+        const id = it.product.id;
+        if (!productMap[id]) {
+          productMap[id] = { name: it.product.name, revenue: 0 };
+        }
+        productMap[id].revenue += it.total;
+      });
+    });
+    this.topProducts = Object.values(productMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
   }
 
   isAdmin(): boolean {
@@ -211,12 +258,12 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
     return active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200';
   }
 
-  setPeriod(p: Period) {
+  setPeriod(p: Period): void {
     this.period = p;
-    if (p !== 'custom') { this.from = this.to = ''; }
+    if (p !== 'custom') { 
+      this.from = this.to = ''; 
+    }
   }
-
-  refresh() {}
 
   private inRange(d: Date): boolean {
     const now = new Date();
@@ -245,52 +292,29 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
     return true;
   }
 
-  get filtered(): Sale[] {
-    if (!this.state) return [];
-    let sales = this.state.sales;
+  getFilteredSales(state: AppState): Sale[] {
+    if (!state) return [];
+    let sales = state.sales;
     
     // Filter by date
     sales = sales.filter((s: Sale) => this.inRange(new Date(s.createdAt)));
     
     // Filter by payment method
     if (this.paymentFilter !== 'all') {
-      sales = sales.filter((s: Sale) => s.paymentMethod === this.paymentFilter);
+      sales = sales.filter((s: Sale) => s.paymentMethod.toLowerCase() === this.paymentFilter);
     }
     
     // Filter by location (ADMIN only)
     if (this.isAdmin() && this.locationFilter !== 'all') {
       sales = sales.filter(sale => {
-        // Check if any item in the sale belongs to the selected location
-        return sale.items?.some(item => item.product.locationId?.toString() === this.locationFilter);
+        return sale.location?.id?.toString() === this.locationFilter;
       });
     }
     
     return sales;
   }
 
-  get totalRevenue(): number {
-    return this.filtered.reduce((sum, s) => sum + s.total, 0);
-  }
-  get avgOrder(): number { return this.filtered.length ? this.totalRevenue / this.filtered.length : 0; }
-  get itemsSold(): number { return this.filtered.reduce((sum, s) => sum + s.items.reduce((n,i)=>n+i.quantity,0), 0); }
-
-  get payments(): Array<{method:string; count:number}> {
-    const map: Record<string, number> = {};
-    this.filtered.forEach(s => { map[s.paymentMethod] = (map[s.paymentMethod]||0)+1; });
-    return Object.entries(map).map(([method,count])=>({method,count}));
-  }
-
-  get topProducts(): Array<{ name:string; revenue:number }> {
-    const map: Record<string, {name:string; revenue:number}> = {};
-    this.filtered.forEach(s => s.items.forEach((it: SaleItem)=>{
-      const id = it.product.id;
-      if(!map[id]) map[id] = { name: it.product.name, revenue: 0 };
-      map[id].revenue += it.total;
-    }));
-    return Object.values(map).sort((a,b)=>b.revenue-a.revenue).slice(0,5);
-  }
-
-  exportCsv() {
+  exportCsv(): void {
     const rows = [['Date','Id','Items','Subtotal','Tax','Total','Payment'] as string[]]
       .concat(this.filtered.map(s => [
         new Date(s.createdAt).toISOString(),

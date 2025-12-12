@@ -41,7 +41,7 @@ public class SalePayment {
     private String reference; // For card transaction ID, check number, etc.
     
     public enum PaymentMethod {
-        CASH, CARD, OTHER
+        CASH, CARD, UPI, OTHER // Keep OTHER for backward compatibility with existing data
     }
     
     // Manual getters and setters

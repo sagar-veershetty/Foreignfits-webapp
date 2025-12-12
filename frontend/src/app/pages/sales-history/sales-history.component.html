@@ -41,6 +41,7 @@
         <button (click)="setFilter('all')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">All</button>
         <button (click)="setFilter('today')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='today' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">Today</button>
         <button (click)="setFilter('week')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='week' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">This Week</button>
+        <button (click)="setFilter('month')" [class]="'px-3 py-1.5 rounded-lg text-xs sm:text-sm whitespace-nowrap ' + (filterMode==='month' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 active:bg-gray-200')">This Month</button>
       </div>
       
       <!-- Dropdowns row -->
@@ -65,7 +66,18 @@
           <option value="all">All Payments</option>
           <option value="cash">💵 Cash</option>
           <option value="card">💳 Card</option>
-          <option value="other">📱 Other</option>
+          <option value="upi">📱 UPI</option>
+        </select>
+
+        <!-- Sales Person Filter (for incentive tracking) -->
+        <select 
+          [(ngModel)]="salesPersonFilter"
+          class="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full"
+        >
+          <option value="all">All Sales Persons</option>
+          <option *ngFor="let salesPerson of getUniqueSalesPersons(appState)" [value]="salesPerson">
+            👤 {{ salesPerson }}
+          </option>
         </select>
       </div>
       
@@ -76,6 +88,22 @@
         <input type="date" [(ngModel)]="toDate" class="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1" placeholder="To date" />
         <button (click)="setFilter('range')" class="px-4 py-2 rounded-lg text-sm bg-blue-600 text-white active:bg-blue-700 touch-manipulation">Apply</button>
       </div>
+    </div>
+    
+    <!-- Sales Person Filter Active Banner (for incentive tracking) -->
+    <div *ngIf="salesPersonFilter !== 'all'" class="mx-3 sm:mx-4 mt-3 mb-2 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+      <svg class="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+      </svg>
+      <div class="flex-1">
+        <p class="text-sm font-semibold text-blue-900">Showing sales for: {{ salesPersonFilter }}</p>
+        <p class="text-xs text-blue-700 mt-0.5">Use the summary below to calculate incentives for this sales person</p>
+      </div>
+      <button (click)="salesPersonFilter = 'all'" class="text-blue-600 hover:text-blue-800 flex-shrink-0">
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
     </div>
     
     <!-- Mobile Card View -->
@@ -346,8 +374,8 @@
                 [class.text-green-700]="selectedSale.paymentMethod === 'cash'"
                 [class.bg-blue-100]="selectedSale.paymentMethod === 'card'"
                 [class.text-blue-700]="selectedSale.paymentMethod === 'card'"
-                [class.bg-purple-100]="selectedSale.paymentMethod === 'other'"
-                [class.text-purple-700]="selectedSale.paymentMethod === 'other'">
+                [class.bg-purple-100]="selectedSale.paymentMethod === 'upi'"
+                [class.text-purple-700]="selectedSale.paymentMethod === 'upi'">
             {{ selectedSale.paymentMethod | uppercase }}
           </span>
           <!-- Split payment breakdown -->
@@ -358,8 +386,8 @@
                     [class.text-green-700]="payment.paymentMethod.toLowerCase() === 'cash'"
                     [class.bg-blue-100]="payment.paymentMethod.toLowerCase() === 'card'"
                     [class.text-blue-700]="payment.paymentMethod.toLowerCase() === 'card'"
-                    [class.bg-purple-100]="payment.paymentMethod.toLowerCase() === 'other'"
-                    [class.text-purple-700]="payment.paymentMethod.toLowerCase() === 'other'">
+                    [class.bg-purple-100]="payment.paymentMethod.toLowerCase() === 'upi'"
+                    [class.text-purple-700]="payment.paymentMethod.toLowerCase() === 'upi'">
                 {{ payment.paymentMethod }}
               </span>
               <span class="text-sm font-semibold text-gray-900">₹{{ payment.amount.toFixed(2) }}</span>

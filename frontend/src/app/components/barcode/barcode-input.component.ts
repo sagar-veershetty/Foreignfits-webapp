@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
 import { BarcodeFormat } from '@zxing/library';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -67,7 +67,7 @@ import { ZXingScannerModule } from '@zxing/ngx-scanner';
     </div>
   `
 })
-export class BarcodeInputComponent {
+export class BarcodeInputComponent implements OnChanges {
   @Input() value = '';
   @Input() placeholder = '';
   @Output() valueChange = new EventEmitter<string>();
@@ -95,6 +95,13 @@ export class BarcodeInputComponent {
 
   ngOnInit() {
     this.valueInternal = this.value || '';
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // When parent component clears the value, clear internal value too
+    if (changes['value'] && changes['value'].currentValue !== changes['value'].previousValue) {
+      this.valueInternal = this.value || '';
+    }
   }
 
   onInputChange(v: string) {

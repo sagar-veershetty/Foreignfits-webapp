@@ -22,7 +22,7 @@ public class BarcodeHistoryService {
     
     private final BarcodeHistoryRepository barcodeHistoryRepository;
     
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public BarcodeHistory recordHistory(
         Barcode barcode,
         String eventType,

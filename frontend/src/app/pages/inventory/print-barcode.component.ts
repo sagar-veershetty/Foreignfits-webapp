@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectorRef } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -46,7 +46,7 @@ export class PrintBarcodeComponent implements OnInit {
       case 'brand':
         return {
           fontWeight: 800,
-          fontSize: `calc(0.06 * ${dims.height}mm)`,
+          fontSize: `calc(0.09 * ${dims.height}mm)`, // Increased from 0.06
           letterSpacing: '0.12em',
           marginBottom: '3px',
           color: '#059669',
@@ -58,7 +58,7 @@ export class PrintBarcodeComponent implements OnInit {
       case 'title':
         return {
           fontWeight: 700,
-          fontSize: `calc(0.07 * ${dims.height}mm)`,
+          fontSize: `calc(0.10 * ${dims.height}mm)`, // Increased from 0.07
           marginBottom: '1px',
           color: '#1a2233',
           textAlign: 'center',
@@ -70,7 +70,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'meta':
         return {
-          fontSize: `calc(0.055 * ${dims.height}mm)`,
+          fontSize: `calc(0.08 * ${dims.height}mm)`, // Increased from 0.055
           color: '#222',
           marginBottom: '1px',
           fontWeight: 400,
@@ -83,7 +83,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'sku':
         return {
-          fontSize: `calc(0.045 * ${dims.height}mm)`,
+          fontSize: `calc(0.07 * ${dims.height}mm)`, // Increased from 0.045
           color: '#757575',
           marginBottom: '1px',
           fontFamily: 'Menlo, Consolas, monospace',
@@ -97,7 +97,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'category':
         return {
-          fontSize: `calc(0.03 * ${dims.height}mm)`,
+          fontSize: `calc(0.05 * ${dims.height}mm)`, // Increased from 0.03
           color: '#666',
           marginBottom: '1px',
           textAlign: 'center',
@@ -109,7 +109,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'price':
         return {
-          fontSize: `calc(0.055 * ${dims.height}mm)`,
+          fontSize: `calc(0.09 * ${dims.height}mm)`, // Increased from 0.055
           fontWeight: 700,
           color: '#2563eb',
           marginBottom: '2px',
@@ -122,7 +122,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'barcode':
         return {
-          fontSize: `calc(0.055 * ${dims.height}mm)`,
+          fontSize: `calc(0.08 * ${dims.height}mm)`, // Increased from 0.055
           color: '#222',
           marginTop: '2px',
           letterSpacing: '0.04em',
@@ -223,17 +223,18 @@ export class PrintBarcodeComponent implements OnInit {
     const codeLength = (code || '').length || 8;
     const estimatedBars = codeLength * 11; // CODE128 average
     
-    // Reduce target width to 70% to prevent overflow with long barcodes
-    let targetBarcodeWidth = Math.floor(dims.width * 0.70);
-    let barWidth = Math.max(0.5, Math.min(1.5, targetBarcodeWidth / estimatedBars));
+    // Target width at 90% for maximum visibility
+    let targetBarcodeWidth = Math.floor(dims.width * 0.90);
+    // MAXIMUM bar width for industrial scanning - VERY THICK BARS
+    let barWidth = Math.max(2.2, Math.min(4.0, targetBarcodeWidth / estimatedBars)); // Minimum 2.2 for all stickers!
     
-    // Adjust height based on sticker dimensions
-    let barcodeHeight = Math.max(12, Math.min(28, Math.floor(dims.height * 0.55)));
+    // Increase height significantly for better scanning
+    let barcodeHeight = Math.max(25, Math.min(45, Math.floor(dims.height * 0.72))); // Taller baseline
     
     if (dims.width > 60) {
-      // Larger stickers
-      barcodeHeight = Math.min(40, Math.floor(dims.height * 0.65));
-      barWidth = Math.max(0.8, Math.min(2.0, targetBarcodeWidth / estimatedBars));
+      // Larger stickers - MAXIMUM thickness for easy scanning
+      barcodeHeight = Math.min(60, Math.floor(dims.height * 0.80)); // Even taller
+      barWidth = Math.max(2.8, Math.min(4.5, targetBarcodeWidth / estimatedBars)); // Minimum 2.8 for large stickers!
     }
     
     try {
@@ -258,6 +259,7 @@ export class PrintBarcodeComponent implements OnInit {
   // Price editing state
   expandedPriceEditors: { [productId: string]: boolean } = {}; // Track which price editors are expanded
   savingPrices: { [barcodeId: string]: boolean } = {}; // Track saving state for individual barcodes (string key for barcode.id)
+  savedPrices: { [barcodeId: string]: boolean } = {}; // Track successfully saved state (for showing checkmark)
   savingBulkPrices: { [productId: string]: boolean } = {}; // Track bulk update state
   bulkPrices: { [productId: string]: { purchase?: number; sale?: number } } = {}; // Bulk price inputs
   
@@ -522,9 +524,22 @@ export class PrintBarcodeComponent implements OnInit {
   directPrintMode = false; // NEW: Direct print mode (no product selection UI)
   directProductId: string | null = null; // NEW: Product ID for direct print
   router = inject(Router);
+  private cdr = inject(ChangeDetectorRef);
+  barcodeRenderKey = 0; // Force barcode re-render
 
   printStickers() {
-    window.print();
+    // Force complete re-render of all barcodes with new thick settings
+    this.barcodeRenderKey++;
+    // Force Angular change detection immediately
+    this.cdr.detectChanges();
+    // Wait longer for complete DOM update and re-paint
+    setTimeout(() => {
+      // Force one more change detection before printing
+      this.cdr.detectChanges();
+      setTimeout(() => {
+        window.print();
+      }, 50);
+    }, 250);
   }
 
   print() {
@@ -895,15 +910,22 @@ export class PrintBarcodeComponent implements OnInit {
     this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, barcode.salePrice).subscribe({
       next: () => {
         this.savingPrices[barcode.id] = false;
+        this.savedPrices[barcode.id] = true; // Show success checkmark
         
         // Reload barcodes for this product to get updated data
         this.loadBarcodesForProduct(productId);
+        
+        // Auto-hide checkmark after 2 seconds
+        setTimeout(() => {
+          this.savedPrices[barcode.id] = false;
+        }, 2000);
         
         // Show success feedback
         console.log('Price updated successfully');
       },
       error: (err) => {
         this.savingPrices[barcode.id] = false;
+        this.savedPrices[barcode.id] = false; // Clear success state on error
         console.error('Failed to update barcode price:', err);
         alert('Failed to update price. Please try again.');
       }

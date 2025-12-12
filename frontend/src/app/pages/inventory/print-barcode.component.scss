@@ -183,12 +183,22 @@
   align-items: center;
 }
 
-/* Ensure barcode SVG fits label */
+/* Ensure barcode SVG fits label - increased size for better scanning */
 .sticker-card-mock svg {
-  max-width: 100%;
-  max-height: 60%;
+  max-width: 95%;
+  max-height: 75%; /* Increased from 60% to 75% for taller barcodes */
   margin: 0 auto;
   display: block;
+}
+
+/* Additional styling for print mode - ensure maximum barcode visibility */
+@media print {
+  .sticker-card-mock svg {
+    max-width: 95%;
+    max-height: 80%; /* Even more space in print mode for maximum scanning reliability */
+    margin: 0 auto;
+    display: block;
+  }
 }
 /* Styles for the Print Barcode component. Adjust as per the UI mock. */
 

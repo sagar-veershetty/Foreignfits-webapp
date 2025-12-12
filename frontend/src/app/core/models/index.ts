@@ -143,7 +143,7 @@ export interface SaleItem {
 
 export interface SalePayment {
   id?: string;
-  paymentMethod: 'CASH' | 'CARD' | 'OTHER';
+  paymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER';
   amount: number;
   reference?: string;
 }
@@ -154,7 +154,7 @@ export interface Sale {
   subtotal: number;
   tax: number;
   total: number;
-  paymentMethod: 'cash' | 'card' | 'other';
+  paymentMethod: 'cash' | 'card' | 'upi' | 'other';
   payments?: SalePayment[]; // Split payment support
   customerName?: string;
   customerEmail?: string;

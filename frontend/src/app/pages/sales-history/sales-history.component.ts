@@ -22,11 +22,12 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   appState$: Observable<AppState>;
 
   // Filters
-  filterMode: 'all' | 'today' | 'week' | 'range' = 'all';
+  filterMode: 'all' | 'today' | 'week' | 'month' | 'range' = 'all';
   fromDate?: string; // yyyy-MM-dd
   toDate?: string;   // yyyy-MM-dd
   locationFilter: string = 'all'; // Location filter for ADMIN
-  paymentFilter: string = 'all'; // Payment type filter (all, cash, card, other)
+  paymentFilter: string = 'all'; // Payment type filter (all, cash, card, upi)
+  salesPersonFilter: string = 'all'; // Sales person filter for incentive tracking
   searchQuery: string = ''; // Search by Bill ID
 
   // Sale details modal
@@ -50,19 +51,34 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Ensure initial data is loaded (especially important after page refresh)
+    console.log('[SalesHistory] Component initialized');
+    
+    // Always refresh sales when visiting this page
+    console.log('[SalesHistory] Refreshing sales data...');
+    this.appService.refreshSales().subscribe({
+      next: () => console.log('[SalesHistory] Sales refreshed successfully'),
+      error: (err) => console.error('[SalesHistory] Error refreshing sales:', err)
+    });
+    
+    // Also ensure initial data is loaded if not already (for first visit after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
+        console.log('[SalesHistory] Loading initial data for first time...');
         this.appService.loadInitialData().subscribe();
       }
     });
     
-    // Listen to navigation events and reload data when returning to this component
+    // Listen to navigation events and reload sales when returning to this component
     this.routerSubscription = this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
+        console.log('[SalesHistory] Navigation event:', event.url);
         if (event.url.includes('/sales-history')) {
-          this.appService.loadInitialData().subscribe();
+          console.log('[SalesHistory] Navigated to sales-history, refreshing sales...');
+          this.appService.refreshSales().subscribe({
+            next: () => console.log('[SalesHistory] Sales refreshed on navigation'),
+            error: (err) => console.error('[SalesHistory] Error refreshing on navigation:', err)
+          });
         }
       });
   }
@@ -80,6 +96,17 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   // Get only store locations (exclude warehouses) for admin dropdown
   getStoreLocations(appState: AppState) {
     return appState.locations.filter(loc => loc.type === 'store');
+  }
+
+  // Get unique sales person names for dropdown filter
+  getUniqueSalesPersons(appState: AppState): string[] {
+    const salesPersons = new Set<string>();
+    appState.sales.forEach(sale => {
+      if (sale.salesPersonName && sale.salesPersonName.trim()) {
+        salesPersons.add(sale.salesPersonName.trim());
+      }
+    });
+    return Array.from(salesPersons).sort();
   }
 
   getPaymentMethodClass(method: string): string {
@@ -116,7 +143,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       .join(' + ');
   }
 
-  setFilter(mode: 'all' | 'today' | 'week' | 'range'): void {
+  setFilter(mode: 'all' | 'today' | 'week' | 'month' | 'range'): void {
     this.filterMode = mode;
   }
 
@@ -176,6 +203,13 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       });
     }
     
+    // Filter by sales person name (for incentive tracking)
+    if (this.salesPersonFilter !== 'all') {
+      sales = sales.filter(sale => {
+        return sale.salesPersonName?.trim() === this.salesPersonFilter;
+      });
+    }
+    
     // Filter by date
     if (this.filterMode === 'all') return sales;
 
@@ -193,6 +227,12 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       const startOfWeek = new Date(startOfToday);
       startOfWeek.setDate(startOfToday.getDate() + diffToMonday);
       return sales.filter(s => new Date(s.createdAt).getTime() >= startOfWeek.getTime());
+    }
+
+    if (this.filterMode === 'month') {
+      // Start of the current month at 00:00
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return sales.filter(s => new Date(s.createdAt).getTime() >= startOfMonth.getTime());
     }
 
     if (this.filterMode === 'range' && this.fromDate && this.toDate) {

@@ -62,12 +62,13 @@
   <div class="border border-dashed border-gray-300 rounded p-4 bg-white">
     <!-- Removed Print Stickers button from preview section -->
 <!-- Main Print Barcode Stickers button at the bottom -->
-  <div class="sticker-preview-grid responsive-sticker-grid" [ngClass]="getStickerSizeClass()">
+  <div class="sticker-preview-grid responsive-sticker-grid" [ngClass]="getStickerSizeClass()" [attr.data-render-key]="barcodeRenderKey">
       <ng-container *ngFor="let product of selectedProducts">
         <!-- Get active barcodes for this product -->
         <ng-container *ngFor="let barcode of (productBarcodes[product.id] || []).slice(0, productQuantities[product.id] || 1); let i = index">
           <div class="sticker-card-mock responsive-sticker-item"
-            [ngStyle]="getStickerPreviewStyle()">
+            [ngStyle]="getStickerPreviewStyle()"
+            [attr.data-barcode-key]="barcodeRenderKey + '-' + barcode.id">
             <div class="sticker-brand-header" [ngStyle]="getFontStyle('brand')">FOREIGN FITS</div>
             <div class="sticker-title-mock" [ngStyle]="getFontStyle('title')">{{ product.name }}</div>
             <div class="sticker-meta-mock" [ngStyle]="getFontStyle('meta')">
@@ -82,9 +83,9 @@
               ₹{{ (barcode.salePrice || productPrices[product.id] || 0).toFixed(2) }}
               <span *ngIf="!barcode.salePrice" style="color: #dc2626; font-size: 0.7em; display: block;">(No Price Set)</span>
             </div>
-            <div class="sticker-barcode-mock">
+            <div class="sticker-barcode-mock" [attr.data-key]="barcodeRenderKey">
               <div class="barcode-no-bg">
-                <span [innerHTML]="renderBarcodeSvgWithNumber(barcode.barcodeNumber)"></span>
+                <span [innerHTML]="renderBarcodeSvgWithNumber(barcode.barcodeNumber)" [attr.data-barcode-num]="barcode.barcodeNumber + '-' + barcodeRenderKey"></span>
               </div>
               <div class="barcode-value" *ngIf="showBarcodeNumber" [ngStyle]="getFontStyle('barcode')">{{ barcode.barcodeNumber }}</div>
               <div *ngIf="getBarcodeTransferStatus(product.id, barcode.barcodeNumber)" 
@@ -179,8 +180,14 @@
 	              type="button"
 	              (click)="saveBarcodePrice(product.id, barcode)"
 	              [disabled]="savingPrices[barcode.id]"
-	              class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50">
-	              {{ savingPrices[barcode.id] ? '...' : '💾' }}
+	              [ngClass]="{
+	                'bg-green-600 hover:bg-green-700': !savedPrices[barcode.id],
+	                'bg-green-500': savedPrices[barcode.id]
+	              }"
+	              class="px-2 py-1 text-white rounded text-xs disabled:opacity-50 transition-all">
+	              <span *ngIf="savingPrices[barcode.id]">...</span>
+	              <span *ngIf="!savingPrices[barcode.id] && savedPrices[barcode.id]">✓</span>
+	              <span *ngIf="!savingPrices[barcode.id] && !savedPrices[barcode.id]">💾</span>
 	            </button>
 	          </div>
 	        </div>
@@ -196,7 +203,7 @@
 	              type="number" 
 	              step="0.01" 
 	              min="0"
-	              [ngModel]="bulkPrices[product.id]?.sale"
+	              [ngModel]="bulkPrices[product.id].sale"
 	              (ngModelChange)="updateBulkPrice(product.id, 'sale', $event)"
 	              class="w-full px-4 py-2 border border-gray-300 rounded text-base font-medium"
 	              placeholder="0.00" />

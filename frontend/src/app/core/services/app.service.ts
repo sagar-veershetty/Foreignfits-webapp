@@ -24,6 +24,7 @@ export interface AppState {
 export class AppService {
   private readonly API_BASE_URL = environment.apiUrl;
   private autoRefreshSub?: Subscription;
+  private isLoadingData = false; // Prevent concurrent loads
   
   private _appStateSubject = new BehaviorSubject<AppState>({
     products: [],
@@ -64,14 +65,34 @@ export class AppService {
   }
 
   loadInitialData(): Observable<any> {
-    // If already loaded AND locations exist, skip reload
-    if (this._appStateSubject.value.dataLoaded && this._appStateSubject.value.locations.length > 0) {
-      return new Observable(observer => {
-        observer.next(true);
-        observer.complete();
+    const currentState = this._appStateSubject.value;
+    
+    // Prevent concurrent loads
+    if (this.isLoadingData) {
+      console.log('[AppService] Already loading data, skipping duplicate request');
+      return of(true);
+    }
+    
+    // If already loaded AND have data, skip reload
+    if (currentState.dataLoaded && 
+        currentState.locations.length > 0 && 
+        currentState.products.length > 0) {
+      console.log('[AppService] Data already loaded, skipping reload', {
+        dataLoaded: currentState.dataLoaded,
+        locations: currentState.locations.length,
+        products: currentState.products.length,
+        sales: currentState.sales.length
       });
+      return of(true);
     }
 
+    console.log('[AppService] Loading initial data...', {
+      dataLoaded: currentState.dataLoaded,
+      locations: currentState.locations.length,
+      products: currentState.products.length
+    });
+    
+    this.isLoadingData = true;
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
     const currentUser = this.authService.getCurrentUser();
@@ -98,6 +119,8 @@ export class AppService {
           dataLoaded: true,
           isLoading: false
         });
+        this.isLoadingData = false;
+        console.log('[AppService] Initial data loaded successfully');
       }),
       catchError(error => {
         this.updateAppState({
@@ -105,6 +128,8 @@ export class AppService {
           isLoading: false,
           error: 'Failed to load initial data'
         });
+        this.isLoadingData = false;
+        console.error('[AppService] Failed to load initial data:', error);
         return throwError(() => error);
       })
     );
@@ -165,6 +190,14 @@ export class AppService {
           return new Observable<Sale[]>(observer => observer.next([]));
         })
       );
+  }
+
+  /**
+   * Force refresh sales data (useful for sales history page)
+   */
+  refreshSales(): Observable<Sale[]> {
+    console.log('[AppService] Refreshing sales data...');
+    return this.loadSales();
   }
 
   private loadStockMovements(): Observable<StockMovement[]> {
@@ -700,7 +733,7 @@ export class AppService {
       subtotal: apiSale.subtotal,
       tax: apiSale.tax,
       total: apiSale.total,
-      paymentMethod: paymentMethod as 'cash' | 'card' | 'other',
+      paymentMethod: paymentMethod as 'cash' | 'card' | 'upi' | 'other',
       payments: apiSale.payments ? apiSale.payments.map((p: any) => ({
         id: p.id?.toString(),
         paymentMethod: p.paymentMethod,
@@ -711,6 +744,7 @@ export class AppService {
       customerEmail: apiSale.customerEmail,
       customerPhone: apiSale.customerPhone,
       customerCountryCode: apiSale.customerCountryCode,
+      salesPersonName: apiSale.salesPersonName,
       soldBy: apiSale.soldBy.name,
       soldById: apiSale.soldBy.id.toString(),
       location: {
@@ -727,6 +761,8 @@ export class AppService {
         isActive: apiSale.location.isActive !== false,
         createdAt: apiSale.location.createdAt ? new Date(apiSale.location.createdAt) : new Date()
       },
+      pointsRedeemed: apiSale.pointsRedeemed,
+      discountFromPoints: apiSale.discountFromPoints,
       createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
     };
   }

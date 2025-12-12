@@ -43,7 +43,7 @@ public class LoyaltyService {
     /**
      * Get or create loyalty customer by phone
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public LoyaltyCustomer getOrCreateCustomer(String phone, String countryCode, String name, String email) {
         Optional<LoyaltyCustomer> existingCustomer = customerRepository.findByPhoneAndCountryCode(phone, countryCode);
         
@@ -76,7 +76,7 @@ public class LoyaltyService {
     /**
      * Calculate and award points for a purchase
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public int awardPointsForPurchase(LoyaltyCustomer customer, Sale sale, BigDecimal purchaseAmount) {
         // Calculate base points: 10 points per ₹100
         BigDecimal pointsDecimal = purchaseAmount
@@ -116,7 +116,7 @@ public class LoyaltyService {
     /**
      * Redeem points for discount
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public BigDecimal redeemPoints(LoyaltyCustomer customer, int pointsToRedeem) {
         if (pointsToRedeem < MIN_POINTS_TO_REDEEM) {
             throw new IllegalArgumentException("Minimum " + MIN_POINTS_TO_REDEEM + " points required to redeem");
@@ -148,7 +148,7 @@ public class LoyaltyService {
     /**
      * Award birthday bonus points
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void awardBirthdayBonus(LoyaltyCustomer customer) {
         customer.setTotalPoints(customer.getTotalPoints() + BIRTHDAY_BONUS_POINTS);
         customer.setLifetimePoints(customer.getLifetimePoints() + BIRTHDAY_BONUS_POINTS);

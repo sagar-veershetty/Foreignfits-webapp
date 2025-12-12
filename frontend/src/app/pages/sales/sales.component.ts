@@ -28,7 +28,7 @@ export class SalesComponent implements OnInit {
   customerPhone = '';
   customerCountryCode = '+91'; // Default to India
   salesPersonName = ''; // Sales person who assisted with the sale
-  paymentMethod: 'cash' | 'card' | 'other' = 'cash';
+  paymentMethod: 'cash' | 'card' | 'upi' = 'cash';
   completedSale: Sale | null = null;
   showSuccessMessage = false;
   successMessage = '';
@@ -46,7 +46,7 @@ export class SalesComponent implements OnInit {
   
   // Split payment support
   payments: Array<{
-    paymentMethod: 'CASH' | 'CARD' | 'OTHER';
+    paymentMethod: 'CASH' | 'CARD' | 'UPI';
     amount: number;
     reference: string;
   }> = [];
@@ -378,6 +378,11 @@ export class SalesComponent implements OnInit {
 
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
+        // Show success message
+        this.showSuccessMessage = true;
+        this.successMessage = `✅ Sale Completed Successfully! Total: ₹${this.getTotal(appState).toFixed(2)}`;
+        setTimeout(() => this.showSuccessMessage = false, 3000);
+        
         // Store the completed sale for exchange option
         this.completedSale = sale;
         
