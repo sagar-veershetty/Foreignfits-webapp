@@ -85,6 +85,15 @@ export const routes: Routes = [
     data: { roles: ['admin','sales'] }
   },
   { 
+    path: 'product-groups', 
+    loadComponent: () => import('./pages/product-groups/product-groups.component').then(m => m.ProductGroupsComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','warehouse'] }
+  },
+  { 
     path: 'barcode-history', 
     loadComponent: () => import('./pages/barcode-history/barcode-history.component').then(m => m.BarcodeHistoryComponent),
     canActivate: [

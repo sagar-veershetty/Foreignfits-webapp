@@ -33,6 +33,18 @@ public class Product {
     @Column(nullable = false)
     private ProductCategory category;
     
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subcategory")
+    private ProductSubcategory subcategory; // Men's, Women's, Kids, Unisex
+    
+    @Size(max = 50, message = "Product code cannot exceed 50 characters")
+    @Column(name = "product_code", length = 50)
+    private String productCode; // e.g., JN-KD-001 (Jeans-Kids-001)
+    
+    @Size(max = 100, message = "Product type cannot exceed 100 characters")
+    @Column(name = "product_type", length = 100)
+    private String productType; // e.g., "Jeans", "T-Shirt", "Jacket"
+    
     @NotBlank(message = "Size is required")
     @Size(max = 20, message = "Size cannot exceed 20 characters")
     @Column(nullable = false, length = 20)
@@ -136,6 +148,10 @@ public class Product {
     
     public enum ProductCategory {
         SHIRTS, PANTS, DRESSES, JACKETS, SHOES, ACCESSORIES
+    }
+    
+    public enum ProductSubcategory {
+        MENS, WOMENS, KIDS, UNISEX, BOYS, GIRLS, INFANT, TODDLER
     }
     
     // Manual getters and setters to ensure compatibility

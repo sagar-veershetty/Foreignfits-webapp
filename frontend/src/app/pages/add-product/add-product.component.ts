@@ -40,6 +40,108 @@ import { Product, Location } from '../../core/models';
                 <option value="accessories">Accessories</option>
               </select>
             </div>
+            <!-- Subcategory -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Subcategory</label>
+              <select [(ngModel)]="formData.subcategory" name="subcategory"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">-- Select Subcategory --</option>
+                <option value="mens">Men's</option>
+                <option value="womens">Women's</option>
+                <option value="kids">Kids</option>
+                <option value="boys">Boys</option>
+                <option value="girls">Girls</option>
+                <option value="infant">Infant</option>
+                <option value="toddler">Toddler</option>
+                <option value="unisex">Unisex</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">Target demographic (e.g., Men's, Women's, Kids)</p>
+            </div>
+            <!-- Product Type -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Product Type</label>
+              <input type="text" [(ngModel)]="formData.productType" name="productType" 
+                     placeholder="e.g., Denim Jeans, Polo Shirt"
+                     list="productTypesList"
+                     maxlength="100"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <datalist id="productTypesList">
+                <!-- Shirts category -->
+                <option *ngIf="formData.category === 'shirts'" value="T-Shirt">
+                <option *ngIf="formData.category === 'shirts'" value="Polo Shirt">
+                <option *ngIf="formData.category === 'shirts'" value="Dress Shirt">
+                <option *ngIf="formData.category === 'shirts'" value="Casual Shirt">
+                <option *ngIf="formData.category === 'shirts'" value="Flannel Shirt">
+                <option *ngIf="formData.category === 'shirts'" value="Oxford Shirt">
+                
+                <!-- Pants category -->
+                <option *ngIf="formData.category === 'pants'" value="Jeans">
+                <option *ngIf="formData.category === 'pants'" value="Denim Jeans">
+                <option *ngIf="formData.category === 'pants'" value="Chinos">
+                <option *ngIf="formData.category === 'pants'" value="Cargo Pants">
+                <option *ngIf="formData.category === 'pants'" value="Dress Pants">
+                <option *ngIf="formData.category === 'pants'" value="Joggers">
+                <option *ngIf="formData.category === 'pants'" value="Leggings">
+                <option *ngIf="formData.category === 'pants'" value="Trousers">
+                
+                <!-- Jackets category -->
+                <option *ngIf="formData.category === 'jackets'" value="Denim Jacket">
+                <option *ngIf="formData.category === 'jackets'" value="Leather Jacket">
+                <option *ngIf="formData.category === 'jackets'" value="Bomber Jacket">
+                <option *ngIf="formData.category === 'jackets'" value="Windbreaker">
+                <option *ngIf="formData.category === 'jackets'" value="Parka">
+                <option *ngIf="formData.category === 'jackets'" value="Blazer">
+                <option *ngIf="formData.category === 'jackets'" value="Hoodie">
+                <option *ngIf="formData.category === 'jackets'" value="Sweater">
+                
+                <!-- Dresses category -->
+                <option *ngIf="formData.category === 'dresses'" value="Casual Dress">
+                <option *ngIf="formData.category === 'dresses'" value="Party Dress">
+                <option *ngIf="formData.category === 'dresses'" value="Maxi Dress">
+                <option *ngIf="formData.category === 'dresses'" value="Midi Dress">
+                <option *ngIf="formData.category === 'dresses'" value="Mini Dress">
+                <option *ngIf="formData.category === 'dresses'" value="Skirt">
+                <option *ngIf="formData.category === 'dresses'" value="Gown">
+                
+                <!-- Shoes category -->
+                <option *ngIf="formData.category === 'shoes'" value="Sneakers">
+                <option *ngIf="formData.category === 'shoes'" value="Boots">
+                <option *ngIf="formData.category === 'shoes'" value="Sandals">
+                <option *ngIf="formData.category === 'shoes'" value="Loafers">
+                <option *ngIf="formData.category === 'shoes'" value="Heels">
+                <option *ngIf="formData.category === 'shoes'" value="Flats">
+                
+                <!-- Accessories category -->
+                <option *ngIf="formData.category === 'accessories'" value="Belt">
+                <option *ngIf="formData.category === 'accessories'" value="Hat">
+                <option *ngIf="formData.category === 'accessories'" value="Scarf">
+                <option *ngIf="formData.category === 'accessories'" value="Bag">
+                <option *ngIf="formData.category === 'accessories'" value="Watch">
+                <option *ngIf="formData.category === 'accessories'" value="Sunglasses">
+              </datalist>
+              <p class="text-xs text-gray-500 mt-1">Specific type within the category (e.g., for Pants: "Denim Jeans", "Chinos")</p>
+            </div>
+            <!-- Product Code -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-medium text-gray-700">Product Code</label>
+                <button type="button" (click)="suggestProductCode()" [disabled]="!formData.productType || !formData.subcategory"
+                        class="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed">
+                  Suggest Code
+                </button>
+              </div>
+              <input type="text" [(ngModel)]="formData.productCode" name="productCode" 
+                     placeholder="e.g., JN-KD-001 (Jeans-Kids-001)"
+                     list="productCodesList"
+                     maxlength="50"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <datalist id="productCodesList">
+                <option *ngFor="let code of existingProductCodes" [value]="code">
+              </datalist>
+              <p class="text-xs text-gray-500 mt-1">
+                Groups similar products across multiple bags. Format: TYPE-SUB-SEQ (e.g., JN-KD-001)
+              </p>
+            </div>
             <!-- Size -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Size *</label>
@@ -85,7 +187,7 @@ import { Product, Location } from '../../core/models';
                 <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                   <input type="checkbox" [(ngModel)]="applyPriceToBarcode" name="applyPriceToBarcode" 
                          class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                  <span>Apply sale price to all barcodes (₹{{ formData.price.toFixed(2) }})</span>
+                  <span>Apply sale price to all barcodes (₹{{ formData.price?.toFixed(2) || '0.00' }})</span>
                 </label>
                 <p class="text-xs text-gray-500 mt-1 ml-6">
                   When checked, all {{ formData.stock }} barcodes will have the sale price. Uncheck to set prices individually later.
@@ -221,6 +323,9 @@ export class AddProductComponent implements OnInit {
   formData = {
     name: 'Classic Denim Jacket',
     category: 'jackets' as Product['category'],
+    subcategory: '' as Product['subcategory'],
+    productType: '',
+    productCode: '',
     size: 'M',
     color: 'Blue',
     price: 89.99,
@@ -245,6 +350,7 @@ export class AddProductComponent implements OnInit {
   isEditMode = false;
   editingProductId: string | null = null;
   isSubmitting = false; // Loading state for form submission
+  existingProductCodes: string[] = []; // List of existing product codes for autocomplete
 
   constructor(
     private appService: AppService, 
@@ -284,6 +390,12 @@ export class AddProductComponent implements OnInit {
           this.formData.locationId = '1';
         }
       }
+      
+      // Load existing product codes for autocomplete
+      const codes = state.products
+        .map(p => p.productCode)
+        .filter((code): code is string => !!code && code.length > 0);
+      this.existingProductCodes = [...new Set(codes)].sort();
     });
     
     this.route.queryParamMap.subscribe(params => {
@@ -299,6 +411,9 @@ export class AddProductComponent implements OnInit {
           this.formData = {
             name: prod.name,
             category: prod.category,
+            subcategory: prod.subcategory || '' as Product['subcategory'],
+            productType: prod.productType || '',
+            productCode: prod.productCode || '',
             size: prod.size,
             color: prod.color,
             price: prod.price || 0,
@@ -387,6 +502,9 @@ export class AddProductComponent implements OnInit {
         const product = {
           name: this.formData.name,
           category: this.formData.category,
+          subcategory: this.formData.subcategory || undefined,
+          productType: this.formData.productType || undefined,
+          productCode: this.formData.productCode || undefined,
           size: this.formData.size,
           color: this.formData.color,
           sku: this.formData.sku,
@@ -438,6 +556,9 @@ export class AddProductComponent implements OnInit {
     this.formData = {
       name: '',
       category: 'shirts',
+      subcategory: '' as Product['subcategory'],
+      productType: '',
+      productCode: '',
       size: '',
       color: '',
       price: 0,
@@ -454,6 +575,50 @@ export class AddProductComponent implements OnInit {
     };
     this.skuError = null;
     this.isCheckingSku = false;
+  }
+
+  // Suggest product code based on product type and subcategory
+  suggestProductCode(): void {
+    const productType = this.formData.productType?.trim();
+    const subcategory = this.formData.subcategory;
+    
+    if (!productType || !subcategory) {
+      return;
+    }
+    
+    // Generate type code (first 2-3 letters of product type)
+    const typeCode = productType
+      .replace(/[^a-zA-Z]/g, '')
+      .substring(0, 2)
+      .toUpperCase();
+    
+    // Generate subcategory code
+    const subMap: Record<string, string> = {
+      'mens': 'MN',
+      'womens': 'WM',
+      'kids': 'KD',
+      'boys': 'BY',
+      'girls': 'GL',
+      'infant': 'IF',
+      'toddler': 'TD',
+      'unisex': 'UN'
+    };
+    const subCode = subMap[subcategory] || 'XX';
+    
+    // Find next sequence number for this type-sub combination
+    const prefix = `${typeCode}-${subCode}-`;
+    const existingSequences = this.existingProductCodes
+      .filter(code => code.startsWith(prefix))
+      .map(code => {
+        const match = code.match(/-(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      });
+    
+    const nextSeq = existingSequences.length > 0 
+      ? Math.max(...existingSequences) + 1 
+      : 1;
+    
+    this.formData.productCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
   }
 
   goToDashboard(): void {

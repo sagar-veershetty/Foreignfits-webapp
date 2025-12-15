@@ -16,6 +16,9 @@ public class ProductDto {
     private Long id;
     private String name;
     private Product.ProductCategory category;
+    private String subcategory;  // MENS, WOMENS, KIDS, etc.
+    private String productType;  // Jeans, T-Shirt, etc.
+    private String productCode;  // Grouping code
     private String size;
     private String color;
     private BigDecimal price;
@@ -45,6 +48,15 @@ public class ProductDto {
     
     public Product.ProductCategory getCategory() { return category; }
     public void setCategory(Product.ProductCategory category) { this.category = category; }
+    
+    public String getSubcategory() { return subcategory; }
+    public void setSubcategory(String subcategory) { this.subcategory = subcategory; }
+    
+    public String getProductType() { return productType; }
+    public void setProductType(String productType) { this.productType = productType; }
+    
+    public String getProductCode() { return productCode; }
+    public void setProductCode(String productCode) { this.productCode = productCode; }
     
     public String getSize() { return size; }
     public void setSize(String size) { this.size = size; }

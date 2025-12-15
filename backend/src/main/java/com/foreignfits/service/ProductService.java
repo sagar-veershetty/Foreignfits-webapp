@@ -275,6 +275,9 @@ public class ProductService {
         dto.setId(product.getId());
         dto.setName(product.getName());
         dto.setCategory(product.getCategory());
+        dto.setSubcategory(product.getSubcategory() != null ? product.getSubcategory().name() : null);
+        dto.setProductType(product.getProductType());
+        dto.setProductCode(product.getProductCode());
         dto.setSize(product.getSize());
         dto.setColor(product.getColor());
         // Pricing removed from Product - now in LocationInventory

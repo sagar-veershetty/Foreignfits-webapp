@@ -16,6 +16,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -56,9 +57,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/locations").permitAll()
-                .requestMatchers("/inventory/public/**").permitAll()  // Public product catalog
+                .requestMatchers(HttpMethod.GET, "/api/inventory/**").permitAll() // allow read-only public inventory API
+                .requestMatchers("/inventory/public/**").permitAll()  // legacy public product catalog
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
+                .requestMatchers("/admin/update-subcategories").permitAll()  // One-time data migration
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

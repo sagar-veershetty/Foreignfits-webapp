@@ -4,6 +4,9 @@ export interface Product {
   id: string;
   name: string;
   category: 'shirts' | 'pants' | 'dresses' | 'jackets' | 'shoes' | 'accessories';
+  subcategory?: 'mens' | 'womens' | 'kids' | 'unisex' | 'boys' | 'girls' | 'infant' | 'toddler';
+  productCode?: string; // e.g., JN-KD-001 (Jeans-Kids-001)
+  productType?: string; // e.g., "Jeans", "T-Shirt", "Jacket"
   size: string;
   color: string;
   sku: string;

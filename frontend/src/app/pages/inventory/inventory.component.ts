@@ -25,6 +25,17 @@ interface LocationInventoryItem {
   product?: Product;
 }
 
+interface ProductGroup {
+  key: string;
+  productCode?: string;
+  productType: string;
+  subcategory: string;
+  category: string;
+  totalBags: number;
+  totalQuantity: number;
+  items: LocationInventoryItem[];
+}
+
 @Component({
   selector: 'app-inventory',
   standalone: true,
@@ -45,6 +56,18 @@ export class InventoryComponent implements OnInit, OnDestroy {
   searchTerm = signal<string>('');
   categoryFilter = signal<string>('all');
   lowStockOnly = signal<boolean>(false);
+  
+  // View mode: 'cards' or 'grouped'
+  viewMode = signal<'cards' | 'grouped'>('cards');
+  
+  // Subcategory filter for both views
+  subcategoryFilter = signal<string>('all');
+  
+  // Product type search filter
+  productTypeFilter = signal<string>('');
+  
+  // Expanded groups tracking
+  expandedGroups = new Set<string>();
 
   // Edit modal state
   editModalOpen = signal<boolean>(false);
@@ -64,6 +87,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
     const inventory = this.locationInventory();
     const search = this.searchTerm().toLowerCase();
     const category = this.categoryFilter();
+    const subcategory = this.subcategoryFilter();
+    const productType = this.productTypeFilter().toLowerCase();
     const lowStock = this.lowStockOnly();
 
     return inventory.filter(item => {
@@ -78,11 +103,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
       const matchesCategory = category === 'all' || 
         (item.product && item.product.category === category);
+      
+      // For subcategory: if "all" is selected, show all products including those without subcategory
+      // If specific subcategory is selected, only show products with matching subcategory
+      const matchesSubcategory = subcategory === 'all' || 
+        (item.product?.subcategory?.toLowerCase() === subcategory.toLowerCase());
+      
+      const matchesProductType = !productType || 
+        (item.product && (
+          item.product.productType?.toLowerCase().includes(productType) ||
+          item.productName.toLowerCase().includes(productType)
+        ));
 
       const matchesLowStock = !lowStock || 
         (item.minStock && item.quantity <= item.minStock);
 
-      return matchesSearch && matchesCategory && matchesLowStock;
+      return matchesSearch && matchesCategory && matchesSubcategory && matchesProductType && matchesLowStock;
     });
   });
 
@@ -105,6 +141,58 @@ export class InventoryComponent implements OnInit, OnDestroy {
       : inventory.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0);
 
     return { totalItems, totalStock, lowStockCount, totalValue, canSeeCost };
+  });
+  
+  // Subcategories for filtering
+  subcategories = ['MENS', 'WOMENS', 'KIDS', 'BOYS', 'GIRLS', 'INFANT', 'TODDLER', 'UNISEX'];
+  
+  // Grouped inventory by product type and subcategory
+  groupedInventory = computed(() => {
+    const inventory = this.filteredInventory();
+    const subcategoryFilter = this.subcategoryFilter();
+    
+    // Filter by subcategory if selected
+    const filtered = subcategoryFilter === 'all' 
+      ? inventory 
+      : inventory.filter(item => 
+          item.product?.subcategory?.toLowerCase() === subcategoryFilter.toLowerCase()
+        );
+    
+    // Group by product type within each subcategory
+    const groups = new Map<string, { subcategory: string; items: LocationInventoryItem[] }>();
+    
+    filtered.forEach(item => {
+      if (!item.product) return;
+      
+      const subcategory = item.product.subcategory || 'UNISEX';
+      const productType = item.product.productType || item.product.name.split(' ')[0]; // e.g., "Jeans" from "Jeans Blue Size 32"
+      const key = `${subcategory}-${productType}`;
+      
+      if (!groups.has(key)) {
+        groups.set(key, { subcategory, items: [] });
+      }
+      groups.get(key)!.items.push(item);
+    });
+    
+    // Convert to array and calculate totals
+    return Array.from(groups.entries()).map(([key, data]) => {
+      const [subcategory, productType] = key.split('-');
+      return {
+        key,
+        subcategory,
+        productType,
+        category: data.items[0].product?.category || '',
+        totalBags: data.items.length,
+        totalQuantity: data.items.reduce((sum, item) => sum + item.quantity, 0),
+        items: data.items
+      };
+    }).sort((a, b) => {
+      // Sort by subcategory first, then by product type
+      if (a.subcategory !== b.subcategory) {
+        return a.subcategory.localeCompare(b.subcategory);
+      }
+      return a.productType.localeCompare(b.productType);
+    });
   });
 
   categories = ['SHIRTS', 'PANTS', 'JACKETS', 'DRESSES', 'SHOES', 'ACCESSORIES'];
@@ -487,5 +575,40 @@ export class InventoryComponent implements OnInit, OnDestroy {
     }
     
     return formatted + '.' + decimalPart;
+  }
+  
+  // View mode toggle
+  toggleViewMode(mode: 'cards' | 'grouped'): void {
+    this.viewMode.set(mode);
+    // Clear expanded groups when switching views
+    this.expandedGroups.clear();
+  }
+  
+  // Toggle group expansion
+  toggleGroup(groupKey: string): void {
+    if (this.expandedGroups.has(groupKey)) {
+      this.expandedGroups.delete(groupKey);
+    } else {
+      this.expandedGroups.add(groupKey);
+    }
+  }
+  
+  // Check if group is expanded
+  isGroupExpanded(groupKey: string): boolean {
+    return this.expandedGroups.has(groupKey);
+  }
+  
+  // Get grouped inventory list
+  get groupedInventoryList() {
+    return this.groupedInventory();
+  }
+  
+  // Clear all filters
+  clearFilters(): void {
+    this.searchTerm.set('');
+    this.categoryFilter.set('all');
+    this.subcategoryFilter.set('all');
+    this.productTypeFilter.set('');
+    this.lowStockOnly.set(false);
   }
 }
