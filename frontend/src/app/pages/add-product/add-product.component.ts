@@ -187,7 +187,7 @@ import { Product, Location } from '../../core/models';
                 <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                   <input type="checkbox" [(ngModel)]="applyPriceToBarcode" name="applyPriceToBarcode" 
                          class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                  <span>Apply sale price to all barcodes (₹{{ formData.price?.toFixed(2) || '0.00' }})</span>
+                  <span>Apply sale price to all barcodes (₹{{ formData.price.toFixed(2) || '0.00' }})</span>
                 </label>
                 <p class="text-xs text-gray-500 mt-1 ml-6">
                   When checked, all {{ formData.stock }} barcodes will have the sale price. Uncheck to set prices individually later.
