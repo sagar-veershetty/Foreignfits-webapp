@@ -49,7 +49,7 @@ export class PrintBarcodeComponent implements OnInit {
           fontSize: `calc(0.09 * ${dims.height}mm)`, // Increased from 0.06
           letterSpacing: '0.12em',
           marginBottom: '3px',
-          color: '#000000',
+          color: '#059669',
           textAlign: 'center',
           textTransform: 'uppercase',
           width: '100%',
@@ -666,7 +666,7 @@ export class PrintBarcodeComponent implements OnInit {
               font-size: calc(0.08 * ${dims.height}mm);
               letter-spacing: 0.12em;
               margin-bottom: 3px;
-              color: #000000 !important;
+              color: #059669;
               text-align: center;
               text-transform: uppercase;
               width: 100%;
