@@ -110,7 +110,7 @@
 }
 hr {
   border: none;
-  border-top: 1px dashed #999;
+  border-top: 1px dashed #000;
   margin: 12px 0;
 }
 .receipt-section-title {
@@ -143,7 +143,7 @@ hr {
 }
 .receipt-item-qty {
   font-size: 13px;
-  color: #333;
+  color: #000;
   margin-bottom: 2px;
 }
 .receipt-item-total {
@@ -181,8 +181,8 @@ hr {
   text-align: center;
   margin: 16px 0 8px 0;
   padding: 8px 0;
-  border-top: 1px dashed #999;
-  border-bottom: 1px dashed #999;
+  border-top: 1px dashed #000;
+  border-bottom: 1px dashed #000;
 }
 .receipt-payment > div:first-child {
   font-weight: 700;
