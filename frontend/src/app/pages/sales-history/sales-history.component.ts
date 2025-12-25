@@ -335,4 +335,27 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     this.appService.loadInitialData().subscribe();
     this.closeExchangeModal();
   }
+  deleteSale(sale: Sale): void {
+    const billId = sale.id.slice(0, 8).toUpperCase();
+    const confirmed = confirm(
+      `Are you sure you want to delete this sale?\n\n` +
+      `Bill ID: #${billId}\n` +
+      `Customer: ${sale.customerName || 'Walk-in Customer'}\n` +
+      `Total: ₹${sale.total.toFixed(2)}\n\n` +
+      `This action cannot be undone!`
+    );
+    
+    if (!confirmed) return;
+    
+    this.appService.deleteSale(sale.id).subscribe({
+      next: () => {
+        alert(`Sale #${billId} deleted successfully!`);
+        this.appService.refreshSales().subscribe();
+      },
+      error: (err: any) => {
+        alert(`Failed to delete sale: ${err.error?.error || err.message}`);
+      }
+    });
+  }
+
 }

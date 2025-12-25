@@ -44,6 +44,8 @@ public class SaleService {
     private final StockTransferRepository stockTransferRepository;
     private final BarcodeService barcodeService;
     private final BarcodeHistoryService barcodeHistoryService;
+    private final com.foreignfits.repository.ExchangeRepository exchangeRepository;
+    private final com.foreignfits.repository.ExchangeItemRepository exchangeItemRepository;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST (inclusive)
     
@@ -509,4 +511,26 @@ public class SaleService {
         
         return dto;
     }
+    /**
+     * Delete a sale (ADMIN only)
+     * This will delete the sale and all related payments and exchanges
+     */
+    public void deleteSale(Long id) {
+        Sale sale = saleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + id));
+        
+        // Delete in order of foreign key dependencies:
+        // 1. Delete exchange items (references exchanges)
+        exchangeItemRepository.deleteByExchangeSaleId(id);
+        
+        // 2. Delete exchanges (references sale)
+        exchangeRepository.deleteBySaleId(id);
+        
+        // 3. Delete payments (references sale)
+        salePaymentRepository.deleteBySaleId(id);
+        
+        // 4. Now delete the sale itself
+        saleRepository.delete(sale);
+    }
+
 }

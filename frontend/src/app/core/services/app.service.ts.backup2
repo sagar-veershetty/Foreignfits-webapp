@@ -537,7 +537,7 @@ export class AppService {
    * Delete a sale by ID (ADMIN only)
    */
   deleteSale(saleId: string): Observable<any> {
-    return this.http.delete(`${this.API_BASE_URL}/sales/${saleId}`)
+    return this.http.delete(\`\${this.API_BASE_URL}/sales/\${saleId}\`)
       .pipe(
         tap(() => {
           // Remove the sale from local state
