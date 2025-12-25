@@ -79,6 +79,17 @@ export class PrintReceiptComponent {
                 padding: 8px 12px;
                 width: 100%;
                 max-width: 80mm;
+                color: #000 !important;
+              }
+              .receipt-paper * {
+                color: #000 !important;
+              }
+              hr {
+                border-color: #000 !important;
+              }
+              .receipt-payment {
+                border-top-color: #000 !important;
+                border-bottom-color: #000 !important;
               }
             </style>
           </head>
