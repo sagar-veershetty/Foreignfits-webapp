@@ -408,6 +408,29 @@ export class SalesComponent implements OnInit {
           paymentMethodLabel = this.paymentMethod.toUpperCase();
         }
         
+        // Get location-specific information for receipt
+        const user = this.authService.getCurrentUser();
+        let locationName = 'Foreign Fits';
+        let locationAddress = '';
+        let locationPhone = '';
+        
+        if (user && user.locationName) {
+          locationName = user.locationName;
+          
+          // Set address and phone based on location
+          if (user.locationName.toLowerCase().includes('yamuna')) {
+            locationAddress = 'Mohan Market, Bidar';
+            locationPhone = '+919900724232, +919035707779';
+          } else if (user.locationName.toLowerCase().includes('gangotri')) {
+            locationAddress = '123 Fashion Street, Style City';
+            locationPhone = '(555) 123-4567';
+          } else {
+            // Default fallback
+            locationAddress = '123 Fashion Street, Style City';
+            locationPhone = '(555) 123-4567';
+          }
+        }
+        
         this.receiptData = {
           number: sale.id || 'N/A',
           date: now.toLocaleDateString('en-GB'),
@@ -418,7 +441,10 @@ export class SalesComponent implements OnInit {
           taxLabel: '5% GST (included)',
           tax,
           total,
-          paymentMethod: paymentMethodLabel
+          paymentMethod: paymentMethodLabel,
+          locationName: locationName,
+          locationAddress: locationAddress,
+          locationPhone: locationPhone
         };
         this.showReceiptModal = true;
         

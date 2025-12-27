@@ -58,6 +58,9 @@ public class Barcode {
     @Column(name = "sale_price")
     private Double salePrice; // Individual sale price for this specific barcode
     
+    @Column(name = "original_price")
+    private Double originalPrice; // Original price before discount (for winter sale strikethrough display)
+    
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

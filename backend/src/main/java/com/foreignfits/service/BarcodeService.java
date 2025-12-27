@@ -215,7 +215,7 @@ public class BarcodeService {
      * @return Updated barcode
      */
     @Transactional
-    public Barcode updateBarcodePrice(Long barcodeId, Double purchasePrice, Double salePrice) {
+    public Barcode updateBarcodePrice(Long barcodeId, Double purchasePrice, Double salePrice, Double originalPrice) {
         Barcode barcode = barcodeRepository.findById(barcodeId)
             .orElseThrow(() -> new RuntimeException("Barcode not found with id: " + barcodeId));
         
@@ -225,8 +225,17 @@ public class BarcodeService {
         if (salePrice != null) {
             barcode.setSalePrice(salePrice);
         }
+        if (originalPrice != null) {
+            barcode.setOriginalPrice(originalPrice);
+        }
         
         return barcodeRepository.save(barcode);
+    }
+    
+    // Overloaded method for backward compatibility
+    @Transactional
+    public Barcode updateBarcodePrice(Long barcodeId, Double purchasePrice, Double salePrice) {
+        return updateBarcodePrice(barcodeId, purchasePrice, salePrice, null);
     }
     
     /**

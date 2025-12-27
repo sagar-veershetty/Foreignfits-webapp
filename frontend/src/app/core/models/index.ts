@@ -75,6 +75,7 @@ export interface Barcode {
   createdAt: Date;
   purchasePrice?: number;  // Individual barcode purchase price
   salePrice?: number;       // Individual barcode sale price
+  originalPrice?: number;   // Original price before discount (for showing strikethrough)
 }
 
 export interface BarcodeHistory {

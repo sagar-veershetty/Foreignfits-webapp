@@ -239,11 +239,18 @@ export class AppService {
     return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}`, { status, remark });
   }
 
-  updateBarcodePrice(barcodeId: number, purchasePrice: number, salePrice: number): Observable<any> {
-    return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}/price`, { 
+  updateBarcodePrice(barcodeId: number, purchasePrice: number, salePrice: number, originalPrice?: number): Observable<any> {
+    const priceData: any = { 
       purchasePrice, 
       salePrice 
-    });
+    };
+    
+    // Include originalPrice if provided
+    if (originalPrice !== undefined && originalPrice !== null) {
+      priceData.originalPrice = originalPrice;
+    }
+    
+    return this.http.patch(`${this.API_BASE_URL}/barcodes/${barcodeId}/price`, priceData);
   }
 
   // Barcode History Methods

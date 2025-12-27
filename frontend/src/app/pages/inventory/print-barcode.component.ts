@@ -120,6 +120,40 @@ export class PrintBarcodeComponent implements OnInit {
           textOverflow: 'ellipsis',
           whiteSpace: 'normal',
         };
+      case 'originalPrice':
+        return {
+          fontSize: `calc(0.065 * ${dims.height}mm)`,
+          fontWeight: 500,
+          color: '#6b7280',
+          marginBottom: '1px',
+          textAlign: 'center',
+          lineHeight: 1.05,
+          maxWidth: '98%',
+        };
+      case 'discountPrice':
+        return {
+          fontSize: `calc(0.11 * ${dims.height}mm)`,
+          fontWeight: 800,
+          color: '#dc2626',
+          marginBottom: '2px',
+          textAlign: 'center',
+          lineHeight: 1.05,
+          maxWidth: '98%',
+        };
+      case 'saleTag':
+        return {
+          fontSize: `calc(0.055 * ${dims.height}mm)`,
+          fontWeight: 700,
+          color: '#fff',
+          backgroundColor: '#dc2626',
+          padding: '2px 6px',
+          borderRadius: '3px',
+          textAlign: 'center',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          marginBottom: '2px',
+          display: 'inline-block',
+        };
       case 'barcode':
         return {
           fontSize: `calc(0.08 * ${dims.height}mm)`, // Increased from 0.055
@@ -261,7 +295,7 @@ export class PrintBarcodeComponent implements OnInit {
   savingPrices: { [barcodeId: string]: boolean } = {}; // Track saving state for individual barcodes (string key for barcode.id)
   savedPrices: { [barcodeId: string]: boolean } = {}; // Track successfully saved state (for showing checkmark)
   savingBulkPrices: { [productId: string]: boolean } = {}; // Track bulk update state
-  bulkPrices: { [productId: string]: { purchase?: number; sale?: number } } = {}; // Bulk price inputs
+  bulkPrices: { [productId: string]: { purchase?: number; sale?: number; original?: number } } = {}; // Bulk price inputs
   
   ngOnInit() {
     const user = this.authService.getCurrentUser();
@@ -592,17 +626,25 @@ export class PrintBarcodeComponent implements OnInit {
         
         // Use individual barcode price, fallback to product price if not set
         const price = barcode?.salePrice || this.productPrices[product.id] || 0;
+        const originalPrice = barcode?.originalPrice;
+        
+        // Build price HTML with winter sale logic
+        let priceHtml = '';
+        if (originalPrice && originalPrice > price) {
+          // Winter sale display
+          priceHtml = '<div class="winter-sale-badge">Grand Opening & New Year SALE!!</div>'
+                    + '<div class="original-price"><span class="price-label">Old Price:</span> ₹' + originalPrice.toFixed(2) + '</div>'
+                    + '<div class="discount-price"><span class="price-label">New Price:</span> ₹' + price.toFixed(2) + '</div>';
+        } else {
+          // Regular price display
+          priceHtml = '<div class="sticker-price-mock">₹' + price.toFixed(2) + '</div>';
+        }
+        
         let labelHtml = ''
           + '<div class="sticker-card-mock">'
           + '<div class="sticker-brand-header">FOREIGN FITS</div>'
           + '<div class="sticker-title-mock">' + this.escapeHtml(name) + '</div>'
-          + '<div class="sticker-meta-mock">'
-          + (this.showSize && size ? this.escapeHtml(size) : '')
-          + (this.showColor && color ? ' - ' + this.escapeHtml(color) : '')
-          + '</div>'
-          + (this.showSKU ? '<div class="sticker-sku-mock">' + this.escapeHtml(sku) + '</div>' : '')
-          + (this.showCategory ? '<div class="sticker-category-mock">' + this.escapeHtml(product.category) + '</div>' : '')
-          + '<div class="sticker-price-mock">₹' + price.toFixed(2) + '</div>'
+          + priceHtml
           + '<div class="sticker-barcode-mock">'
           + '<div class="barcode-no-bg">' + svgMarkup + '</div>'
           + (this.showBarcodeNumber ? '<div class="barcode-value">' + this.escapeHtml(code) + '</div>' : '')
@@ -638,7 +680,7 @@ export class PrintBarcodeComponent implements OnInit {
               flex-direction: column;
               align-items: center;
               justify-content: flex-start;
-              gap: 0.5mm;
+              gap: 0.1mm;
               width: 100%;
               min-height: 0;
               margin: 0 auto;
@@ -647,7 +689,7 @@ export class PrintBarcodeComponent implements OnInit {
             .sticker-card-mock {
               background: #fff;
               border: 1px solid #e5e7eb;
-              margin: 4px 0;
+              margin: 1px 0;
               padding: 2px 4px;
               display: flex;
               flex-direction: column;
@@ -663,20 +705,20 @@ export class PrintBarcodeComponent implements OnInit {
             }
             .sticker-brand-header {
               font-weight: 800;
-              font-size: calc(0.08 * ${dims.height}mm);
+              font-size: calc(0.06 * ${dims.height}mm);
               letter-spacing: 0.12em;
-              margin-bottom: 3px;
-              color: #059669;
+              margin-bottom: 2px;
+              color: #000000;
               text-align: center;
               text-transform: uppercase;
               width: 100%;
-              line-height: 1.3;
+              line-height: 1.2;
             }
             .sticker-title-mock {
               font-weight: 700;
-              font-size: calc(0.10 * ${dims.height}mm);
+              font-size: calc(0.075 * ${dims.height}mm);
               margin-bottom: 1px;
-              color: #1a2233;
+              color: #000000;
               text-align: center;
               line-height: 1.05;
               word-break: break-word;
@@ -729,9 +771,9 @@ export class PrintBarcodeComponent implements OnInit {
               text-overflow: ellipsis;
             }
             .sticker-price-mock {
-              font-size: calc(0.09 * ${dims.height}mm);
+              font-size: calc(0.07 * ${dims.height}mm);
               font-weight: 700;
-              color: #2563eb;
+              color: #000000;
               margin-bottom: 2px;
               text-align: center;
               line-height: 1.05;
@@ -741,6 +783,41 @@ export class PrintBarcodeComponent implements OnInit {
               max-width: 98%;
               overflow: hidden;
               text-overflow: ellipsis;
+            }
+            .winter-sale-badge {
+              background: transparent;
+              color: #000000;
+              font-size: calc(0.075 * ${dims.height}mm);
+              font-weight: 900;
+              padding: 1px 3px;
+              border-radius: 0;
+              margin-bottom: 1px;
+              text-align: center;
+              letter-spacing: 0.05em;
+              text-transform: uppercase;
+              border: 1px dotted #000000;
+            }
+            .original-price {
+              font-size: calc(0.065 * ${dims.height}mm);
+              font-weight: 800;
+              color: #000000;
+              text-align: center;
+              margin-bottom: 1px;
+            }
+            .original-price .price-label {
+              font-weight: 500;
+              font-size: calc(0.055 * ${dims.height}mm);
+            }
+            .discount-price {
+              font-size: calc(0.085 * ${dims.height}mm);
+              font-weight: 900;
+              color: #000000;
+              text-align: center;
+              margin-bottom: 2px;
+            }
+            .discount-price .price-label {
+              font-weight: 600;
+              font-size: calc(0.070 * ${dims.height}mm);
             }
             .sticker-barcode-mock {
               width: 100%;
@@ -782,7 +859,7 @@ export class PrintBarcodeComponent implements OnInit {
               text-align: center;
               font-family: 'Menlo', 'Consolas', monospace;
               font-size: calc(0.055 * ${dims.height || 25}mm);
-              color: #222;
+              color: #000000;
               margin-top: 2px;
               letter-spacing: 0.04em;
               white-space: nowrap;
@@ -862,7 +939,7 @@ export class PrintBarcodeComponent implements OnInit {
   }
 
   // Update bulk price value (needed for proper two-way binding)
-  updateBulkPrice(productId: string, field: 'purchase' | 'sale', value: number): void {
+  updateBulkPrice(productId: string, field: 'purchase' | 'sale' | 'original', value: number): void {
     if (!this.bulkPrices[productId]) {
       this.bulkPrices[productId] = {};
     }
@@ -898,6 +975,12 @@ export class PrintBarcodeComponent implements OnInit {
       alert('Price cannot be negative.');
       return;
     }
+    
+    // Validate originalPrice if provided
+    if (barcode.originalPrice !== undefined && barcode.originalPrice !== null && barcode.originalPrice < 0) {
+      alert('Original price cannot be negative.');
+      return;
+    }
 
     this.savingPrices[barcode.id] = true;
 
@@ -907,7 +990,7 @@ export class PrintBarcodeComponent implements OnInit {
     // Use existing purchase price or 0 if not set
     const purchasePrice = barcode.purchasePrice || 0;
     
-    this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, barcode.salePrice).subscribe({
+    this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, barcode.salePrice, barcode.originalPrice).subscribe({
       next: () => {
         this.savingPrices[barcode.id] = false;
         this.savedPrices[barcode.id] = true; // Show success checkmark
@@ -945,6 +1028,12 @@ export class PrintBarcodeComponent implements OnInit {
       alert('Price cannot be negative.');
       return;
     }
+    
+    // Validate originalPrice if provided
+    if (bulkPrice.original !== undefined && bulkPrice.original !== null && bulkPrice.original < 0) {
+      alert('Original price cannot be negative.');
+      return;
+    }
 
     // Only update barcodes that will be printed
     const barcodes = this.getBarcodesToPrint(productId);
@@ -953,9 +1042,11 @@ export class PrintBarcodeComponent implements OnInit {
       return;
     }
 
-    const confirmMsg = `Update ${barcodes.length} barcode(s) that will be printed with:\n` +
-      `Sale Price: ₹${bulkPrice.sale.toFixed(2)}\n` +
-      '\nContinue?';
+    let confirmMsg = `Update ${barcodes.length} barcode(s) that will be printed with:\n`;
+    if (bulkPrice.original !== undefined && bulkPrice.original !== null) {
+      confirmMsg += `Original Price: ₹${bulkPrice.original.toFixed(2)}\n`;
+    }
+    confirmMsg += `Sale Price: ₹${bulkPrice.sale.toFixed(2)}\n\nContinue?`;
 
     if (!confirm(confirmMsg)) {
       return;
@@ -969,17 +1060,21 @@ export class PrintBarcodeComponent implements OnInit {
     barcodes.forEach((barcode, index) => {
       const purchasePrice = barcode.purchasePrice || 0; // Keep existing or use 0
       const salePrice = bulkPrice.sale!; // Use the bulk sale price
+      const originalPrice = bulkPrice.original; // Use the bulk original price if provided
 
       // Convert string ID to number for API call
       const barcodeIdNum = parseInt(barcode.id, 10);
 
-      this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, salePrice).subscribe({
+      this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, salePrice, originalPrice).subscribe({
         next: () => {
           updateCount++;
           
           // Update local data
           barcode.purchasePrice = purchasePrice;
           barcode.salePrice = salePrice;
+          if (originalPrice !== undefined && originalPrice !== null) {
+            barcode.originalPrice = originalPrice;
+          }
           
           // If all updates complete, reload and show success
           if (updateCount + errorCount === barcodes.length) {
@@ -1008,6 +1103,92 @@ export class PrintBarcodeComponent implements OnInit {
             
             // Clear bulk price inputs
             this.bulkPrices[productId] = {};
+          }
+        }
+      });
+    });
+  }
+
+  // Winter Sale Helper Methods
+  
+  /**
+   * Calculate discount percentage between original and sale price
+   */
+  calculateDiscountPercentage(originalPrice: number, salePrice: number): number {
+    if (!originalPrice || originalPrice <= 0) return 0;
+    const discount = ((originalPrice - salePrice) / originalPrice) * 100;
+    return Math.round(discount);
+  }
+
+  /**
+   * Check if barcode has a winter sale discount
+   */
+  hasWinterSaleDiscount(barcode: Barcode): boolean {
+    return !!(barcode.originalPrice && barcode.originalPrice > (barcode.salePrice || 0));
+  }
+
+  /**
+   * Apply winter sale pricing to selected barcodes
+   * This method stores the current price as originalPrice and sets the new sale price
+   */
+  applyWinterSalePricing(productId: string, newSalePrice: number): void {
+    const barcodes = this.getBarcodesToPrint(productId);
+    
+    if (barcodes.length === 0) {
+      alert('No barcodes found for this product.');
+      return;
+    }
+
+    const confirmMsg = `Apply New Year 2026 SALE pricing to ${barcodes.length} barcode(s)?\n` +
+      `New Sale Price: ₹${newSalePrice.toFixed(2)}\n` +
+      `Original prices will be preserved for strikethrough display.`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    this.savingBulkPrices[productId] = true;
+    let updateCount = 0;
+    let errorCount = 0;
+
+    // Note: This assumes you have a backend endpoint that accepts originalPrice
+    // If not, you'll need to update the backend Barcode entity and controller
+    barcodes.forEach((barcode) => {
+      const barcodeIdNum = parseInt(barcode.id, 10);
+      
+      // Store current sale price as original price if not already set
+      const originalPrice = barcode.originalPrice || barcode.salePrice || 0;
+      const purchasePrice = barcode.purchasePrice || 0;
+      
+      // For now, we'll use the existing updateBarcodePrice method
+      // You may need to create a new backend endpoint that accepts originalPrice
+      this.appService.updateBarcodePrice(barcodeIdNum, purchasePrice, newSalePrice).subscribe({
+        next: () => {
+          updateCount++;
+          
+          // Update local barcode object to include originalPrice
+          barcode.originalPrice = originalPrice;
+          barcode.salePrice = newSalePrice;
+          
+          if (updateCount + errorCount === barcodes.length) {
+            this.savingBulkPrices[productId] = false;
+            this.loadBarcodesForProduct(productId);
+            
+            if (errorCount === 0) {
+              alert(`Successfully applied New Year 2026 Sale pricing to ${updateCount} barcode(s)!`);
+            } else {
+              alert(`Updated ${updateCount} barcode(s). ${errorCount} failed.`);
+            }
+          }
+        },
+        error: (err) => {
+          errorCount++;
+          console.error(`Failed to update barcode ${barcode.barcodeNumber}:`, err);
+          
+          if (updateCount + errorCount === barcodes.length) {
+            this.savingBulkPrices[productId] = false;
+            this.loadBarcodesForProduct(productId);
+            alert(`Updated ${updateCount} barcode(s). ${errorCount} failed.`);
           }
         }
       });

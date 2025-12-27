@@ -215,7 +215,16 @@ public class BarcodeController {
     
     /**
      * Update individual barcode price
-     * Allows updating purchase and/or sale price for a specific barcode
+     * Allows updating purchase, sale, and/or original price for a specific barcode
+     * 
+     * ROLE-BASED PERMISSIONS (enforced by UI):
+     * - ADMIN: Can update prices at ALL locations
+     * - WAREHOUSE: Can update prices at their warehouse location only (UI filtered)
+     * - SALES_MANAGER: Can update prices at their store location only (UI filtered)
+     * - SALES: Can update prices at their store location only (UI filtered)
+     * 
+     * Note: Location filtering is handled by the frontend. Users only see barcodes
+     * at their assigned location, so they can only update what they can see.
      */
     @PatchMapping("/{barcodeId}/price")
     @PreAuthorize("hasAnyAuthority('edit:inventory', 'manage:inventory', 'manage:products')")
@@ -225,14 +234,17 @@ public class BarcodeController {
     ) {
         Double purchasePrice = priceData.get("purchasePrice");
         Double salePrice = priceData.get("salePrice");
+        Double originalPrice = priceData.get("originalPrice");
         
-        Barcode barcode = barcodeService.updateBarcodePrice(barcodeId, purchasePrice, salePrice);
+        Barcode barcode = barcodeService.updateBarcodePrice(barcodeId, purchasePrice, salePrice, originalPrice);
         
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("barcodeNumber", barcode.getBarcodeNumber());
         response.put("purchasePrice", barcode.getPurchasePrice());
         response.put("salePrice", barcode.getSalePrice());
+        response.put("originalPrice", barcode.getOriginalPrice());
+        response.put("locationName", barcode.getCurrentLocation().getName());
         response.put("message", "Barcode price updated successfully");
         
         return ResponseEntity.ok(response);
