@@ -4,6 +4,17 @@ export interface ReceiptItem {
   details?: string;
   qty: number;
   price: number;
+  barcode?: string; // Optional barcode for matching specific items
+}
+
+export interface ExchangeDetails {
+  originalBillNumber: string;
+  returnedItems: ReceiptItem[];
+  returnedTotal: number;
+  newItems: ReceiptItem[];
+  newTotal: number;
+  priceDifference: number; // Positive = customer pays, Negative = customer receives refund
+  exchangeReason?: string;
 }
 
 export interface ReceiptData {
@@ -20,4 +31,5 @@ export interface ReceiptData {
   locationName?: string; // Store location name for dynamic address
   locationAddress?: string; // Store location address
   locationPhone?: string; // Store location phone numbers
+  exchangeDetails?: ExchangeDetails; // Exchange-specific information
 }

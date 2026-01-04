@@ -57,9 +57,13 @@ public class ExchangeService {
         newSale.setCustomerName(originalSale.getCustomerName());
         newSale.setCustomerPhone(originalSale.getCustomerPhone());
         newSale.setCustomerEmail(originalSale.getCustomerEmail());
-        newSale.setSubtotal(exchangedTotal);
-        newSale.setTax(BigDecimal.ZERO);
-        newSale.setTotal(exchangedTotal);
+        
+        // For the new sale, we need to store the EXCHANGED total (not the difference)
+        // The priceDifference tells us if customer pays extra or gets refund
+        // But the Sale entity must have positive values for validation
+        newSale.setSubtotal(exchangedTotal.divide(new BigDecimal("1.05"), 2, java.math.RoundingMode.HALF_UP)); // Remove GST to get subtotal
+        newSale.setTax(exchangedTotal.subtract(newSale.getSubtotal())); // Tax is the difference
+        newSale.setTotal(exchangedTotal); // Total is the exchanged items value
         newSale.setPaymentMethod(Sale.PaymentMethod.UPI);
         newSale.setSoldBy(user);
         newSale.setCreatedAt(LocalDateTime.now());
@@ -77,6 +81,12 @@ public class ExchangeService {
         exchange.setNotes(request.getNotes());
         exchange.setCreatedAt(LocalDateTime.now());
         exchange = exchangeRepository.save(exchange);
+        
+        // Mark the new sale as an exchange sale with the difference amount
+        newSale.setIsExchangeSale(true);
+        newSale.setExchangeId(exchange.getId());
+        newSale.setExchangePriceDifference(priceDifference);
+        newSale = saleRepository.save(newSale);
 
         // Process returned items - add back to inventory
         List<ExchangeItem> exchangeItems = new ArrayList<>();
@@ -85,36 +95,47 @@ public class ExchangeService {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
 
+            // Get list of barcodes (support both single barcode and multiple barcodes)
+            List<String> barcodes = new ArrayList<>();
+            if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
+                barcodes.addAll(item.getBarcodes());
+            } else if (item.getBarcode() != null) {
+                barcodes.add(item.getBarcode());
+            }
+
             ExchangeItem exchangeItem = new ExchangeItem();
             exchangeItem.setExchange(exchange);
             exchangeItem.setProduct(product);
             exchangeItem.setQuantity(item.getQuantity());
             exchangeItem.setItemType(ExchangeItemType.RETURNED);
-            exchangeItem.setBarcode(item.getBarcode());
+            // Store the first barcode or all barcodes joined (for backward compatibility)
+            exchangeItem.setBarcode(!barcodes.isEmpty() ? barcodes.get(0) : null);
             exchangeItems.add(exchangeItem);
 
             // Add returned items back to inventory
             addToInventory(product, location, item.getQuantity());
             
-            // Update barcode status to ACTIVE and record history
-            Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(item.getBarcode());
-            if (barcodeOpt.isPresent()) {
-                Barcode barcode = barcodeOpt.get();
-                barcode.setStatus("ACTIVE");
-                barcode.setRemark("Returned via exchange");
-                barcodeRepository.save(barcode);
-                
-                barcodeHistoryService.recordHistory(
-                    barcode,
-                    "RETURNED",
-                    location,
-                    null,
-                    null,
-                    "EXCHANGE",
-                    exchange.getId(),
-                    "Returned via exchange: " + exchange.getExchangeReason(),
-                    user.getName()
-                );
+            // Update barcode status to ACTIVE and record history for each barcode
+            for (String barcodeNumber : barcodes) {
+                Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(barcodeNumber);
+                if (barcodeOpt.isPresent()) {
+                    Barcode barcode = barcodeOpt.get();
+                    barcode.setStatus("ACTIVE");
+                    barcode.setRemark("Returned via exchange");
+                    barcodeRepository.save(barcode);
+                    
+                    barcodeHistoryService.recordHistory(
+                        barcode,
+                        "RETURNED",
+                        location,
+                        null,
+                        null,
+                        "EXCHANGE",
+                        exchange.getId(),
+                        "Returned via exchange: " + exchange.getExchangeReason(),
+                        user.getName()
+                    );
+                }
             }
         }
 
@@ -124,48 +145,83 @@ public class ExchangeService {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
 
+            // Get list of barcodes (support both single barcode and multiple barcodes)
+            List<String> barcodeNumbers = new ArrayList<>();
+            if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
+                barcodeNumbers.addAll(item.getBarcodes());
+            } else if (item.getBarcode() != null) {
+                barcodeNumbers.add(item.getBarcode());
+            }
+
             ExchangeItem exchangeItem = new ExchangeItem();
             exchangeItem.setExchange(exchange);
             exchangeItem.setProduct(product);
             exchangeItem.setQuantity(item.getQuantity());
             exchangeItem.setItemType(ExchangeItemType.EXCHANGED);
-            exchangeItem.setBarcode(item.getBarcode());
+            // Store the first barcode or all barcodes joined (for backward compatibility)
+            exchangeItem.setBarcode(!barcodeNumbers.isEmpty() ? barcodeNumbers.get(0) : null);
             exchangeItems.add(exchangeItem);
 
             // Deduct exchanged items from inventory
             deductFromInventory(product, location, item.getQuantity());
 
-            // Create sale item ONLY for exchanged (new) items
+            // Create sale item ONLY for exchanged (new) items with barcode-specific pricing
             LocationInventory inventory = locationInventoryRepository.findByLocationIdAndProductSku(location.getId(), product.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
+            
+            // Collect barcode entities and calculate total from barcode-specific prices
+            List<Barcode> barcodeEntities = new ArrayList<>();
+            BigDecimal itemTotal = BigDecimal.ZERO;
+            
+            for (String barcodeNumber : barcodeNumbers) {
+                Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(barcodeNumber);
+                if (barcodeOpt.isPresent()) {
+                    Barcode barcodeEntity = barcodeOpt.get();
+                    barcodeEntities.add(barcodeEntity);
+                    // Use barcode-specific sale price, fallback to inventory price
+                    BigDecimal barcodePrice = barcodeEntity.getSalePrice() != null && barcodeEntity.getSalePrice() > 0
+                            ? BigDecimal.valueOf(barcodeEntity.getSalePrice())
+                            : inventory.getSalePrice();
+                    itemTotal = itemTotal.add(barcodePrice);
+                }
+            }
+            
+            // If no barcodes found, use inventory price * quantity
+            if (itemTotal.compareTo(BigDecimal.ZERO) == 0) {
+                itemTotal = inventory.getSalePrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+            }
             
             SaleItem newSaleItem = new SaleItem();
             newSaleItem.setSale(newSale);
             newSaleItem.setProduct(product);
             newSaleItem.setQuantity(item.getQuantity());
-            newSaleItem.setPrice(inventory.getSalePrice());
-            newSaleItem.setTotal(inventory.getSalePrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            newSaleItem.setBarcodes(barcodeEntities);
+            // Set average price for display
+            newSaleItem.setPrice(itemTotal.divide(BigDecimal.valueOf(item.getQuantity()), 2, java.math.RoundingMode.HALF_UP));
+            newSaleItem.setTotal(itemTotal);
             saleItems.add(newSaleItem);
             
-            // Update barcode status to SOLD and record history
-            Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(item.getBarcode());
-            if (barcodeOpt.isPresent()) {
-                Barcode barcode = barcodeOpt.get();
-                barcode.setStatus("SOLD");
-                barcode.setRemark("Sold via exchange to " + newSale.getCustomerName());
-                barcodeRepository.save(barcode);
-                
-                barcodeHistoryService.recordHistory(
-                    barcode,
-                    "SOLD",
-                    location,
-                    null,
-                    null,
-                    "EXCHANGE",
-                    exchange.getId(),
-                    "Sold via exchange to: " + newSale.getCustomerName(),
-                    user.getName()
-                );
+            // Update barcode status to SOLD and record history for each barcode
+            for (String barcodeNumber : barcodeNumbers) {
+                Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(barcodeNumber);
+                if (barcodeOpt.isPresent()) {
+                    Barcode barcode = barcodeOpt.get();
+                    barcode.setStatus("SOLD");
+                    barcode.setRemark("Sold via exchange to " + newSale.getCustomerName());
+                    barcodeRepository.save(barcode);
+                    
+                    barcodeHistoryService.recordHistory(
+                        barcode,
+                        "SOLD",
+                        location,
+                        null,
+                        null,
+                        "EXCHANGE",
+                        exchange.getId(),
+                        "Sold via exchange to: " + newSale.getCustomerName(),
+                        user.getName()
+                    );
+                }
             }
         }
 
@@ -214,7 +270,37 @@ public class ExchangeService {
                     .findByLocationIdAndProductSku(location.getId(), product.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
             
-            total = total.add(inventory.getSalePrice().multiply(new BigDecimal(item.getQuantity())));
+            // Get list of barcodes (support both single barcode and multiple barcodes)
+            List<String> barcodeNumbers = new ArrayList<>();
+            if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
+                barcodeNumbers.addAll(item.getBarcodes());
+            } else if (item.getBarcode() != null) {
+                barcodeNumbers.add(item.getBarcode());
+            }
+            
+            // Calculate total using barcode-specific prices
+            BigDecimal itemTotal = BigDecimal.ZERO;
+            for (String barcodeNumber : barcodeNumbers) {
+                Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(barcodeNumber);
+                if (barcodeOpt.isPresent()) {
+                    Barcode barcodeEntity = barcodeOpt.get();
+                    // Use barcode-specific sale price, fallback to inventory price
+                    BigDecimal barcodePrice = barcodeEntity.getSalePrice() != null && barcodeEntity.getSalePrice() > 0
+                            ? BigDecimal.valueOf(barcodeEntity.getSalePrice())
+                            : inventory.getSalePrice();
+                    itemTotal = itemTotal.add(barcodePrice);
+                } else {
+                    // If barcode not found, use inventory price
+                    itemTotal = itemTotal.add(inventory.getSalePrice());
+                }
+            }
+            
+            // If no barcodes provided, use inventory price * quantity
+            if (itemTotal.compareTo(BigDecimal.ZERO) == 0) {
+                itemTotal = inventory.getSalePrice().multiply(new BigDecimal(item.getQuantity()));
+            }
+            
+            total = total.add(itemTotal);
         }
         return total;
     }
@@ -258,6 +344,9 @@ public class ExchangeService {
         dto.setNotes(exchange.getNotes());
         dto.setCreatedAt(exchange.getCreatedAt());
         
+        Sale originalSale = exchange.getOriginalSale();
+        Sale newSale = exchange.getNewSale();
+        
         List<ExchangeItemDto> itemDtos = items.stream()
                 .map(item -> {
                     ExchangeItemDto itemDto = new ExchangeItemDto();
@@ -267,6 +356,18 @@ public class ExchangeService {
                     itemDto.setQuantity(item.getQuantity());
                     itemDto.setItemType(item.getItemType());
                     itemDto.setBarcode(item.getBarcode());
+                    
+                    // Get price from the appropriate sale
+                    BigDecimal price = BigDecimal.ZERO;
+                    if (item.getItemType() == ExchangeItemType.RETURNED && originalSale != null) {
+                        // Get price from original sale
+                        price = getPriceFromSale(originalSale, item.getBarcode(), item.getProduct());
+                    } else if (item.getItemType() == ExchangeItemType.EXCHANGED && newSale != null) {
+                        // Get price from new sale
+                        price = getPriceFromSale(newSale, item.getBarcode(), item.getProduct());
+                    }
+                    itemDto.setPrice(price);
+                    
                     return itemDto;
                 })
                 .collect(Collectors.toList());
@@ -274,4 +375,49 @@ public class ExchangeService {
         dto.setItems(itemDtos);
         return dto;
     }
+    
+    /**
+     * Get price for a specific barcode/product from a sale
+     */
+    private BigDecimal getPriceFromSale(Sale sale, String barcodeNumber, Product product) {
+        if (sale.getItems() == null || sale.getItems().isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        
+        // Find the sale item that contains this barcode or product
+        for (SaleItem saleItem : sale.getItems()) {
+            if (saleItem.getProduct().getId().equals(product.getId())) {
+                // Found the matching product
+                
+                // If we have a specific barcode, try to find its price
+                if (barcodeNumber != null && saleItem.getBarcodes() != null) {
+                    for (Barcode barcode : saleItem.getBarcodes()) {
+                        if (barcode.getBarcodeNumber().equals(barcodeNumber)) {
+                            // Found the exact barcode, use its sale price
+                            if (barcode.getSalePrice() != null && barcode.getSalePrice() > 0) {
+                                return BigDecimal.valueOf(barcode.getSalePrice());
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback to the sale item's average price
+                if (saleItem.getPrice() != null && saleItem.getPrice().compareTo(BigDecimal.ZERO) > 0) {
+                    return saleItem.getPrice();
+                }
+                
+                // Fallback to total / quantity
+                if (saleItem.getTotal() != null && saleItem.getQuantity() > 0) {
+                    return saleItem.getTotal().divide(
+                        BigDecimal.valueOf(saleItem.getQuantity()), 
+                        2, 
+                        java.math.RoundingMode.HALF_UP
+                    );
+                }
+            }
+        }
+        
+        return BigDecimal.ZERO;
+    }
 }
+

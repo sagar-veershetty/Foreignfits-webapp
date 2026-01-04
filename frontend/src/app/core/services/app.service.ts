@@ -753,14 +753,38 @@ export class AppService {
 
     return {
       id: apiSale.id.toString(),
-      items: (apiSale.items || []).map((item: any) => ({
-        productId: item.product.id.toString(),
-        product: this.convertApiProductToProduct(item.product),
-        quantity: item.quantity,
-        price: item.price,
-        total: item.total,
-        barcodes: item.barcodes || []
-      })),
+      items: (apiSale.items || []).map((item: any) => {
+        // Gather barcodes from multiple possible backend shapes
+        const possibleBarcodes = [
+          item.barcodes,
+          item.barcodeNumbers,
+          item.barcodeList,
+          item.saleItemBarcodes,
+          item.scannedBarcodes,
+          item.barcode ? [item.barcode] : undefined,
+          item.barcodeNumber ? [item.barcodeNumber] : undefined,
+        ].filter(Boolean) as string[][];
+
+        let barcodes: string[] = possibleBarcodes.length > 0
+          ? Array.from(new Set(possibleBarcodes.flat().filter(Boolean)))
+          : [];
+
+        // If still empty but barcodePrices exists, derive barcodes from its keys
+        if (barcodes.length === 0 && item.barcodePrices) {
+          barcodes = Object.keys(item.barcodePrices);
+        }
+
+        return {
+          productId: item.product.id.toString(),
+          product: this.convertApiProductToProduct(item.product),
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total,
+          barcodes,
+          // Preserve per-barcode pricing when backend provides it (used in exchanges/receipts)
+          barcodePrices: item.barcodePrices || undefined
+        };
+      }),
       subtotal: apiSale.subtotal,
       tax: apiSale.tax,
       total: apiSale.total,

@@ -172,6 +172,9 @@ export interface Sale {
   pointsEarned?: number;
   pointsRedeemed?: number;
   discountFromPoints?: number;
+  isExchangeSale?: boolean;
+  exchangeId?: number;
+  exchangePriceDifference?: number;
 }
 
 export interface User {
@@ -438,4 +441,18 @@ export interface ShipmentResponse extends Shipment {
 export interface PaymentRequest {
   amount: number;
   remarks?: string;
+}
+
+export interface SalesPerson {
+  id: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  locationId?: number;
+  locationName?: string;
+  isActive: boolean;
+  incentiveRate?: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+  notes?: string;
 }

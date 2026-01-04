@@ -414,6 +414,9 @@ public class SaleService {
         dto.setPointsRedeemed(sale.getPointsRedeemed());
         dto.setDiscountFromPoints(sale.getDiscountFromPoints());
         dto.setSalesPersonName(sale.getSalesPersonName());
+        dto.setIsExchangeSale(sale.getIsExchangeSale());
+        dto.setExchangeId(sale.getExchangeId());
+        dto.setExchangePriceDifference(sale.getExchangePriceDifference());
         dto.setCreatedAt(sale.getCreatedAt());
         
         // Convert sold by user

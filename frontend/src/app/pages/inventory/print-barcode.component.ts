@@ -1109,6 +1109,20 @@ export class PrintBarcodeComponent implements OnInit {
     });
   }
 
+  /**
+   * Check if any prices are currently being saved (individual or bulk)
+   * Used to disable the Print button until all saves are complete
+   */
+  isAnySaving(): boolean {
+    // Check if any individual barcode is being saved
+    const anySavingPrices = Object.values(this.savingPrices).some(saving => saving === true);
+    
+    // Check if any bulk update is in progress
+    const anySavingBulk = Object.values(this.savingBulkPrices).some(saving => saving === true);
+    
+    return anySavingPrices || anySavingBulk;
+  }
+
   // Winter Sale Helper Methods
   
   /**

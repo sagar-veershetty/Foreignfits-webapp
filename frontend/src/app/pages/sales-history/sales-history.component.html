@@ -125,8 +125,11 @@
               <p class="text-xs text-gray-500">{{ sale.createdAt | date:'MMM d, y h:mm a' }}</p>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="text-lg font-bold text-gray-900">₹{{ sale.total.toFixed(2) }}</p>
-              <p class="text-xs text-gray-500">{{ sale.items.length || 0 }} item(s)</p>
+              <p class="text-lg font-bold text-gray-900">₹{{ getDisplayAmount(sale).toFixed(2) }}</p>
+              <p class="text-xs text-gray-500">
+                <span *ngIf="sale.isExchangeSale" class="text-blue-600 font-medium">{{ getAmountLabel(sale) }}</span>
+                <span *ngIf="!sale.isExchangeSale">{{ sale.items.length || 0 }} item(s)</span>
+              </p>
             </div>
           </div>
           
@@ -273,7 +276,10 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-bold text-green-600">
-                ₹{{ sale.total.toFixed(2) }}
+                ₹{{ getDisplayAmount(sale).toFixed(2) }}
+              </div>
+              <div *ngIf="sale.isExchangeSale" class="text-xs text-blue-600 font-medium">
+                {{ getAmountLabel(sale) }}
               </div>
             </td>
             <td *ngIf="isAdmin()" class="px-6 py-4 whitespace-nowrap">
@@ -476,6 +482,12 @@
             <div class="border-t border-gray-300 pt-2 flex justify-between text-lg">
               <span class="font-bold text-gray-900">Total:</span>
               <span class="font-bold text-green-600">₹{{ selectedSale.total.toFixed(2) }}</span>
+            </div>
+            <!-- Exchange Information -->
+            <div *ngIf="selectedSale.isExchangeSale && selectedSale.exchangePriceDifference !== undefined" 
+                 class="border-t border-blue-200 pt-2 flex justify-between text-lg bg-blue-50 px-3 py-2 rounded">
+              <span class="font-bold text-blue-900">{{ getAmountLabel(selectedSale) }}:</span>
+              <span class="font-bold text-blue-600">₹{{ getDisplayAmount(selectedSale).toFixed(2) }}</span>
             </div>
           </div>
         </div>

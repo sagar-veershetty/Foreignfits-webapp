@@ -23,6 +23,7 @@ public class ExchangeRequest {
     public static class ExchangeItemRequest {
         private Long productId;
         private Integer quantity;
-        private String barcode;
+        private String barcode; // Single barcode for backward compatibility
+        private List<String> barcodes; // Multiple barcodes for batch returns/exchanges
     }
 }

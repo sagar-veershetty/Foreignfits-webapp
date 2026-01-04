@@ -6,7 +6,8 @@ import { environment } from '../../../environments/environment';
 export interface ExchangeItemRequest {
   productId: number;
   quantity: number;
-  barcode?: string;
+  barcode?: string; // Single barcode for backward compatibility
+  barcodes?: string[]; // Multiple barcodes for batch returns/exchanges
 }
 
 export interface ExchangeRequest {

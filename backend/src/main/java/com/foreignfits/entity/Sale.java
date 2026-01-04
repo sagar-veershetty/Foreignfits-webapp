@@ -78,6 +78,16 @@ public class Sale {
     @Column(name = "sales_person_name", length = 100)
     private String salesPersonName;
     
+    // Exchange-related fields
+    @Column(name = "is_exchange_sale")
+    private Boolean isExchangeSale = false;
+    
+    @Column(name = "exchange_id")
+    private Long exchangeId;
+    
+    @Column(name = "exchange_price_difference", precision = 12, scale = 2)
+    private BigDecimal exchangePriceDifference; // Amount customer paid/received in exchange
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sold_by_id", nullable = false)
     private User soldBy;

@@ -48,7 +48,7 @@
         </label>
         <app-barcode-input
           [value]="exchangeBarcodeInput"
-          (valueChange)="exchangeBarcodeInput = $event"
+          (valueChange)="onExchangeBarcodeChange($event)"
           (scan)="searchSaleByBarcode($event)"
           placeholder="Scan the barcode on the product being returned...">
         </app-barcode-input>
@@ -58,13 +58,68 @@
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <span>Searching for sale with this barcode...</span>
+          <span>Validating barcode...</span>
+        </div>
+
+        <!-- Success Message -->
+        <div *ngIf="exchangeSuccessMessage" class="mt-2 text-sm text-green-600 flex items-center gap-2">
+          <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>{{ exchangeSuccessMessage }}</span>
         </div>
         
         <p class="mt-2 text-xs text-gray-500 bg-gray-50 rounded p-2">
-          <strong>💡 Instructions:</strong> Scan the barcode on the product the customer wants to return or exchange. 
-          The system will automatically find which sale that product was part of.
+          <strong>💡 Instructions:</strong> Scan multiple barcodes on the products the customer wants to return or exchange. 
+          When done scanning, click "Proceed with Exchange" to continue.
         </p>
+      </div>
+
+      <!-- Scanned Barcodes List -->
+      <div *ngIf="scannedExchangeBarcodes.length > 0" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-sm font-semibold text-gray-900">
+            Scanned Items ({{ scannedExchangeBarcodes.length }})
+          </h4>
+        </div>
+        <div class="space-y-2">
+          <div *ngFor="let item of scannedExchangeBarcodes" 
+               class="flex items-center justify-between bg-white rounded p-3 border border-gray-200">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-medium text-gray-900">{{ item.productName }}</span>
+                <span class="text-xs text-gray-500">{{ item.size }} | {{ item.color }}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">{{ item.barcode }}</span>
+                <span class="text-sm font-semibold text-green-600">₹{{ item.price.toFixed(2) }}</span>
+              </div>
+            </div>
+            <button (click)="removeScannedBarcode(item.barcode)" 
+                    class="text-red-600 hover:text-red-800 flex items-center gap-1 ml-3">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              Remove
+            </button>
+          </div>
+        </div>
+        
+        <!-- Total Value -->
+        <div class="mt-3 pt-3 border-t border-blue-200 flex justify-between items-center">
+          <span class="text-sm font-medium text-gray-700">Total Value:</span>
+          <span class="text-lg font-bold text-blue-600">₹{{ getScannedBarcodesTotal().toFixed(2) }}</span>
+        </div>
+        
+        <!-- Proceed Button -->
+        <button (click)="proceedWithExchange()"
+                [disabled]="isSearchingSale"
+                class="mt-4 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+          </svg>
+          <span>Proceed with Exchange</span>
+        </button>
       </div>
 
       <!-- Error Message -->
@@ -89,7 +144,7 @@
 
         <app-barcode-input
           [value]="barcodeInput"
-          (valueChange)="barcodeInput = $event"
+          (valueChange)="onBarcodeInputChange($event)"
           (scan)="onBarcodeScan($event)"
           placeholder="Scan barcode to add item to sale...">
         </app-barcode-input>
@@ -200,14 +255,16 @@
               Sales Person Name (Optional)
               <span class="text-xs text-gray-500 font-normal ml-1">- For incentive tracking</span>
             </label>
-            <input 
-              type="text" 
+            <select 
               [(ngModel)]="salesPersonName" 
               class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
-              placeholder="Enter sales person name" 
-              maxlength="100"
-            />
-            <p class="text-xs text-gray-500 mt-1">Track which team member assisted with this sale</p>
+            >
+              <option value="">Select sales person...</option>
+              <option *ngFor="let person of salesPersons" [value]="person.name">
+                {{ person.name }}
+              </option>
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Select team member who assisted with this sale</p>
           </div>
 
           <!-- Loyalty Info -->
@@ -320,8 +377,22 @@
               </div>
             </div>
 
-            <div *ngIf="getRemainingBalance(appState) > 0" class="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded p-2">
-              ⚠️ Please enter payments totaling ₹{{ getTotal(appState) | number:'1.2-2' }}
+            <!-- Validation Messages for Split Payment -->
+            <div *ngIf="useSplitPayment && !canCompleteSale(appState)" class="text-xs bg-orange-50 border border-orange-200 rounded p-2 space-y-1">
+              <div *ngIf="payments.length === 0" class="text-orange-700">
+                ⚠️ Add at least one payment method
+              </div>
+              <div *ngIf="payments.length > 0 && hasInvalidPaymentAmounts()" class="text-orange-700">
+                ⚠️ All payment amounts must be greater than zero
+              </div>
+              <div *ngIf="payments.length > 0 && !hasInvalidPaymentAmounts() && getRemainingBalance(appState) !== 0" class="text-orange-700">
+                ⚠️ Payments must sum to sale total (Remaining: ₹{{ getRemainingBalance(appState) | number:'1.2-2' }})
+              </div>
+            </div>
+
+            <!-- Success Message when payments are correct -->
+            <div *ngIf="useSplitPayment && canCompleteSale(appState)" class="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
+              ✓ Payments verified - Ready to complete sale
             </div>
           </div>
         </div>
@@ -367,6 +438,7 @@
 <!-- Exchange Modal -->
 <app-exchange-modal *ngIf="showExchangeModal && exchangeSale"
                     [sale]="exchangeSale"
+                    [scannedBarcodes]="getScannedBarcodesList()"
                     (closed)="closeExchangeModal()"
-                    (exchangeCreated)="onExchangeCreated()">
+                    (exchangeCreated)="onExchangeCreated($event)">
 </app-exchange-modal>

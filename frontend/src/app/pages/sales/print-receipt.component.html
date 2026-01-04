@@ -1,7 +1,7 @@
 <div class="receipt-modal-overlay">
   <div class="receipt-modal" style="font-weight: 700;">
     <div class="receipt-modal-header">
-      <div class="receipt-modal-title">Sale Completed!</div>
+      <div class="receipt-modal-title">{{ receipt?.exchangeDetails ? 'Exchange Completed!' : 'Sale Completed!' }}</div>
       <button class="receipt-modal-close" (click)="closeModal()">&times;</button>
     </div>
     <div class="receipt-modal-subtitle">Receipt #{{ receipt?.number }} - Would you like to print?</div>
@@ -18,18 +18,64 @@
         <div><span>Date:</span> <b>{{ receipt?.date }}</b></div>
         <div><span>Time:</span> <b>{{ receipt?.time }}</b></div>
         <div><span>Customer:</span> <b>{{ receipt?.customer }}</b></div>
+        <div *ngIf="receipt?.exchangeDetails">
+          <span>Exchange Ref #:</span> <b>{{ receipt?.exchangeDetails.originalBillNumber }}</b>
+        </div>
+        <div *ngIf="receipt?.exchangeDetails?.exchangeReason">
+          <span>Reason:</span> <b>{{ receipt?.exchangeDetails.exchangeReason }}</b>
+        </div>
       </div>
       
       <hr>
       
-      <div class="receipt-section-title">ITEMS PURCHASED</div>
+      <!-- Exchange Details Section -->
+      <div *ngIf="receipt?.exchangeDetails">
+        <div class="receipt-section-title" style="background: #fef3c7; padding: 4px; text-align: center; font-weight: bold; margin-bottom: 8px;">
+          ⇄ EXCHANGE TRANSACTION
+        </div>
+        
+        <!-- Returned Items -->
+        <div class="receipt-section-title" style="color: #dc2626; font-size: 11px; margin-top: 8px;">
+          ↩ ITEMS RETURNED
+        </div>
+        <div class="receipt-items">
+          <div *ngFor="let item of receipt?.exchangeDetails.returnedItems" class="receipt-item">
+            <div class="receipt-item-name">{{ item.name }}</div>
+            <div class="receipt-item-details">{{ item.details }}</div>
+            <div *ngIf="item.barcode" class="receipt-item-barcode" style="font-family: 'Courier New', monospace; font-size: 9px; color: #666;">
+              Barcode: {{ item.barcode }}
+            </div>
+            <div class="receipt-item-qty">{{ item.qty }} x ₹{{ item.price.toFixed(2) }}</div>
+            <div class="receipt-item-total" style="color: #dc2626;">-₹{{ (item.qty * item.price).toFixed(2) }}</div>
+          </div>
+        </div>
+        <div style="text-align: right; font-weight: bold; padding: 4px 0; border-top: 1px dashed #ccc; margin-top: 4px;">
+          <span>Returned Total: </span>
+          <span style="color: #dc2626;">-₹{{ receipt?.exchangeDetails.returnedTotal.toFixed(2) }}</span>
+        </div>
+        
+        <hr style="border-style: dashed; margin: 12px 0;">
+        
+        <!-- New Items -->
+        <div class="receipt-section-title" style="color: #059669; font-size: 11px;">
+          ↪ NEW ITEMS
+        </div>
+      </div>
+      
+      <!-- Regular or New Items Section -->
+      <div *ngIf="!receipt?.exchangeDetails" class="receipt-section-title">ITEMS PURCHASED</div>
       
       <div class="receipt-items">
         <div *ngFor="let item of receipt?.items" class="receipt-item">
           <div class="receipt-item-name">{{ item.name }}</div>
           <div class="receipt-item-details">{{ item.details }}</div>
+          <div *ngIf="item.barcode" class="receipt-item-barcode" style="font-family: 'Courier New', monospace; font-size: 9px; color: #666;">
+            Barcode: {{ item.barcode }}
+          </div>
           <div class="receipt-item-qty">{{ item.qty }} x ₹{{ item.price.toFixed(2) }}</div>
-          <div class="receipt-item-total">₹{{ (item.qty * item.price).toFixed(2) }}</div>
+          <div class="receipt-item-total" [style.color]="receipt?.exchangeDetails ? '#059669' : 'inherit'">
+            {{ receipt?.exchangeDetails ? '+' : '' }}₹{{ (item.qty * item.price).toFixed(2) }}
+          </div>
         </div>
       </div>
       
@@ -39,6 +85,28 @@
         <div><span>Subtotal:</span> <span>₹{{ receipt?.subtotal.toFixed(2) }}</span></div>
         <div><span>Tax ({{ receipt?.taxLabel }}):</span> <span>₹{{ receipt?.tax.toFixed(2) }}</span></div>
         <div class="receipt-total"><span>TOTAL:</span> <span>₹{{ receipt?.total.toFixed(2) }}</span></div>
+      </div>
+      
+      <!-- Exchange Price Difference -->
+      <div *ngIf="receipt?.exchangeDetails" style="margin: 12px 0; padding: 8px; background: #f3f4f6; border-radius: 4px;">
+        <div style="font-size: 12px; font-weight: bold; margin-bottom: 8px; text-align: center; text-transform: uppercase;">
+          Exchange Summary
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 4px 0; font-size: 11px;">
+          <span>New Items Total:</span>
+          <span style="color: #059669;">+₹{{ receipt?.exchangeDetails.newTotal.toFixed(2) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 4px 0; font-size: 11px;">
+          <span>Returned Items Total:</span>
+          <span style="color: #dc2626;">-₹{{ receipt?.exchangeDetails.returnedTotal.toFixed(2) }}</span>
+        </div>
+        <hr style="border-style: dashed; margin: 8px 0;">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px;">
+          <span>{{ receipt?.exchangeDetails.priceDifference >= 0 ? 'Amount to Pay:' : 'Refund Amount:' }}</span>
+          <span [style.color]="receipt?.exchangeDetails.priceDifference >= 0 ? '#059669' : '#dc2626'">
+            ₹{{ Math.abs(receipt?.exchangeDetails.priceDifference).toFixed(2) }}
+          </span>
+        </div>
       </div>
       
       <div class="receipt-payment">

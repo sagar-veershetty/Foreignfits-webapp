@@ -7,7 +7,8 @@ import { take } from 'rxjs/operators';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LoyaltyService } from '../../core/services/loyalty.service';
-import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation, BarcodeInfo } from '../../core/models';
+import { SalesPersonService } from '../../core/services/sales-person.service';
+import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation, BarcodeInfo, SalesPerson } from '../../core/models';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { PrintReceiptComponent } from './print-receipt.component';
 import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
@@ -28,6 +29,7 @@ export class SalesComponent implements OnInit {
   customerPhone = '';
   customerCountryCode = '+91'; // Default to India
   salesPersonName = ''; // Sales person who assisted with the sale
+  salesPersons: SalesPerson[] = []; // List of active sales persons for dropdown
   paymentMethod: 'cash' | 'card' | 'upi' = 'cash';
   completedSale: Sale | null = null;
   showSuccessMessage = false;
@@ -43,6 +45,14 @@ export class SalesComponent implements OnInit {
   exchangeBarcodeInput = '';
   isSearchingSale = false;
   exchangeSearchError = '';
+  scannedExchangeBarcodes: Array<{
+    barcode: string;
+    productName: string;
+    size: string;
+    color: string;
+    price: number;
+  }> = []; // Track multiple scanned barcodes with details
+  exchangeSuccessMessage = ''; // Success message after scanning
   
   // Split payment support
   payments: Array<{
@@ -62,7 +72,8 @@ export class SalesComponent implements OnInit {
   constructor(
     private appService: AppService,
     private authService: AuthService,
-    public loyaltyService: LoyaltyService
+    public loyaltyService: LoyaltyService,
+    private salesPersonService: SalesPersonService
   ) {
     this.appState$ = this.appService.appState$;
   }
@@ -74,6 +85,31 @@ export class SalesComponent implements OnInit {
         this.appService.loadInitialData().subscribe();
       }
     });
+    
+    // Load active sales persons for dropdown
+    this.loadActiveSalesPersons();
+  }
+
+  /**
+   * Load active sales persons for dropdown
+   */
+  loadActiveSalesPersons(): void {
+    this.salesPersonService.getActiveSalesPersons().subscribe({
+      next: (salesPersons) => {
+        this.salesPersons = salesPersons;
+        console.log('Loaded active sales persons:', salesPersons.length);
+      },
+      error: (error) => {
+        console.error('Error loading sales persons:', error);
+      }
+    });
+  }
+
+  /**
+   * Handle barcode input change
+   */
+  onBarcodeInputChange(value: string): void {
+    this.barcodeInput = value;
   }
 
   /**
@@ -511,9 +547,15 @@ export class SalesComponent implements OnInit {
    * Add a new payment row
    */
   addPaymentRow(): void {
+    const appState = this.appService.appStateBehaviorSubject.value;
+    const remaining = this.getRemainingBalance(appState);
+    
+    // Pre-fill with remaining amount (or total if first payment)
+    const suggestedAmount = this.payments.length === 0 ? this.getTotal(appState) : remaining;
+    
     this.payments.push({
       paymentMethod: 'CASH',
-      amount: 0,
+      amount: suggestedAmount,
       reference: ''
     });
   }
@@ -560,6 +602,13 @@ export class SalesComponent implements OnInit {
   }
 
   /**
+   * Check if any payment has invalid (zero or negative) amount
+   */
+  hasInvalidPaymentAmounts(): boolean {
+    return this.payments.some(p => p.amount <= 0);
+  }
+
+  /**
    * Open exchange modal for the last completed sale
    */
   openExchangeModal(): void {
@@ -583,10 +632,217 @@ export class SalesComponent implements OnInit {
   /**
    * Handle successful exchange creation
    */
-  onExchangeCreated(): void {
-    this.successMessage = 'Exchange completed successfully!';
-    this.showSuccessMessage = true;
-    setTimeout(() => this.showSuccessMessage = false, 5000);
+  onExchangeCreated(exchange: any): void {
+    console.log('Exchange created:', exchange);
+    
+    // Fetch the new sale to generate receipt
+    this.appService.getSaleById(exchange.newSaleId.toString()).subscribe({
+      next: (newSale) => {
+        // Build receipt data for the exchange
+        const now = new Date();
+        
+        // Get location-specific information for receipt
+        const user = this.authService.getCurrentUser();
+        let locationName = 'Foreign Fits';
+        let locationAddress = '';
+        let locationPhone = '';
+        
+        if (user && user.locationName) {
+          locationName = user.locationName;
+          
+          // Set address and phone based on location
+          if (user.locationName.toLowerCase().includes('yamuna')) {
+            locationAddress = 'Mohan Market, Bidar';
+            locationPhone = '+919900724232, +919035707779';
+          } else if (user.locationName.toLowerCase().includes('gangotri')) {
+            locationAddress = '123 Fashion Street, Style City';
+            locationPhone = '(555) 123-4567';
+          } else {
+            // Default fallback
+            locationAddress = '123 Fashion Street, Style City';
+            locationPhone = '(555) 123-4567';
+          }
+        }
+        
+        // Build new items list from the exchange
+        const newItems: ReceiptItem[] = exchange.items
+          .filter((item: any) => item.itemType === 'EXCHANGED')
+          .map((item: any) => ({
+            name: item.productName,
+            details: item.barcode ? `Barcode: ${item.barcode}` : '',
+            qty: item.quantity,
+            price: item.price || 0, // Use price from backend
+            barcode: item.barcode
+          }));
+        
+        // Build returned items list from the exchange
+        const returnedItems: ReceiptItem[] = exchange.items
+          .filter((item: any) => item.itemType === 'RETURNED')
+          .map((item: any) => ({
+            name: item.productName,
+            details: item.barcode ? `Barcode: ${item.barcode}` : '',
+            qty: item.quantity,
+            price: item.price || 0, // Use price from backend
+            barcode: item.barcode
+          }));
+        
+        // Helper to resolve price using barcode-specific value, then averages
+        const resolvePriceFromSaleItem = (receiptItem: ReceiptItem, saleItem: any) => {
+          console.log('Resolving price for receipt item:', receiptItem);
+          console.log('From sale item:', saleItem);
+          
+          const barcodePrices = saleItem.barcodePrices as Record<string, number | string | undefined> | undefined;
+          console.log('Barcode prices object:', barcodePrices);
+
+          const averageFromTotal = saleItem.total && saleItem.quantity
+            ? saleItem.total / saleItem.quantity
+            : undefined;
+
+          const averageFromBarcodePrices = barcodePrices && Object.values(barcodePrices).length > 0
+            ? Object.values(barcodePrices).reduce((sum: number, p: any) => sum + (Number(p) || 0), 0) /
+              Object.values(barcodePrices).length
+            : undefined;
+
+          if (receiptItem.barcode && barcodePrices) {
+            // Match barcode allowing numeric/string keys
+            const matchedEntry = Object.entries(barcodePrices).find(([k]) => String(k) === String(receiptItem.barcode));
+            console.log('Matched barcode entry:', matchedEntry);
+            if (matchedEntry && matchedEntry[1]) {
+              const price = Number(matchedEntry[1]);
+              console.log('Using barcode-specific price:', price);
+              return price;
+            }
+            // If only one barcode price exists, use it
+            const values = Object.values(barcodePrices).filter(v => v != null);
+            if (values.length === 1) {
+              const price = Number(values[0]);
+              console.log('Using single barcode price:', price);
+              return price;
+            }
+          }
+
+          // Try to use the sale item price (average price per item)
+          if (saleItem.price && saleItem.price > 0) {
+            console.log('Using sale item price:', saleItem.price);
+            return saleItem.price;
+          }
+
+          // Try average from barcode prices
+          if (averageFromBarcodePrices && averageFromBarcodePrices > 0) {
+            console.log('Using average from barcode prices:', averageFromBarcodePrices);
+            return averageFromBarcodePrices;
+          }
+
+          // Try average from total
+          if (averageFromTotal && averageFromTotal > 0) {
+            console.log('Using average from total:', averageFromTotal);
+            return averageFromTotal;
+          }
+
+          console.warn('Could not resolve price, using receipt item price:', receiptItem.price);
+          return receiptItem.price;
+        };
+
+        newItems.forEach(receiptItem => {
+          const saleItem = newSale.items.find(si => {
+            if (receiptItem.barcode && si.barcodes && si.barcodes.length > 0) {
+              return si.barcodes.some((b: string) => String(b) === String(receiptItem.barcode));
+            }
+            return si.product.name === receiptItem.name;
+          });
+
+          if (saleItem) {
+            receiptItem.price = resolvePriceFromSaleItem(receiptItem, saleItem);
+          }
+        });
+        
+        console.log('New items with prices:', newItems);
+        console.log('Returned items with prices:', returnedItems);
+        
+        // Calculate totals
+        const newTotal = newItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        let returnedTotal = returnedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+        console.log('Calculated newTotal:', newTotal);
+        console.log('Calculated returnedTotal:', returnedTotal);
+        console.log('Backend priceDifference:', exchange.priceDifference);
+
+        // Prefer backend-calculated price difference for accuracy
+        const backendDifference = typeof exchange.priceDifference === 'number' ? exchange.priceDifference : null;
+        
+        // If we failed to get returned prices correctly (returnedTotal is too low or zero), 
+        // calculate it from backend data: returnedTotal = newTotal - priceDifference
+        if (backendDifference !== null) {
+          const calculatedReturnedTotal = newTotal - backendDifference;
+          
+          // Use backend calculation if our local calculation seems wrong
+          // (either zero, or doesn't match the expected difference)
+          if (returnedTotal === 0 || Math.abs((newTotal - returnedTotal) - backendDifference) > 1) {
+            console.warn('Local returned total calculation seems incorrect. Using backend calculation.');
+            console.warn(`Local returnedTotal: ${returnedTotal}, Calculated from backend: ${calculatedReturnedTotal}`);
+            returnedTotal = Math.max(0, calculatedReturnedTotal);
+          }
+        }
+        
+        // Final price difference (prefer backend, fallback to local calculation)
+        const priceDifference = backendDifference !== null ? backendDifference : newTotal - returnedTotal;
+        
+        console.log('Final returnedTotal:', returnedTotal);
+        console.log('Final priceDifference:', priceDifference);
+        
+        // Calculate subtotal and tax for new items
+        const subtotal = newTotal / 1.05; // Remove GST to get subtotal
+        const tax = newTotal - subtotal;
+        
+        // Format payment method
+        let paymentMethodLabel = 'EXCHANGE';
+        if (priceDifference > 0) {
+          paymentMethodLabel = 'EXCHANGE + CASH/UPI';
+        } else if (priceDifference < 0) {
+          paymentMethodLabel = 'EXCHANGE + REFUND';
+        }
+        
+        // Build complete receipt data
+        this.receiptData = {
+          number: newSale.id || exchange.newSaleId,
+          date: now.toLocaleDateString('en-GB'),
+          time: now.toLocaleTimeString('en-GB'),
+          customer: this.exchangeSale?.customerName || 'Walk-in Customer',
+          items: newItems,
+          subtotal,
+          taxLabel: '5% GST (included)',
+          tax,
+          total: newTotal,
+          paymentMethod: paymentMethodLabel,
+          locationName: locationName,
+          locationAddress: locationAddress,
+          locationPhone: locationPhone,
+          exchangeDetails: {
+            originalBillNumber: this.exchangeSale?.id || exchange.originalSaleId,
+            returnedItems: returnedItems,
+            returnedTotal: returnedTotal,
+            newItems: newItems,
+            newTotal: newTotal,
+            priceDifference: priceDifference,
+            exchangeReason: exchange.exchangeReason
+          }
+        };
+        
+        // Show the receipt modal
+        this.showReceiptModal = true;
+        
+        // Show success message
+        this.successMessage = `Exchange completed successfully! Bill #${this.receiptData.number}`;
+        this.showSuccessMessage = true;
+        setTimeout(() => this.showSuccessMessage = false, 5000);
+      },
+      error: (err) => {
+        console.error('Error fetching new sale:', err);
+        this.successMessage = 'Exchange completed successfully!';
+        this.showSuccessMessage = true;
+        setTimeout(() => this.showSuccessMessage = false, 5000);
+      }
+    });
   }
 
   /**
@@ -597,7 +853,17 @@ export class SalesComponent implements OnInit {
     if (this.showExchangeSearch) {
       this.exchangeBarcodeInput = '';
       this.exchangeSearchError = '';
+      this.scannedExchangeBarcodes = [];
+      this.exchangeSuccessMessage = '';
+      console.log('🧹 toggleExchangeSearch - Cleared scannedExchangeBarcodes');
     }
+  }
+
+  /**
+   * Handle exchange barcode input change
+   */
+  onExchangeBarcodeChange(value: string): void {
+    this.exchangeBarcodeInput = value;
   }
 
   /**
@@ -609,44 +875,76 @@ export class SalesComponent implements OnInit {
       return;
     }
 
+    // Check if already scanned
+    if (this.scannedExchangeBarcodes.some(item => item.barcode === barcodeNumber)) {
+      this.exchangeSuccessMessage = `✓ Barcode ${barcodeNumber} already added`;
+      this.exchangeBarcodeInput = '';
+      setTimeout(() => {
+        this.exchangeSuccessMessage = '';
+      }, 2000);
+      return;
+    }
+
     this.isSearchingSale = true;
     this.exchangeSearchError = '';
+    this.exchangeSuccessMessage = '';
 
-    // First, lookup the barcode to get its history
-    this.appService.getBarcodeHistoryForBarcode(barcodeNumber).subscribe({
-      next: (history) => {
-        // Find the most recent SOLD event to get the sale ID
-        const soldEvent = history
-          .filter(h => h.eventType === 'SOLD')
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-
-        if (!soldEvent || !soldEvent.referenceId) {
+    // Lookup the barcode to get product details and verify it was sold
+    this.appService.lookupBarcode(barcodeNumber).subscribe({
+      next: (barcodeData: any) => {
+        console.log('Barcode lookup response:', barcodeData);
+        console.log('salePrice:', barcodeData.salePrice);
+        console.log('price:', barcodeData.price);
+        console.log('product:', barcodeData.product);
+        
+        if (!barcodeData || !barcodeData.product) {
           this.isSearchingSale = false;
-          this.exchangeSearchError = `Barcode ${barcodeNumber} has not been sold yet or sale information is not available.`;
+          this.exchangeSearchError = `Barcode ${barcodeNumber} not found`;
           this.exchangeBarcodeInput = '';
           return;
         }
 
-        // Fetch the sale using the reference ID (sale ID)
-        const saleId = soldEvent.referenceId.toString();
-        this.appService.getSaleById(saleId).subscribe({
-          next: (sale) => {
-            this.exchangeSale = sale;
-            this.showExchangeModal = true;
-            this.showExchangeSearch = false;
-            this.isSearchingSale = false;
+        // Check if this barcode has been sold
+        this.appService.getBarcodeHistoryForBarcode(barcodeNumber).subscribe({
+          next: (history) => {
+            // Find the most recent SOLD event
+            const soldEvent = history
+              .filter(h => h.eventType === 'SOLD')
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+            if (!soldEvent || !soldEvent.referenceId) {
+              this.isSearchingSale = false;
+              this.exchangeSearchError = `Barcode ${barcodeNumber} has not been sold yet or sale information is not available.`;
+              this.exchangeBarcodeInput = '';
+              return;
+            }
+
+            // Add barcode with details to the list
+            this.scannedExchangeBarcodes.push({
+              barcode: barcodeNumber,
+              productName: barcodeData.product.name,
+              size: barcodeData.product.size || '',
+              color: barcodeData.product.color || '',
+              price: barcodeData.salePrice || 0
+            });
+            
+            console.log('✅ Added barcode to scannedExchangeBarcodes:', barcodeNumber);
+            console.log('📦 Total scanned barcodes:', this.scannedExchangeBarcodes.length);
+            console.log('📋 Current array:', this.scannedExchangeBarcodes);
+            
+            this.exchangeSuccessMessage = `✓ Added ${barcodeData.product.name} (${this.scannedExchangeBarcodes.length} items)`;
             this.exchangeBarcodeInput = '';
+            this.isSearchingSale = false;
+            
+            // Auto-hide success message
+            setTimeout(() => {
+              this.exchangeSuccessMessage = '';
+            }, 2000);
           },
           error: (error) => {
             this.isSearchingSale = false;
             this.exchangeBarcodeInput = '';
-            if (error.status === 404) {
-              this.exchangeSearchError = `Sale not found for barcode ${barcodeNumber}. Please try another barcode.`;
-            } else if (error.status === 403) {
-              this.exchangeSearchError = 'You do not have permission to access this sale.';
-            } else {
-              this.exchangeSearchError = 'Failed to fetch sale. Please try again.';
-            }
+            this.exchangeSearchError = 'Failed to verify barcode sale status. Please try again.';
           }
         });
       },
@@ -657,6 +955,168 @@ export class SalesComponent implements OnInit {
           this.exchangeSearchError = `Barcode ${barcodeNumber} not found in system. Please check and try again.`;
         } else {
           this.exchangeSearchError = 'Failed to lookup barcode. Please try again.';
+        }
+      }
+    });
+  }
+
+  /**
+   * Remove a barcode from the scanned list
+   */
+  removeScannedBarcode(barcode: string): void {
+    const index = this.scannedExchangeBarcodes.findIndex(item => item.barcode === barcode);
+    if (index > -1) {
+      this.scannedExchangeBarcodes.splice(index, 1);
+    }
+  }
+
+  /**
+   * Calculate total value of scanned exchange barcodes
+   */
+  getScannedBarcodesTotal(): number {
+    return this.scannedExchangeBarcodes.reduce((sum, item) => sum + item.price, 0);
+  }
+
+  /**
+   * Get list of scanned barcode strings for exchange modal
+   */
+  getScannedBarcodesList(): string[] {
+    return this.scannedExchangeBarcodes.map(item => item.barcode);
+  }
+
+  /**
+   * Proceed with exchange after scanning all barcodes
+   */
+  proceedWithExchange(): void {
+    if (this.scannedExchangeBarcodes.length === 0) {
+      this.exchangeSearchError = 'Please scan at least one barcode';
+      return;
+    }
+
+    this.isSearchingSale = true;
+    
+    // First, verify all barcodes belong to the same sale
+    const barcodeNumbers = this.getScannedBarcodesList();
+    console.log('Verifying all barcodes belong to the same sale:', barcodeNumbers);
+    
+    // Check the first barcode to find the sale
+    const firstBarcode = this.scannedExchangeBarcodes[0].barcode;
+    
+    this.appService.getBarcodeHistoryForBarcode(firstBarcode).subscribe({
+      next: (history) => {
+        const soldEvent = history
+          .filter(h => h.eventType === 'SOLD')
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (!soldEvent || !soldEvent.referenceId) {
+          this.isSearchingSale = false;
+          this.exchangeSearchError = 'Unable to find sale information.';
+          return;
+        }
+
+        const saleId = soldEvent.referenceId.toString();
+        console.log(`First barcode ${firstBarcode} belongs to sale #${saleId}`);
+        
+        // Verify all other barcodes belong to the same sale
+        let verificationCount = 0;
+        let allBelongToSameSale = true;
+        
+        // If only one barcode, skip verification
+        if (barcodeNumbers.length === 1) {
+          this.fetchAndShowSale(saleId);
+          return;
+        }
+        
+        // Verify each barcode
+        barcodeNumbers.forEach((barcode, index) => {
+          if (index === 0) {
+            verificationCount++;
+            return; // Skip first barcode, already checked
+          }
+          
+          this.appService.getBarcodeHistoryForBarcode(barcode).subscribe({
+            next: (hist) => {
+              const sold = hist
+                .filter(h => h.eventType === 'SOLD')
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+              
+              if (!sold || !sold.referenceId || sold.referenceId.toString() !== saleId) {
+                console.error(`Barcode ${barcode} does not belong to sale #${saleId}`);
+                allBelongToSameSale = false;
+              }
+              
+              verificationCount++;
+              if (verificationCount === barcodeNumbers.length) {
+                if (allBelongToSameSale) {
+                  console.log('All barcodes verified to belong to the same sale');
+                  this.fetchAndShowSale(saleId);
+                } else {
+                  this.isSearchingSale = false;
+                  this.exchangeSearchError = 'The scanned barcodes belong to different sales. Please scan items from the same purchase.';
+                }
+              }
+            },
+            error: () => {
+              verificationCount++;
+              allBelongToSameSale = false;
+              if (verificationCount === barcodeNumbers.length) {
+                this.isSearchingSale = false;
+                this.exchangeSearchError = 'Error verifying barcodes. Please try again.';
+              }
+            }
+          });
+        });
+      },
+      error: () => {
+        this.isSearchingSale = false;
+        this.exchangeSearchError = 'Error finding sale. Please try again.';
+      }
+    });
+  }
+
+  /**
+   * Fetch and display the sale in exchange modal
+   */
+  private fetchAndShowSale(saleId: string): void {
+    console.log('🔍 fetchAndShowSale called with saleId:', saleId);
+    console.log('📦 Current scannedExchangeBarcodes:', this.scannedExchangeBarcodes);
+    console.log('📋 Barcodes to pass to modal:', this.getScannedBarcodesList());
+    
+    // IMPORTANT: Don't close the search modal yet - keep the scannedBarcodes data
+    // this.showExchangeSearch = false; // Move this AFTER setting exchange sale
+    
+    this.appService.getSaleById(saleId).subscribe({
+      next: (sale) => {
+        console.log('=== Fetched Sale for Exchange ===');
+        console.log('Sale ID:', sale.id);
+        console.log('Sale Items with Barcodes:', sale.items.map(item => ({
+          product: item.product.name,
+          productId: item.product.id,
+          productIdType: typeof item.product.id,
+          barcodes: item.barcodes,
+          barcodePrices: item.barcodePrices,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.total
+        })));
+        console.log('Scanned Barcodes to Match:', this.getScannedBarcodesList());
+        console.log('Scanned Barcodes Types:', this.getScannedBarcodesList().map(b => typeof b));
+        console.log('=================================');
+        
+        this.exchangeSale = sale;
+        this.showExchangeModal = true;
+        // Close search modal AFTER setting exchange modal data
+        this.showExchangeSearch = false;
+        this.isSearchingSale = false;
+      },
+      error: (error) => {
+        this.isSearchingSale = false;
+        if (error.status === 404) {
+          this.exchangeSearchError = 'Sale not found. Please try again.';
+        } else if (error.status === 403) {
+          this.exchangeSearchError = 'You do not have permission to access this sale.';
+        } else {
+          this.exchangeSearchError = 'Failed to fetch sale. Please try again.';
         }
       }
     });

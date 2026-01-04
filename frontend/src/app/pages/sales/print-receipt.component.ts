@@ -15,6 +15,7 @@ export class PrintReceiptComponent {
   @Output() close = new EventEmitter<void>();
   @ViewChild('receiptPaper', { static: false }) receiptPaperRef!: ElementRef;
   router = inject(Router);
+  Math = Math; // Expose Math for template
 
   print() {
     // Optimize for thermal printer (80mm width)

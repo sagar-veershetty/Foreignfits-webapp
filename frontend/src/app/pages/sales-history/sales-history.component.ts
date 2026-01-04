@@ -143,6 +143,28 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       .join(' + ');
   }
 
+  /**
+   * Get the display amount for a sale
+   * For exchange sales, shows the difference amount customer paid/received
+   * For regular sales, shows the total
+   */
+  getDisplayAmount(sale: Sale): number {
+    if (sale.isExchangeSale && sale.exchangePriceDifference !== undefined) {
+      return Math.abs(sale.exchangePriceDifference);
+    }
+    return sale.total;
+  }
+
+  /**
+   * Get the label for the display amount
+   */
+  getAmountLabel(sale: Sale): string {
+    if (sale.isExchangeSale && sale.exchangePriceDifference !== undefined) {
+      return sale.exchangePriceDifference >= 0 ? 'Customer Paid' : 'Refunded';
+    }
+    return 'Total';
+  }
+
   setFilter(mode: 'all' | 'today' | 'week' | 'month' | 'range'): void {
     this.filterMode = mode;
   }

@@ -376,6 +376,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  canManageSalesTeam(): boolean {
+    const user = this.authService.getCurrentUser();
+    return user?.role === 'admin' || user?.role === 'sales_manager' || user?.role === 'sales';
+  }
+
   // Helper getters for template access (avoid calling signals directly in complex expressions)
   get currentLocationName(): string {
     const locationId = this.selectedLocationId();

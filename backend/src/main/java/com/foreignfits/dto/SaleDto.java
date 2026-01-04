@@ -28,6 +28,9 @@ public class SaleDto {
     private Integer pointsRedeemed;
     private BigDecimal discountFromPoints;
     private String salesPersonName;
+    private Boolean isExchangeSale;
+    private Long exchangeId;
+    private BigDecimal exchangePriceDifference;
     private UserDto soldBy;
     private LocationDto location;
     private LocalDateTime createdAt;

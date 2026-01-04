@@ -8,10 +8,10 @@ spring:
     name: foreign-fits-inventory
   
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/foreignfits}
-    username: ${DATABASE_USERNAME:foreignfits_admin}
-    password: ${DATABASE_PASSWORD:foreignfits123}
-    driver-class-name: ${DATABASE_DRIVER:org.postgresql.Driver}
+    url: ${DATABASE_URL:jdbc:h2:file:./data/foreignfits;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: ${DATABASE_USERNAME:sa}
+    password: ${DATABASE_PASSWORD:}
+    driver-class-name: ${DATABASE_DRIVER:org.h2.Driver}
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
       minimum-idle: ${DB_MIN_IDLE:2}
@@ -23,7 +23,7 @@ spring:
     hibernate:
       ddl-auto: ${DDL_AUTO:update}
     show-sql: ${SHOW_SQL:true}
-    database-platform: ${DATABASE_PLATFORM:org.hibernate.dialect.PostgreSQLDialect}
+    database-platform: ${DATABASE_PLATFORM:org.hibernate.dialect.H2Dialect}
     defer-datasource-initialization: true
     properties:
       hibernate:
@@ -45,7 +45,8 @@ spring:
       
   h2:
     console:
-      enabled: false
+      enabled: true
+      path: /h2-console
 
 # JWT Configuration
 jwt:
