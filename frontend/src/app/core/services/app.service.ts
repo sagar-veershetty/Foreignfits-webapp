@@ -913,6 +913,7 @@ export class AppService {
       customerCountryCode: saleData.customerCountryCode,
       pointsRedeemed: saleData.pointsRedeemed,
       discountFromPoints: saleData.discountFromPoints,
+      couponCode: saleData.couponCode, // Include coupon code for discount
     };
 
     // Add payment information - either single payment or split payments

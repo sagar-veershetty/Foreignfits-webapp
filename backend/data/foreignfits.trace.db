@@ -1,4 +1,4 @@
-2026-01-03 23:58:37.962937Z database: flush
+2026-01-08 07:41:51.335731Z database: flush
 org.h2.message.DbException: General error: "org.h2.mvstore.MVStoreException: The file is locked: /Users/sagarauradkar/Documents/Foreign Fits Software/Develop-software/Foreignfits-webapp/backend/data/foreignfits.mv.db [2.3.232/7]" [50000-232]
 	at org.h2.message.DbException.get(DbException.java:212)
 	at org.h2.message.DbException.convert(DbException.java:407)
@@ -147,19 +147,21 @@ org.h2.message.DbException: General error: "org.h2.mvstore.MVStoreException: The
 	at com.foreignfits.InventoryManagementApplication.main(InventoryManagementApplication.java:10)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:102)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
 Caused by: org.h2.jdbc.JdbcSQLNonTransientException: General error: "org.h2.mvstore.MVStoreException: The file is locked: /Users/sagarauradkar/Documents/Foreign Fits Software/Develop-software/Foreignfits-webapp/backend/data/foreignfits.mv.db [2.3.232/7]" [50000-232]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:566)
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
-	... 148 more
+	... 150 more
 Caused by: org.h2.mvstore.MVStoreException: The file is locked: /Users/sagarauradkar/Documents/Foreign Fits Software/Develop-software/Foreignfits-webapp/backend/data/foreignfits.mv.db [2.3.232/7]
 	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996)
 	at org.h2.mvstore.SingleFileStore.lockFileChannel(SingleFileStore.java:143)
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:117)
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81)
 	at org.h2.mvstore.MVStore.<init>(MVStore.java:286)
-	... 142 more
-2026-01-03 23:58:39.468712Z database: flush
+	... 144 more
+2026-01-08 07:41:53.076009Z database: flush
 org.h2.message.DbException: General error: "org.h2.mvstore.MVStoreException: The file is locked: /Users/sagarauradkar/Documents/Foreign Fits Software/Develop-software/Foreignfits-webapp/backend/data/foreignfits.mv.db [2.3.232/7]" [50000-232]
 	at org.h2.message.DbException.get(DbException.java:212)
 	at org.h2.message.DbException.convert(DbException.java:407)
@@ -312,15 +314,17 @@ org.h2.message.DbException: General error: "org.h2.mvstore.MVStoreException: The
 	at com.foreignfits.InventoryManagementApplication.main(InventoryManagementApplication.java:10)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
-	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:102)
+	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64)
+	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40)
 Caused by: org.h2.jdbc.JdbcSQLNonTransientException: General error: "org.h2.mvstore.MVStoreException: The file is locked: /Users/sagarauradkar/Documents/Foreign Fits Software/Develop-software/Foreignfits-webapp/backend/data/foreignfits.mv.db [2.3.232/7]" [50000-232]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:566)
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:489)
-	... 152 more
+	... 154 more
 Caused by: org.h2.mvstore.MVStoreException: The file is locked: /Users/sagarauradkar/Documents/Foreign Fits Software/Develop-software/Foreignfits-webapp/backend/data/foreignfits.mv.db [2.3.232/7]
 	at org.h2.mvstore.DataUtils.newMVStoreException(DataUtils.java:996)
 	at org.h2.mvstore.SingleFileStore.lockFileChannel(SingleFileStore.java:143)
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:117)
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81)
 	at org.h2.mvstore.MVStore.<init>(MVStore.java:286)
-	... 146 more
+	... 148 more

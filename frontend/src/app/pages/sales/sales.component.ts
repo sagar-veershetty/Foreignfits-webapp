@@ -8,7 +8,9 @@ import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LoyaltyService } from '../../core/services/loyalty.service';
 import { SalesPersonService } from '../../core/services/sales-person.service';
+import { CouponService } from '../../services/coupon.service';
 import { Product, SaleItem, Sale, LoyaltyCustomer, PointsCalculation, BarcodeInfo, SalesPerson } from '../../core/models';
+import { Coupon, GeneratedCouponInfo } from '../../models/coupon.model';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { PrintReceiptComponent } from './print-receipt.component';
 import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
@@ -39,6 +41,7 @@ export class SalesComponent implements OnInit {
   // Exchange modal properties
   showExchangeModal = false;
   exchangeSale: Sale | null = null;
+  exchangeBarcodesSnapshot: string[] = []; // Snapshot of barcodes to pass to modal
   
   // Exchange search properties
   showExchangeSearch = false;
@@ -68,12 +71,37 @@ export class SalesComponent implements OnInit {
   pointsToRedeem = 0;
   discountFromPoints = 0;
   isLoadingLoyalty = false;
+  
+  // Coupon properties
+  couponCode = '';
+  appliedCoupon: Coupon | null = null;
+  couponDiscount = 0;
+  couponError = '';
+  showCouponSuccess = false;
+  customerCoupons: Coupon[] = [];
+  showCustomerCoupons = false;
+  isValidatingCoupon = false;
+
+  // Price edit modal properties
+  showPriceEditModal = false;
+  priceEditBarcode: {
+    barcodeId: number;
+    barcodeNumber: string;
+    productName: string;
+    size: string;
+    color: string;
+    currentPrice: number;
+  } | null = null;
+  newPrice: number = 0;
+  isUpdatingPrice = false;
+  pendingBarcodeInfo: any = null; // Store barcode info while price is being edited
 
   constructor(
     private appService: AppService,
     private authService: AuthService,
     public loyaltyService: LoyaltyService,
-    private salesPersonService: SalesPersonService
+    private salesPersonService: SalesPersonService,
+    private couponService: CouponService
   ) {
     this.appState$ = this.appService.appState$;
   }
@@ -199,55 +227,12 @@ export class SalesComponent implements OnInit {
         console.warn(`Barcode ${barcodeNumber} does not have an individual sale price. Using location inventory price: ${inventory.salePrice}`);
       }
 
-      // Check if there's already an item for this product (to group multiple barcodes of same product)
-      const existingProductItem = appState.currentSale.find(item => item.productId === product.id);
+      // ALWAYS show price edit modal to allow user to verify/update price
+      // This helps when physical sticker price doesn't match system price
+      this.showPriceEditModalForBarcode(barcodeInfo, unitPrice);
 
-      if (existingProductItem && existingProductItem.barcodes) {
-        // Add this barcode to existing item
-        existingProductItem.barcodes.push(barcodeNumber);
-        
-        // Store individual barcode price
-        if (!existingProductItem.barcodePrices) {
-          existingProductItem.barcodePrices = {};
-        }
-        existingProductItem.barcodePrices[barcodeNumber] = unitPrice;
-        
-        // Update quantity
-        existingProductItem.quantity = existingProductItem.barcodes.length;
-        
-        // Calculate total by summing all individual barcode prices
-        existingProductItem.total = Object.values(existingProductItem.barcodePrices).reduce((sum, price) => sum + price, 0);
-        
-        // Update average price for display
-        existingProductItem.price = existingProductItem.total / existingProductItem.quantity;
-        
-        // Trigger state update
-        this.appService.appStateBehaviorSubject.next({
-          ...appState,
-          currentSale: [...appState.currentSale]
-        });
-      } else {
-        // Create new sale item with this barcode
-        const saleItem: SaleItem = {
-          productId: product.id,
-          product,
-          quantity: 1,
-          price: unitPrice,
-          total: unitPrice,
-          barcodes: [barcodeNumber], // Store the scanned barcode
-          barcodePrices: { [barcodeNumber]: unitPrice } // Store individual barcode price
-        };
-
-        this.appService.addToSale(saleItem);
-      }
-
-      // Show success feedback
-      this.showSuccessMessage = true;
-      this.successMessage = `Added: ${product.name} (${barcodeNumber})`;
-      setTimeout(() => this.showSuccessMessage = false, 2000);
-
-      // Clear barcode input
-      this.barcodeInput = '';
+      // Note: The rest of the logic (adding to cart) is now handled in proceedToAddToCart()
+      // which is called after user confirms price or updates it
 
     } catch (error: any) {
       alert(error?.error?.message || 'Failed to process barcode. Please try again.');
@@ -269,9 +254,15 @@ export class SalesComponent implements OnInit {
     this.loyaltyCustomer = null;
     this.pointsToEarn = null;
     
+    // Clear previous coupon data
+    this.customerCoupons = [];
+    this.showCustomerCoupons = false;
+    
     // Only fetch if we have a valid phone number (at least 10 digits)
     if (this.customerPhone && this.customerPhone.length >= 10) {
       this.isLoadingLoyalty = true;
+      
+      // Fetch loyalty customer
       this.loyaltyService.getCustomerByPhone(this.customerPhone, this.customerCountryCode).subscribe({
         next: (customer) => {
           this.loyaltyCustomer = customer;
@@ -288,6 +279,9 @@ export class SalesComponent implements OnInit {
           this.isLoadingLoyalty = false;
         }
       });
+      
+      // Fetch customer coupons
+      this.loadCustomerCoupons();
     }
   }
 
@@ -341,8 +335,98 @@ export class SalesComponent implements OnInit {
     this.discountFromPoints = 0;
   }
 
+  /**
+   * Load customer's active coupons
+   */
+  loadCustomerCoupons(): void {
+    if (!this.customerPhone || this.customerPhone.length < 10) return;
+    
+    this.couponService.getCustomerCoupons(this.customerPhone, this.customerCountryCode).subscribe({
+      next: (coupons) => {
+        this.customerCoupons = coupons;
+        this.showCustomerCoupons = coupons.length > 0;
+      },
+      error: (error) => {
+        console.error('Error loading customer coupons:', error);
+        this.customerCoupons = [];
+        this.showCustomerCoupons = false;
+      }
+    });
+  }
+
+  /**
+   * Apply coupon code
+   */
+  applyCoupon(): void {
+    if (!this.couponCode || !this.couponCode.trim()) {
+      this.couponError = 'Please enter a coupon code';
+      return;
+    }
+    
+    const appState = this.appService.appStateBehaviorSubject.value;
+    const subtotal = this.getSubtotal(appState);
+    
+    if (subtotal === 0) {
+      this.couponError = 'Please add items to cart first';
+      return;
+    }
+    
+    this.isValidatingCoupon = true;
+    this.couponError = '';
+    
+    this.couponService.validateCoupon(this.couponCode.toUpperCase(), subtotal).subscribe({
+      next: (validation) => {
+        this.isValidatingCoupon = false;
+        
+        if (validation.valid && validation.discountAmount) {
+          this.couponDiscount = validation.discountAmount;
+          this.couponError = '';
+          this.showCouponSuccess = true;
+          
+          // Hide success message after 3 seconds
+          setTimeout(() => {
+            this.showCouponSuccess = false;
+          }, 3000);
+        } else {
+          this.couponError = validation.message;
+          this.couponDiscount = 0;
+        }
+      },
+      error: () => {
+        this.isValidatingCoupon = false;
+        this.couponError = 'Failed to validate coupon. Please try again.';
+        this.couponDiscount = 0;
+      }
+    });
+  }
+
+  /**
+   * Select and apply a coupon from customer's list
+   */
+  selectCoupon(coupon: Coupon): void {
+    this.couponCode = coupon.code;
+    this.applyCoupon();
+  }
+
+  /**
+   * Remove applied coupon
+   */
+  removeCoupon(): void {
+    this.couponCode = '';
+    this.couponDiscount = 0;
+    this.couponError = '';
+    this.showCouponSuccess = false;
+  }
+
   getSubtotal(appState: AppState): number {
     return appState.currentSale.reduce((sum, item) => sum + item.total, 0);
+  }
+
+  /**
+   * Calculate total quantity of all items in cart
+   */
+  getTotalQuantity(appState: AppState): number {
+    return appState.currentSale.reduce((sum, item) => sum + item.quantity, 0);
   }
 
   getTax(appState: AppState): number {
@@ -352,11 +436,31 @@ export class SalesComponent implements OnInit {
     return subtotal * (0.05 / 1.05);
   }
 
+  /**
+   * Calculate instant discount based on subtotal thresholds
+   */
+  getInstantDiscount(appState: AppState): { percent: number, amount: number } {
+    const subtotal = this.getSubtotal(appState);
+    
+    if (subtotal >= 10000) {
+      return { percent: 15, amount: subtotal * 0.15 };
+    } else if (subtotal >= 7500) {
+      return { percent: 12, amount: subtotal * 0.12 };
+    } else if (subtotal >= 5000) {
+      return { percent: 10, amount: subtotal * 0.10 };
+    }
+    
+    return { percent: 0, amount: 0 };
+  }
+
   getTotal(appState: AppState): number {
     // Total equals subtotal since GST is inclusive (customer doesn't pay extra)
-    // Subtract loyalty discount if applied
+    // Subtract loyalty discount, instant discount, and coupon discount if applied
     const subtotal = this.getSubtotal(appState);
-    return Math.max(0, subtotal - this.discountFromPoints);
+    const loyaltyDiscount = this.discountFromPoints || 0;
+    const instantDiscount = this.getInstantDiscount(appState).amount;
+    const couponDiscount = this.couponDiscount || 0;
+    return Math.max(0, subtotal - loyaltyDiscount - instantDiscount - couponDiscount);
   }
 
   completeSale(appState: AppState): void {
@@ -374,15 +478,25 @@ export class SalesComponent implements OnInit {
       return;
     }
 
+    // DEBUG: Log coupon state before building sale data
+    console.log('=== FRONTEND DEBUG: completeSale called ===');
+    console.log('this.couponCode =', this.couponCode);
+    console.log('this.couponDiscount =', this.couponDiscount);
+
     // Build sale data with either single payment or split payments
     const saleData: any = {
       locationId: parseInt(user.locationId),
       customerName: this.customerName,
       customerPhone: this.customerPhone,
       customerCountryCode: this.customerCountryCode,
-      pointsRedeemed: this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
+      pointsToRedeem: this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
       discountFromPoints: this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
+      couponCode: this.couponCode && this.couponDiscount > 0 ? this.couponCode.toUpperCase() : undefined,
     };
+
+    // DEBUG: Log what's being sent
+    console.log('=== saleData.couponCode =', saleData.couponCode);
+    console.log('=== FULL saleData being sent:', JSON.stringify(saleData, null, 2));
 
     // Add payment information
     if (this.useSplitPayment) {
@@ -480,11 +594,25 @@ export class SalesComponent implements OnInit {
           paymentMethod: paymentMethodLabel,
           locationName: locationName,
           locationAddress: locationAddress,
-          locationPhone: locationPhone
+          locationPhone: locationPhone,
+          instantDiscount: this.getInstantDiscount(appState).amount > 0 ? {
+            percent: this.getInstantDiscount(appState).percent,
+            amount: this.getInstantDiscount(appState).amount
+          } : undefined,
+          appliedCoupon: this.couponCode && this.couponDiscount > 0 ? {
+            code: this.couponCode.toUpperCase(),
+            discount: this.couponDiscount
+          } : undefined,
+          generatedCoupon: sale.generatedCouponCode ? {
+            code: sale.generatedCouponCode,
+            amount: 500,
+            validDays: 30,
+            minPurchase: 2000
+          } : undefined
         };
         this.showReceiptModal = true;
         
-        // Reset form and loyalty data
+        // Reset form, loyalty data, and coupon data
         this.customerName = '';
         this.customerPhone = '';
         this.customerCountryCode = '+91';
@@ -494,6 +622,12 @@ export class SalesComponent implements OnInit {
         this.pointsToEarn = null;
         this.pointsToRedeem = 0;
         this.discountFromPoints = 0;
+        this.couponCode = '';
+        this.couponDiscount = 0;
+        this.couponError = '';
+        this.showCouponSuccess = false;
+        this.customerCoupons = [];
+        this.showCustomerCoupons = false;
         this.payments = [];
         this.useSplitPayment = false;
       },
@@ -1082,6 +1216,11 @@ export class SalesComponent implements OnInit {
     console.log('📦 Current scannedExchangeBarcodes:', this.scannedExchangeBarcodes);
     console.log('📋 Barcodes to pass to modal:', this.getScannedBarcodesList());
     
+    // CRITICAL: Create a snapshot of the scanned barcodes BEFORE anything else
+    // This prevents the array from being cleared during modal lifecycle
+    this.exchangeBarcodesSnapshot = [...this.getScannedBarcodesList()];
+    console.log('💾 Saved barcodes snapshot:', this.exchangeBarcodesSnapshot);
+    
     // IMPORTANT: Don't close the search modal yet - keep the scannedBarcodes data
     // this.showExchangeSearch = false; // Move this AFTER setting exchange sale
     
@@ -1120,5 +1259,194 @@ export class SalesComponent implements OnInit {
         }
       }
     });
+  }
+
+  /**
+   * Show price edit modal with barcode details
+   */
+  showPriceEditModalForBarcode(barcodeInfo: any, currentPrice: number): void {
+    this.priceEditBarcode = {
+      barcodeId: barcodeInfo.id,
+      barcodeNumber: barcodeInfo.barcodeNumber,
+      productName: barcodeInfo.product.name,
+      size: barcodeInfo.product.size || 'N/A',
+      color: barcodeInfo.product.color || 'N/A',
+      currentPrice: currentPrice
+    };
+    this.newPrice = currentPrice;
+    this.pendingBarcodeInfo = barcodeInfo;
+    this.showPriceEditModal = true;
+  }
+
+  /**
+   * Close price edit modal
+   */
+  closePriceEditModal(): void {
+    this.showPriceEditModal = false;
+    this.priceEditBarcode = null;
+    this.newPrice = 0;
+    this.pendingBarcodeInfo = null;
+    this.barcodeInput = '';
+    this.isProcessingBarcode = false;
+  }
+
+  /**
+   * Update barcode price in system
+   */
+  async updateBarcodePrice(): Promise<void> {
+    if (!this.priceEditBarcode || !this.newPrice || this.newPrice <= 0) {
+      return;
+    }
+
+    this.isUpdatingPrice = true;
+
+    try {
+      // Use the existing method which takes purchasePrice, salePrice, originalPrice
+      // We only update salePrice, so pass null for others
+      await this.appService.updateBarcodePrice(
+        this.priceEditBarcode.barcodeId, 
+        null as any, // purchasePrice - not updating
+        this.newPrice, // salePrice - the price we're updating
+        null as any // originalPrice - not updating
+      ).toPromise();
+      
+      // Show success message
+      this.successMessage = `Price updated to ₹${this.newPrice.toFixed(2)} for barcode ${this.priceEditBarcode.barcodeNumber}`;
+      this.showSuccessMessage = true;
+      setTimeout(() => this.showSuccessMessage = false, 3000);
+
+      // Update the pending barcode info with new price
+      if (this.pendingBarcodeInfo) {
+        this.pendingBarcodeInfo.salePrice = this.newPrice;
+      }
+
+      // Close modal and proceed with adding to cart
+      this.showPriceEditModal = false;
+      await this.proceedToAddToCart();
+    } catch (error: any) {
+      alert(error?.error?.message || 'Failed to update barcode price. Please try again.');
+    } finally {
+      this.isUpdatingPrice = false;
+    }
+  }
+
+  /**
+   * Proceed without updating price (use existing system price)
+   */
+  async proceedWithoutPriceUpdate(): Promise<void> {
+    this.showPriceEditModal = false;
+    await this.proceedToAddToCart();
+  }
+
+  /**
+   * Add the barcode to cart after price update/skip
+   */
+  private async proceedToAddToCart(): Promise<void> {
+    if (!this.pendingBarcodeInfo) {
+      this.barcodeInput = '';
+      this.isProcessingBarcode = false;
+      return;
+    }
+
+    const barcodeInfo = this.pendingBarcodeInfo;
+    const barcodeNumber = barcodeInfo.barcodeNumber;
+    
+    try {
+      const user = this.authService.getCurrentUser();
+      if (!user || !user.locationId) {
+        alert('User location not found. Please contact administrator.');
+        this.barcodeInput = '';
+        this.isProcessingBarcode = false;
+        return;
+      }
+
+      // Fetch location inventory for pricing
+      const inventory = await this.appService
+        .getInventoryByLocationAndSku(parseInt(user.locationId), barcodeInfo.product.sku)
+        .toPromise();
+
+      if (!inventory) {
+        alert(`Product "${barcodeInfo.product.name}" inventory not found at this location.`);
+        this.barcodeInput = '';
+        this.isProcessingBarcode = false;
+        return;
+      }
+
+      // Create product object from barcode info
+      const product: Product = {
+        id: barcodeInfo.product.id,
+        name: barcodeInfo.product.name,
+        sku: barcodeInfo.product.sku,
+        size: barcodeInfo.product.size || '',
+        color: barcodeInfo.product.color || '',
+        category: 'shirts' as any,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Use updated price (if updated) or barcode sale price or inventory price
+      const unitPrice = barcodeInfo.salePrice || inventory.salePrice;
+
+      // Get current app state
+      const appState = this.appService.appStateBehaviorSubject.value;
+
+      // Check if there's already an item for this product
+      const existingProductItem = appState.currentSale.find(item => item.productId === product.id);
+
+      if (existingProductItem && existingProductItem.barcodes) {
+        // Add this barcode to existing item
+        existingProductItem.barcodes.push(barcodeNumber);
+        
+        // Store individual barcode price
+        if (!existingProductItem.barcodePrices) {
+          existingProductItem.barcodePrices = {};
+        }
+        existingProductItem.barcodePrices[barcodeNumber] = unitPrice;
+        
+        // Update quantity
+        existingProductItem.quantity = existingProductItem.barcodes.length;
+        
+        // Calculate total by summing all individual barcode prices
+        existingProductItem.total = Object.values(existingProductItem.barcodePrices).reduce((sum, price) => sum + price, 0);
+        
+        // Update average price for display
+        existingProductItem.price = existingProductItem.total / existingProductItem.quantity;
+        
+        // Trigger state update
+        this.appService.appStateBehaviorSubject.next({
+          ...appState,
+          currentSale: [...appState.currentSale]
+        });
+      } else {
+        // Create new sale item with this barcode
+        const saleItem: SaleItem = {
+          productId: product.id,
+          product,
+          quantity: 1,
+          price: unitPrice,
+          total: unitPrice,
+          barcodes: [barcodeNumber],
+          barcodePrices: { [barcodeNumber]: unitPrice }
+        };
+
+        this.appService.addToSale(saleItem);
+      }
+
+      // Show success feedback
+      this.showSuccessMessage = true;
+      this.successMessage = `Added: ${product.name} (${barcodeNumber})`;
+      setTimeout(() => this.showSuccessMessage = false, 2000);
+
+      // Clear pending data
+      this.pendingBarcodeInfo = null;
+      this.priceEditBarcode = null;
+      this.barcodeInput = '';
+
+    } catch (error: any) {
+      alert(error?.error?.message || 'Failed to process barcode. Please try again.');
+      this.barcodeInput = '';
+    } finally {
+      this.isProcessingBarcode = false;
+    }
   }
 }

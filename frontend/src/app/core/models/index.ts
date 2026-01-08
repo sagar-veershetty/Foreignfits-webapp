@@ -172,6 +172,11 @@ export interface Sale {
   pointsEarned?: number;
   pointsRedeemed?: number;
   discountFromPoints?: number;
+  couponCode?: string;
+  couponDiscount?: number;
+  generatedCouponCode?: string;
+  instantDiscountPercent?: number; // Instant discount percentage (e.g., 10 for 10%)
+  instantDiscountAmount?: number;  // Instant discount amount in rupees
   isExchangeSale?: boolean;
   exchangeId?: number;
   exchangePriceDifference?: number;

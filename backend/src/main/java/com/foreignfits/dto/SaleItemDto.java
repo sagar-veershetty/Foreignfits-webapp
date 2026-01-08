@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -17,6 +18,7 @@ public class SaleItemDto {
     private BigDecimal price;
     private BigDecimal total;
     private List<String> barcodes; // List of barcode numbers sold in this item
+    private Map<String, BigDecimal> barcodePrices; // Map of barcode number to individual price
     
     // Manual getters and setters to ensure compatibility
     public Long getId() { return id; }
@@ -36,4 +38,7 @@ public class SaleItemDto {
     
     public List<String> getBarcodes() { return barcodes; }
     public void setBarcodes(List<String> barcodes) { this.barcodes = barcodes; }
+    
+    public Map<String, BigDecimal> getBarcodePrices() { return barcodePrices; }
+    public void setBarcodePrices(Map<String, BigDecimal> barcodePrices) { this.barcodePrices = barcodePrices; }
 }

@@ -28,6 +28,11 @@ public class SaleDto {
     private Integer pointsRedeemed;
     private BigDecimal discountFromPoints;
     private String salesPersonName;
+    private String couponCode;
+    private BigDecimal couponDiscount;
+    private String generatedCouponCode;
+    private BigDecimal instantDiscountPercent; // Instant discount percentage
+    private BigDecimal instantDiscountAmount;  // Instant discount amount
     private Boolean isExchangeSale;
     private Long exchangeId;
     private BigDecimal exchangePriceDifference;
@@ -80,6 +85,30 @@ public class SaleDto {
     
     public String getSalesPersonName() { return salesPersonName; }
     public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
+    
+    public String getCouponCode() { return couponCode; }
+    public void setCouponCode(String couponCode) { this.couponCode = couponCode; }
+    
+    public BigDecimal getCouponDiscount() { return couponDiscount; }
+    public void setCouponDiscount(BigDecimal couponDiscount) { this.couponDiscount = couponDiscount; }
+    
+    public String getGeneratedCouponCode() { return generatedCouponCode; }
+    public void setGeneratedCouponCode(String generatedCouponCode) { this.generatedCouponCode = generatedCouponCode; }
+    
+    public BigDecimal getInstantDiscountPercent() { return instantDiscountPercent; }
+    public void setInstantDiscountPercent(BigDecimal instantDiscountPercent) { this.instantDiscountPercent = instantDiscountPercent; }
+    
+    public BigDecimal getInstantDiscountAmount() { return instantDiscountAmount; }
+    public void setInstantDiscountAmount(BigDecimal instantDiscountAmount) { this.instantDiscountAmount = instantDiscountAmount; }
+    
+    public Boolean getIsExchangeSale() { return isExchangeSale; }
+    public void setIsExchangeSale(Boolean isExchangeSale) { this.isExchangeSale = isExchangeSale; }
+    
+    public Long getExchangeId() { return exchangeId; }
+    public void setExchangeId(Long exchangeId) { this.exchangeId = exchangeId; }
+    
+    public BigDecimal getExchangePriceDifference() { return exchangePriceDifference; }
+    public void setExchangePriceDifference(BigDecimal exchangePriceDifference) { this.exchangePriceDifference = exchangePriceDifference; }
     
     public UserDto getSoldBy() { return soldBy; }
     public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }

@@ -78,6 +78,23 @@ public class Sale {
     @Column(name = "sales_person_name", length = 100)
     private String salesPersonName;
     
+    // Coupon-related fields
+    @Column(name = "coupon_code", length = 20)
+    private String couponCode;
+    
+    @Column(name = "coupon_discount", precision = 12, scale = 2)
+    private BigDecimal couponDiscount;
+    
+    @Column(name = "generated_coupon_code", length = 20)
+    private String generatedCouponCode;
+    
+    // Instant discount fields (based on purchase amount)
+    @Column(name = "instant_discount_percent", precision = 5, scale = 2)
+    private BigDecimal instantDiscountPercent; // e.g., 10.00 for 10%
+    
+    @Column(name = "instant_discount_amount", precision = 12, scale = 2)
+    private BigDecimal instantDiscountAmount; // Actual discount amount
+    
     // Exchange-related fields
     @Column(name = "is_exchange_sale")
     private Boolean isExchangeSale = false;
@@ -150,6 +167,30 @@ public class Sale {
     
     public String getSalesPersonName() { return salesPersonName; }
     public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
+    
+    public String getCouponCode() { return couponCode; }
+    public void setCouponCode(String couponCode) { this.couponCode = couponCode; }
+    
+    public BigDecimal getCouponDiscount() { return couponDiscount; }
+    public void setCouponDiscount(BigDecimal couponDiscount) { this.couponDiscount = couponDiscount; }
+    
+    public String getGeneratedCouponCode() { return generatedCouponCode; }
+    public void setGeneratedCouponCode(String generatedCouponCode) { this.generatedCouponCode = generatedCouponCode; }
+    
+    public BigDecimal getInstantDiscountPercent() { return instantDiscountPercent; }
+    public void setInstantDiscountPercent(BigDecimal instantDiscountPercent) { this.instantDiscountPercent = instantDiscountPercent; }
+    
+    public BigDecimal getInstantDiscountAmount() { return instantDiscountAmount; }
+    public void setInstantDiscountAmount(BigDecimal instantDiscountAmount) { this.instantDiscountAmount = instantDiscountAmount; }
+    
+    public Boolean getIsExchangeSale() { return isExchangeSale; }
+    public void setIsExchangeSale(Boolean isExchangeSale) { this.isExchangeSale = isExchangeSale; }
+    
+    public Long getExchangeId() { return exchangeId; }
+    public void setExchangeId(Long exchangeId) { this.exchangeId = exchangeId; }
+    
+    public BigDecimal getExchangePriceDifference() { return exchangePriceDifference; }
+    public void setExchangePriceDifference(BigDecimal exchangePriceDifference) { this.exchangePriceDifference = exchangePriceDifference; }
     
     public User getSoldBy() { return soldBy; }
     public void setSoldBy(User soldBy) { this.soldBy = soldBy; }

@@ -48,6 +48,9 @@ public class CreateSaleRequest {
     @Size(max = 100, message = "Sales person name cannot exceed 100 characters")
     private String salesPersonName; // Optional: name of the sales person who assisted with the sale
     
+    @Size(max = 20, message = "Coupon code cannot exceed 20 characters")
+    private String couponCode; // Optional: coupon code to apply for discount
+    
     // Manual getters and setters to ensure compatibility
     public List<SaleItemRequest> getItems() { return items; }
     public void setItems(List<SaleItemRequest> items) { this.items = items; }
@@ -75,6 +78,9 @@ public class CreateSaleRequest {
     
     public String getSalesPersonName() { return salesPersonName; }
     public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
+    
+    public String getCouponCode() { return couponCode; }
+    public void setCouponCode(String couponCode) { this.couponCode = couponCode; }
     
     public List<SalePaymentDto> getPayments() { return payments; }
     public void setPayments(List<SalePaymentDto> payments) { this.payments = payments; }
