@@ -149,14 +149,9 @@
                   <p class="font-medium text-gray-900">{{ item.product.name }}</p>
                   <p class="text-sm text-gray-600">{{ item.product.size }} | {{ item.product.color }}</p>
                   <p class="text-sm text-gray-500">₹{{ $any(item.product).salePrice || 0 }}</p>
-                  <!-- Show all barcodes -->
-                  <div *ngIf="item.barcodes && item.barcodes.length > 0" class="mt-2 space-y-1">
-                    <p class="text-xs font-medium text-gray-600">Barcodes ({{ item.barcodes.length }}):</p>
-                    <div class="flex flex-wrap gap-1">
-                      <div *ngFor="let barcode of item.barcodes" class="inline-flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-xs">
-                        <span class="font-mono">{{ barcode }}</span>
-                      </div>
-                    </div>
+                  <!-- Show barcode if available -->
+                  <div *ngIf="item.barcode" class="mt-1 inline-flex items-center gap-1 px-2 py-1 bg-green-50 border border-green-200 rounded text-xs">
+                    <span class="font-mono">{{ item.barcode }}</span>
                   </div>
                 </div>
                 <button

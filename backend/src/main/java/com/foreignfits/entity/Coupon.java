@@ -65,9 +65,9 @@ public class Coupon {
     private String customerCountryCode;
     
     // Generation details
-    // NOTE: Using Long instead of Sale entity to avoid FK constraints and transaction issues
-    @Column(name = "generated_from_sale_id")
-    private Long generatedFromSaleId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "generated_from_sale_id")
+    private Sale generatedFromSale;
     
     @NotNull(message = "Generation date is required")
     @Column(name = "generated_at", nullable = false)
@@ -81,15 +81,17 @@ public class Coupon {
     @Column(name = "redeemed_at")
     private LocalDateTime redeemedAt;
     
-    // Using IDs instead of entities to avoid FK constraints and transaction issues
-    @Column(name = "redeemed_in_sale_id")
-    private Long redeemedInSaleId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "redeemed_in_sale_id")
+    private Sale redeemedInSale;
     
-    @Column(name = "redeemed_by_user_id")
-    private Long redeemedByUserId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "redeemed_by_user_id")
+    private User redeemedByUser;
     
-    @Column(name = "redeemed_at_location_id")
-    private Long redeemedAtLocationId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "redeemed_at_location_id")
+    private Location redeemedAtLocation;
     
     // Metadata
     @Column(name = "notes", columnDefinition = "TEXT")
@@ -135,8 +137,8 @@ public class Coupon {
     public String getCustomerCountryCode() { return customerCountryCode; }
     public void setCustomerCountryCode(String customerCountryCode) { this.customerCountryCode = customerCountryCode; }
     
-    public Long getGeneratedFromSaleId() { return generatedFromSaleId; }
-    public void setGeneratedFromSaleId(Long generatedFromSaleId) { this.generatedFromSaleId = generatedFromSaleId; }
+    public Sale getGeneratedFromSale() { return generatedFromSale; }
+    public void setGeneratedFromSale(Sale generatedFromSale) { this.generatedFromSale = generatedFromSale; }
     
     public LocalDateTime getGeneratedAt() { return generatedAt; }
     public void setGeneratedAt(LocalDateTime generatedAt) { this.generatedAt = generatedAt; }
@@ -147,14 +149,14 @@ public class Coupon {
     public LocalDateTime getRedeemedAt() { return redeemedAt; }
     public void setRedeemedAt(LocalDateTime redeemedAt) { this.redeemedAt = redeemedAt; }
     
-    public Long getRedeemedInSaleId() { return redeemedInSaleId; }
-    public void setRedeemedInSaleId(Long redeemedInSaleId) { this.redeemedInSaleId = redeemedInSaleId; }
+    public Sale getRedeemedInSale() { return redeemedInSale; }
+    public void setRedeemedInSale(Sale redeemedInSale) { this.redeemedInSale = redeemedInSale; }
     
-    public Long getRedeemedByUserId() { return redeemedByUserId; }
-    public void setRedeemedByUserId(Long redeemedByUserId) { this.redeemedByUserId = redeemedByUserId; }
+    public User getRedeemedByUser() { return redeemedByUser; }
+    public void setRedeemedByUser(User redeemedByUser) { this.redeemedByUser = redeemedByUser; }
     
-    public Long getRedeemedAtLocationId() { return redeemedAtLocationId; }
-    public void setRedeemedAtLocationId(Long redeemedAtLocationId) { this.redeemedAtLocationId = redeemedAtLocationId; }
+    public Location getRedeemedAtLocation() { return redeemedAtLocation; }
+    public void setRedeemedAtLocation(Location redeemedAtLocation) { this.redeemedAtLocation = redeemedAtLocation; }
     
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }

@@ -20,9 +20,6 @@ import { ExchangeModalComponent } from '../../components/sales/exchange-modal.co
 export class SalesHistoryComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
   appState$: Observable<AppState>;
-  
-  // Expose Math for template
-  Math = Math;
 
   // Filters
   filterMode: 'all' | 'today' | 'week' | 'month' | 'range' = 'all';
@@ -152,18 +149,6 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
    * For regular sales, shows the total
    */
   getDisplayAmount(sale: Sale): number {
-    // Debug logging
-    if (sale.isExchangeSale) {
-      console.log('🔍 Exchange Sale Display:', {
-        saleId: sale.id,
-        isExchangeSale: sale.isExchangeSale,
-        exchangeId: sale.exchangeId,
-        exchangePriceDifference: sale.exchangePriceDifference,
-        total: sale.total,
-        willDisplay: sale.exchangePriceDifference !== undefined ? Math.abs(sale.exchangePriceDifference) : sale.total
-      });
-    }
-    
     if (sale.isExchangeSale && sale.exchangePriceDifference !== undefined) {
       return Math.abs(sale.exchangePriceDifference);
     }

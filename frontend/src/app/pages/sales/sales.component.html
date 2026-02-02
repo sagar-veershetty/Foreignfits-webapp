@@ -171,16 +171,7 @@
             </svg>
             <span>Cart</span>
           </div>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-600">{{ appState.currentSale.length }} item(s)</span>
-            <div class="h-6 w-px bg-gray-300"></div>
-            <div class="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
-              <svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
-              </svg>
-              <span class="text-sm font-semibold text-blue-700">{{ getTotalQuantity(appState) }} units</span>
-            </div>
-          </div>
+          <span class="text-sm text-gray-600">{{ appState.currentSale.length }} item(s)</span>
         </div>
 
         <div class="space-y-3 mb-4 max-h-[50vh] overflow-y-auto pr-1">
@@ -226,33 +217,10 @@
 
         <!-- Cart Summary -->
         <div *ngIf="appState.currentSale.length > 0" class="border-t pt-3">
-          <!-- Total Quantity Badge -->
-          <div class="flex justify-between items-center mb-3 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-            <span class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <svg class="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
-              </svg>
-              Total Items:
-            </span>
-            <span class="text-lg font-bold text-blue-700">{{ getTotalQuantity(appState) }} units</span>
-          </div>
-          
           <!-- Subtotal -->
           <div class="flex justify-between items-center text-sm text-gray-600 mb-1">
             <span>Subtotal:</span>
             <span>₹{{ getSubtotal(appState) | number:'1.2-2' }}</span>
-          </div>
-          
-          <!-- Instant Discount -->
-          <div *ngIf="getInstantDiscount(appState).amount > 0" class="flex justify-between items-center text-sm text-purple-600 mb-1">
-            <span class="flex items-center">
-              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
-              </svg>
-              Instant Discount ({{ getInstantDiscount(appState).percent }}%):
-            </span>
-            <span>-₹{{ getInstantDiscount(appState).amount | number:'1.2-2' }}</span>
           </div>
           
           <!-- Loyalty Discount -->
@@ -580,103 +548,6 @@
   </div>
 </div>
 
-<!-- Price Edit Modal -->
-<div *ngIf="showPriceEditModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-4 pb-3 border-b">
-      <h3 class="text-xl font-bold text-gray-900">Update Barcode Price</h3>
-      <button (click)="closePriceEditModal()" class="text-gray-400 hover:text-gray-600">
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Price Mismatch Alert -->
-    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-      <div class="flex items-start gap-2">
-        <svg class="h-5 w-5 text-yellow-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-        </svg>
-        <div>
-          <p class="text-sm font-semibold text-yellow-800">Price Mismatch Detected</p>
-          <p class="text-xs text-yellow-700 mt-1">The system price differs from the physical sticker. Update the price if needed.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Product Details -->
-    <div *ngIf="priceEditBarcode" class="bg-gray-50 rounded-lg p-4 mb-4">
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-gray-600">Product:</span>
-          <span class="text-sm font-semibold text-gray-900">{{ priceEditBarcode.productName }}</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-gray-600">Size/Color:</span>
-          <span class="text-sm text-gray-700">{{ priceEditBarcode.size }} | {{ priceEditBarcode.color }}</span>
-        </div>
-        <div class="flex items-center justify-between">
-          <span class="text-sm text-gray-600">Barcode:</span>
-          <span class="text-xs font-mono bg-white px-2 py-1 rounded border">{{ priceEditBarcode.barcodeNumber }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Price Comparison -->
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div class="bg-red-50 border border-red-200 rounded-lg p-3">
-        <div class="text-xs text-red-600 font-medium mb-1">Current System Price</div>
-        <div class="text-2xl font-bold text-red-700">₹{{ priceEditBarcode?.currentPrice | number:'1.2-2' }}</div>
-      </div>
-      <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-        <div class="text-xs text-green-600 font-medium mb-1">New Price</div>
-        <div class="text-2xl font-bold text-green-700">₹{{ newPrice | number:'1.2-2' }}</div>
-      </div>
-    </div>
-
-    <!-- New Price Input -->
-    <div class="mb-6">
-      <label class="block text-sm font-medium text-gray-700 mb-2">
-        Enter Correct Price (as shown on physical sticker)
-      </label>
-      <div class="relative">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">₹</span>
-        <input 
-          type="number" 
-          [(ngModel)]="newPrice"
-          (keyup.enter)="updateBarcodePrice()"
-          step="0.01"
-          min="0"
-          class="w-full pl-8 pr-3 py-3 border-2 border-gray-300 rounded-lg text-lg font-semibold focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-          placeholder="0.00"
-          autofocus />
-      </div>
-      <p class="mt-2 text-xs text-gray-500">💡 Tip: Verify the price on the physical sticker before updating</p>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="flex gap-3">
-      <button 
-        (click)="proceedWithoutPriceUpdate()"
-        class="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
-        Skip Update
-      </button>
-      <button 
-        (click)="updateBarcodePrice()"
-        [disabled]="!newPrice || newPrice <= 0 || isUpdatingPrice"
-        class="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
-        <svg *ngIf="isUpdatingPrice" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span>{{ isUpdatingPrice ? 'Updating...' : 'Update & Add to Cart' }}</span>
-      </button>
-    </div>
-  </div>
-</div>
-
 <!-- Receipt Modal -->
 <app-print-receipt *ngIf="showReceiptModal && receiptData" 
                    [receipt]="receiptData"
@@ -687,7 +558,7 @@
 <!-- Exchange Modal -->
 <app-exchange-modal *ngIf="showExchangeModal && exchangeSale"
                     [sale]="exchangeSale"
-                    [scannedBarcodes]="exchangeBarcodesSnapshot"
+                    [scannedBarcodes]="getScannedBarcodesList()"
                     (closed)="closeExchangeModal()"
                     (exchangeCreated)="onExchangeCreated($event)">
 </app-exchange-modal>

@@ -84,19 +84,6 @@
       <div class="receipt-summary">
         <div><span>Subtotal:</span> <span>₹{{ receipt?.subtotal.toFixed(2) }}</span></div>
         <div><span>Tax ({{ receipt?.taxLabel }}):</span> <span>₹{{ receipt?.tax.toFixed(2) }}</span></div>
-        
-        <!-- Instant Discount (if applicable) -->
-        <div *ngIf="receipt?.instantDiscount" style="color: #7c3aed; font-weight: 500;">
-          <span>Instant Discount ({{ receipt?.instantDiscount.percent }}%):</span>
-          <span>-₹{{ receipt?.instantDiscount.amount.toFixed(2) }}</span>
-        </div>
-        
-        <!-- Coupon Discount (if applied) -->
-        <div *ngIf="receipt?.appliedCoupon" style="color: #059669; font-weight: 500;">
-          <span>Coupon Discount ({{ receipt?.appliedCoupon.code }}):</span>
-          <span>-₹{{ receipt?.appliedCoupon.discount.toFixed(2) }}</span>
-        </div>
-        
         <div class="receipt-total"><span>TOTAL:</span> <span>₹{{ receipt?.total.toFixed(2) }}</span></div>
       </div>
       

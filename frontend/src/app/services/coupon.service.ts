@@ -20,15 +20,8 @@ export class CouponService {
    */
   validateCoupon(code: string, purchaseAmount: number): Observable<CouponValidation> {
     const params = new HttpParams().set('purchaseAmount', purchaseAmount.toString());
-    const url = `${this.apiUrl}/validate/${code}`;
     
-    console.log('🔍 COUPON VALIDATION DEBUG:');
-    console.log('  environment.apiUrl:', environment.apiUrl);
-    console.log('  this.apiUrl:', this.apiUrl);
-    console.log('  Full URL:', url);
-    console.log('  Params:', params.toString());
-    
-    return this.http.get<CouponValidation>(url, { params })
+    return this.http.get<CouponValidation>(`${this.apiUrl}/validate/${code}`, { params })
       .pipe(
         catchError(error => {
           console.error('Error validating coupon:', error);

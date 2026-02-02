@@ -366,23 +366,16 @@ export class AddProductComponent implements OnInit {
     // Force reload if locations are empty
     const currentState = this.appService.appStateBehaviorSubject.value;
     if (!currentState.locations || currentState.locations.length === 0) {
-      console.log('[AddProduct] Locations not loaded, triggering loadInitialData...');
       this.appService.loadInitialData().subscribe({
         next: () => {
           const state = this.appService.appStateBehaviorSubject.value;
-          console.log('[AddProduct] Data loaded, locations:', state.locations.length);
           // Auto-set location to SUPPLIER for admin users after data loads
           if (this.isAdmin()) {
             this.formData.locationId = '1'; // SUPPLIER location ID
           }
-        },
-        error: (err) => {
-          console.error('[AddProduct] Failed to load initial data:', err);
-          alert('Failed to load location data. Please refresh the page and try again.');
         }
       });
     } else {
-      console.log('[AddProduct] Locations already loaded:', currentState.locations.length);
       // Auto-set location to SUPPLIER for admin users
       if (this.isAdmin()) {
         this.formData.locationId = '1'; // SUPPLIER location ID
@@ -448,18 +441,9 @@ export class AddProductComponent implements OnInit {
     
     // Check if locations are loaded
     if (!appState.locations || appState.locations.length === 0) {
-      console.error('[AddProduct] Locations not loaded. App state:', appState);
       alert('Loading location data. Please wait a moment and try again.');
       // Trigger data load
-      this.appService.loadInitialData().subscribe({
-        next: () => {
-          console.log('[AddProduct] Data loaded successfully');
-        },
-        error: (err) => {
-          console.error('[AddProduct] Failed to load data:', err);
-          alert('Failed to load location data. Please check your connection and try again.');
-        }
-      });
+      this.appService.loadInitialData().subscribe();
       return;
     }
     

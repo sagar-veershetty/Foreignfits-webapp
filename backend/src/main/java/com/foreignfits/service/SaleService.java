@@ -171,11 +171,7 @@ public class SaleService {
         // Apply coupon if provided
         BigDecimal couponDiscount = BigDecimal.ZERO;
         String validCouponCode = null;
-        
-        System.out.println("=== COUPON CHECK: request.getCouponCode() = " + request.getCouponCode());
-        
         if (request.getCouponCode() != null && !request.getCouponCode().isEmpty()) {
-            System.out.println("=== ENTERING COUPON BLOCK...");
             com.foreignfits.dto.CouponValidationResult validation = couponService.validateCoupon(
                 request.getCouponCode(), 
                 total
@@ -188,50 +184,17 @@ public class SaleService {
             validCouponCode = request.getCouponCode();
             couponDiscount = validation.getDiscountAmount();
             
-            System.out.println("=== BEFORE DISCOUNT: Total = ₹" + total + ", Coupon Discount = ₹" + couponDiscount);
-            
             // Apply discount to total
             total = total.subtract(couponDiscount);
             if (total.compareTo(BigDecimal.ZERO) < 0) {
                 total = BigDecimal.ZERO;
             }
-            
-            System.out.println("=== AFTER DISCOUNT: Total = ₹" + total);
-        }
-        
-        // Calculate instant discount based on subtotal (before coupon)
-        BigDecimal instantDiscountPercent = BigDecimal.ZERO;
-        BigDecimal instantDiscountAmount = BigDecimal.ZERO;
-        
-        // Check subtotal against thresholds
-        if (subtotal.compareTo(new BigDecimal("10000")) >= 0) {
-            instantDiscountPercent = new BigDecimal("15.00");
-        } else if (subtotal.compareTo(new BigDecimal("7500")) >= 0) {
-            instantDiscountPercent = new BigDecimal("12.00");
-        } else if (subtotal.compareTo(new BigDecimal("5000")) >= 0) {
-            instantDiscountPercent = new BigDecimal("10.00");
-        }
-        
-        // Calculate instant discount amount if applicable
-        if (instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0) {
-            instantDiscountAmount = subtotal.multiply(instantDiscountPercent)
-                .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-            
-            // Apply instant discount to total
-            total = total.subtract(instantDiscountAmount);
-            if (total.compareTo(BigDecimal.ZERO) < 0) {
-                total = BigDecimal.ZERO;
-            }
-            
-            System.out.println("=== INSTANT DISCOUNT APPLIED: " + instantDiscountPercent + "% = ₹" + instantDiscountAmount);
         }
         
         // Create sale
         Sale sale = new Sale();
         sale.setSubtotal(subtotal);
         sale.setTax(tax);
-        
-        System.out.println("=== SETTING SALE TOTAL: ₹" + total);
         sale.setTotal(total);
         sale.setPaymentMethod(request.getPaymentMethod());
         sale.setCustomerName(request.getCustomerName());
@@ -241,14 +204,10 @@ public class SaleService {
         sale.setSalesPersonName(request.getSalesPersonName()); // ✅ Set the sales person name
         sale.setCouponCode(validCouponCode);
         sale.setCouponDiscount(couponDiscount.compareTo(BigDecimal.ZERO) > 0 ? couponDiscount : null);
-        sale.setInstantDiscountPercent(instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0 ? instantDiscountPercent : null);
-        sale.setInstantDiscountAmount(instantDiscountAmount.compareTo(BigDecimal.ZERO) > 0 ? instantDiscountAmount : null);
         sale.setSoldBy(soldBy);
         sale.setLocation(saleLocation); // ✅ Set the location where sale was made
         
         Sale savedSale = saleRepository.save(sale);
-        
-        System.out.println("=== SALE SAVED - ID: " + savedSale.getId() + ", Total: ₹" + savedSale.getTotal() + ", Coupon Discount: ₹" + couponDiscount);
         
         // Redeem coupon if it was applied
         if (validCouponCode != null) {
@@ -263,18 +222,12 @@ public class SaleService {
         savedSale.setItems(saleItems);
         savedSale = saleRepository.save(savedSale);
         
-        System.out.println("=== SALE RE-SAVED AFTER ITEMS - ID: " + savedSale.getId() + ", Total: ₹" + savedSale.getTotal());
-        
         // ✅ SPLIT PAYMENT SUPPORT: Handle multiple payment methods
         if (request.getPayments() != null && !request.getPayments().isEmpty()) {
-            System.out.println("=== VALIDATING PAYMENTS - Sale Total: ₹" + savedSale.getTotal());
-            
             // Validate that payment amounts sum to sale total
             BigDecimal paymentSum = request.getPayments().stream()
                     .map(SalePaymentDto::getAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            System.out.println("=== Payment Sum: ₹" + paymentSum + ", Sale Total: ₹" + savedSale.getTotal());
             
             if (paymentSum.compareTo(savedSale.getTotal()) != 0) {
                 throw new RuntimeException("Payment sum (" + paymentSum + 
@@ -391,9 +344,7 @@ public class SaleService {
             stockMovementRepository.save(movement);
         }
         
-        // TEMPORARILY DISABLED: Process loyalty points - causing FK constraint violation
-        // TODO: Fix loyalty points to work with PROPAGATION_REQUIRES_NEW like coupons
-        /*
+        // Process loyalty points if customer phone is provided
         if (request.getCustomerPhone() != null && !request.getCustomerPhone().isEmpty() &&
             request.getCustomerCountryCode() != null && !request.getCustomerCountryCode().isEmpty()) {
             try {
@@ -430,29 +381,18 @@ public class SaleService {
                 System.err.println("Error processing loyalty points: " + e.getMessage());
             }
         }
-        */
         
         // Generate new coupon if sale qualifies (≥ ₹3000 after all discounts)
-        System.out.println("=== COUPON GENERATION: Checking if sale #" + savedSale.getId() + " qualifies. Total: ₹" + savedSale.getTotal());
         try {
-            // Pass primitive values instead of entity to avoid transaction conflicts
-            com.foreignfits.entity.Coupon newCoupon = couponService.generateCouponForSale(
-                savedSale.getId(), 
-                savedSale.getTotal(),
-                savedSale.getCustomerName(),
-                savedSale.getCustomerPhone(),
-                savedSale.getCustomerCountryCode()
-            );
+            com.foreignfits.entity.Coupon newCoupon = couponService.generateCouponForSale(savedSale);
             if (newCoupon != null) {
                 savedSale.setGeneratedCouponCode(newCoupon.getCode());
-                System.out.println("=== COUPON GENERATED: " + newCoupon.getCode() + " for sale #" + savedSale.getId());
-            } else {
-                System.out.println("=== COUPON NOT GENERATED: generateCouponForSale returned null for sale #" + savedSale.getId());
+                saleRepository.save(savedSale);
+                System.out.println("Generated coupon " + newCoupon.getCode() + " for sale #" + savedSale.getId());
             }
         } catch (Exception e) {
             // Log error but don't fail the sale
-            System.err.println("=== COUPON GENERATION ERROR: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Error generating coupon for sale: " + e.getMessage());
         }
         
         return convertToDto(savedSale);
@@ -522,8 +462,6 @@ public class SaleService {
         dto.setCouponCode(sale.getCouponCode());
         dto.setCouponDiscount(sale.getCouponDiscount());
         dto.setGeneratedCouponCode(sale.getGeneratedCouponCode());
-        dto.setInstantDiscountPercent(sale.getInstantDiscountPercent());
-        dto.setInstantDiscountAmount(sale.getInstantDiscountAmount());
         dto.setIsExchangeSale(sale.getIsExchangeSale());
         dto.setExchangeId(sale.getExchangeId());
         dto.setExchangePriceDifference(sale.getExchangePriceDifference());
@@ -583,22 +521,12 @@ public class SaleService {
         dto.setPrice(item.getPrice());
         dto.setTotal(item.getTotal());
         
-        // Map barcodes to list of barcode numbers and create barcodePrices map
+        // Map barcodes to list of barcode numbers
         if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
             List<String> barcodeNumbers = item.getBarcodes().stream()
                     .map(Barcode::getBarcodeNumber)
                     .collect(Collectors.toList());
             dto.setBarcodes(barcodeNumbers);
-            
-            // Create barcodePrices map for exchange calculations
-            java.util.Map<String, BigDecimal> barcodePrices = new java.util.HashMap<>();
-            for (Barcode barcode : item.getBarcodes()) {
-                BigDecimal price = barcode.getSalePrice() != null && barcode.getSalePrice() > 0 
-                    ? BigDecimal.valueOf(barcode.getSalePrice())
-                    : item.getPrice(); // Fallback to average item price
-                barcodePrices.put(barcode.getBarcodeNumber(), price);
-            }
-            dto.setBarcodePrices(barcodePrices);
         }
         
         if (item.getProduct() != null) {

@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: '/api',  // Use relative URL so Angular proxy can intercept requests
+  apiUrl: 'http://localhost:8080/api',
   version: '1.0.0'
 };

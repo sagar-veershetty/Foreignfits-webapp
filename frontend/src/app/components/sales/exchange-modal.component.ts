@@ -23,7 +23,7 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
   notes = signal<string>('');
   selectedReturnItems = signal<Map<string, number>>(new Map());
   selectedReturnBarcodes = signal<Map<string, string[]>>(new Map()); // Track barcodes for each product
-  exchangeItems = signal<{ product: Product; quantity: number; barcodes: string[] }[]>([]); // Changed to array of barcodes
+  exchangeItems = signal<{ product: Product; quantity: number; barcode?: string }[]>([]);
   searchBarcode = signal<string>('');
   searchResults = signal<Product[]>([]);
   isLoading = signal<boolean>(false);
@@ -40,20 +40,8 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     const returnMap = new Map<string, number>();
     const barcodeMap = new Map<string, string[]>();
     
-    console.log('========================================');
-    console.log('EXCHANGE MODAL INITIALIZATION');
-    console.log('========================================');
-    console.log('Scanned Barcodes (input):', this.scannedBarcodes);
-    console.log('Scanned Barcodes type:', typeof this.scannedBarcodes);
-    console.log('Scanned Barcodes length:', this.scannedBarcodes?.length);
-    console.log('Scanned Barcodes is array?:', Array.isArray(this.scannedBarcodes));
-    console.log('Sale Items:', this.sale.items);
-    console.log('Sale Items count:', this.sale.items?.length);
-    if (this.sale.items && this.sale.items.length > 0) {
-      console.log('First item barcodes:', this.sale.items[0].barcodes);
-      console.log('First item barcodes type:', typeof this.sale.items[0].barcodes);
-    }
-    console.log('========================================');
+    console.log('Exchange Modal - Scanned Barcodes:', this.scannedBarcodes);
+    console.log('Exchange Modal - Sale Items:', this.sale.items);
     
     if (this.scannedBarcodes && this.scannedBarcodes.length > 0) {
       // Convert scanned barcodes to strings for comparison
@@ -69,60 +57,19 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
         // Barcode-level matching (for new sales with barcode tracking)
         this.sale.items.forEach(item => {
           console.log(`Checking item ${item.product.name}, barcodes:`, item.barcodes);
-          console.log(`scannedBarcodesStr inside forEach:`, scannedBarcodesStr);
           
-          // Find which barcodes from this item were scanned
-          // Handle both string arrays and barcode objects with 'name' property
-          const scannedBarcodesForItem = item.barcodes?.filter(barcode => {
-            // Extract barcode number (handle both string and object formats)
-            // Try multiple possible field names: 'barcodes', 'barcode', 'name', 'barcodeNumber'
-            let barcodeNumber: string;
-            if (typeof barcode === 'string') {
-              barcodeNumber = barcode;
-            } else {
-              barcodeNumber = (barcode as any).barcodes || (barcode as any).barcode || (barcode as any).name || (barcode as any).barcodeNumber;
-            }
-            
-            console.log(`  Raw barcode object:`, barcode);
-            console.log(`  Extracted barcodeNumber: "${barcodeNumber}"`);
-            
-            if (!barcodeNumber) {
-              console.log(`  ❌ Could not extract barcode number from object!`);
-              return false;
-            }
-            
-            const normalizedBarcode = String(barcodeNumber).trim().toUpperCase();
-            const normalizedScanned = scannedBarcodesStr.map(b => String(b).trim().toUpperCase());
-            
-            console.log(`  Checking barcode: "${barcodeNumber}" (normalized: "${normalizedBarcode}")`);
-            console.log(`  Against normalized array:`, normalizedScanned);
-            
-            const matches = normalizedScanned.includes(normalizedBarcode);
-            console.log(`  Result: ${matches}`);
-            return matches;
-          }) || [];
+          // Find which barcodes from this item were scanned (use string comparison)
+          const scannedBarcodesForItem = item.barcodes?.filter(barcode => 
+            scannedBarcodesStr.includes(String(barcode))
+          ) || [];
           
           console.log(`Matched barcodes for ${item.product.name}:`, scannedBarcodesForItem);
-          console.log(`Matched barcodes array length:`, scannedBarcodesForItem.length);
-          console.log(`Length > 0?`, scannedBarcodesForItem.length > 0);
           
           if (scannedBarcodesForItem.length > 0) {
-            console.log(`INSIDE if block for ${item.product.name}`);
-            // Extract barcode numbers for storage
-            const barcodeNumbers = scannedBarcodesForItem.map(barcode => {
-              if (typeof barcode === 'string') return barcode;
-              return (barcode as any).barcodes || (barcode as any).barcode || (barcode as any).name || (barcode as any).barcodeNumber;
-            });
-            
-            console.log(`Extracted barcodeNumbers:`, barcodeNumbers);
-            
             // Set return quantity to the number of scanned barcodes
             returnMap.set(item.product.id, scannedBarcodesForItem.length);
-            barcodeMap.set(item.product.id, barcodeNumbers);
+            barcodeMap.set(item.product.id, scannedBarcodesForItem);
             console.log(`Set returnMap for ${item.product.id}:`, scannedBarcodesForItem.length);
-            console.log(`Set barcodeMap for ${item.product.id}:`, barcodeNumbers);
-          } else {
-            console.log(`SKIPPED setting maps - no matched barcodes for ${item.product.name}`);
           }
         });
       } else {
@@ -456,16 +403,12 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
 
   addExchangeItem(product: Product) {
     const items = [...this.exchangeItems()];
-    const currentBarcode = this.searchBarcode();
     const existingIndex = items.findIndex(i => i.product.id === product.id);
     
     if (existingIndex >= 0) {
       items[existingIndex].quantity++;
-      if (currentBarcode) {
-        items[existingIndex].barcodes.push(currentBarcode);
-      }
     } else {
-      items.push({ product, quantity: 1, barcodes: currentBarcode ? [currentBarcode] : [] });
+      items.push({ product, quantity: 1, barcode: this.searchBarcode() });
     }
     
     this.exchangeItems.set(items);
@@ -476,17 +419,13 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
   // Directly add item after barcode scan without showing search results
   addExchangeItemDirectly(product: Product) {
     const items = [...this.exchangeItems()];
-    const currentBarcode = this.searchBarcode();
     const existingIndex = items.findIndex(i => i.product.id === product.id);
     
     if (existingIndex >= 0) {
-      // Product already exists - add the new barcode to the array
       items[existingIndex].quantity++;
-      items[existingIndex].barcodes.push(currentBarcode);
-      this.successMessage.set(`✓ Added: ${product.name} (Qty: ${items[existingIndex].quantity})`);
+      this.successMessage.set(`✓ Increased quantity: ${product.name} (Qty: ${items[existingIndex].quantity})`);
     } else {
-      // New product - create with barcodes array
-      items.push({ product, quantity: 1, barcodes: [currentBarcode] });
+      items.push({ product, quantity: 1, barcode: this.searchBarcode() });
       this.successMessage.set(`✓ Added: ${product.name}`);
     }
     
@@ -541,8 +480,7 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     const exchangedItems: ExchangeItemRequest[] = this.exchangeItems().map(item => ({
       productId: Number(item.product.id),
       quantity: item.quantity,
-      barcodes: item.barcodes.length > 0 ? item.barcodes : undefined, // Send all barcodes
-      barcode: item.barcodes.length > 0 ? item.barcodes[0] : undefined // Keep first for backward compatibility
+      barcode: item.barcode
     }));
 
     const request: ExchangeRequest = {
