@@ -6,10 +6,29 @@ import { take, filter } from 'rxjs/operators';
 import { Subscription } from 'rxjs';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Sale, SaleItem } from '../../core/models';
+import { Sale, SaleItem, SalesPerson } from '../../core/models';
 import { SalesChartsComponent } from '../../components/sales-charts/sales-charts.component';
+import { SalesPersonService } from '../../core/services/sales-person.service';
 
 type Period = 'today' | 'week' | 'month' | 'custom';
+
+type SalesPersonPerformance = {
+  name: string;
+  totalSales: number;
+  totalItems: number;
+  totalRevenue: number;
+  avgOrder: number;
+  coupon3000: number;
+  coupon5000: number;
+  coupon7500: number;
+  coupon10000: number;
+};
+
+type SalesPersonHighlight = {
+  name: string;
+  totalSales: number;
+  totalRevenue: number;
+};
 
 @Component({
   selector: 'app-sales-analytics',
@@ -86,6 +105,81 @@ type Period = 'today' | 'week' | 'month' | 'custom';
           <div class="text-sm text-gray-600">Items Sold</div>
           <div class="text-3xl font-bold text-amber-600">{{ itemsSold }}</div>
           <div class="text-xs text-amber-600 mt-1">Total units</div>
+        </div>
+      </div>
+
+      <!-- Sales Person Performance Highlights -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <div class="text-sm text-gray-600">Best Performer (This Week)</div>
+          <div class="text-xl font-semibold text-gray-900 mt-1">
+            {{ bestWeekPerformer?.name || '—' }}
+          </div>
+          <div class="text-xs text-gray-500 mt-2" *ngIf="bestWeekPerformer">
+            ₹{{ bestWeekPerformer.totalRevenue | number:'1.2-2' }} • {{ bestWeekPerformer.totalSales }} sales
+          </div>
+          <div class="text-xs text-gray-400 mt-2" *ngIf="!bestWeekPerformer">No sales this week.</div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <div class="text-sm text-gray-600">Best Performer (This Month)</div>
+          <div class="text-xl font-semibold text-gray-900 mt-1">
+            {{ bestMonthPerformer?.name || '—' }}
+          </div>
+          <div class="text-xs text-gray-500 mt-2" *ngIf="bestMonthPerformer">
+            ₹{{ bestMonthPerformer.totalRevenue | number:'1.2-2' }} • {{ bestMonthPerformer.totalSales }} sales
+          </div>
+          <div class="text-xs text-gray-400 mt-2" *ngIf="!bestMonthPerformer">No sales this month.</div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <div class="text-sm text-gray-600">Most Number of Sales</div>
+          <div class="text-xl font-semibold text-gray-900 mt-1">
+            {{ mostSalesPerformer?.name || '—' }}
+          </div>
+          <div class="text-xs text-gray-500 mt-2" *ngIf="mostSalesPerformer">
+            {{ mostSalesPerformer.totalSales }} sales • ₹{{ mostSalesPerformer.totalRevenue | number:'1.2-2' }}
+          </div>
+          <div class="text-xs text-gray-400 mt-2" *ngIf="!mostSalesPerformer">No sales found.</div>
+        </div>
+      </div>
+
+      <!-- Sales Person Performance Grid -->
+      <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-gray-900 font-semibold">Sales Person Performance</div>
+          <div class="text-xs text-gray-500">Showing {{ salesPersonStats.length }} sales persons</div>
+        </div>
+        <div class="overflow-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left">Sales Person</th>
+                <th class="px-3 py-2 text-right">Total Sales</th>
+                <th class="px-3 py-2 text-right">Items Sold</th>
+                <th class="px-3 py-2 text-right">Revenue</th>
+                <th class="px-3 py-2 text-right">Avg Order</th>
+                <th class="px-3 py-2 text-right">₹3,000+</th>
+                <th class="px-3 py-2 text-right">₹5,000+</th>
+                <th class="px-3 py-2 text-right">₹7,500+</th>
+                <th class="px-3 py-2 text-right">₹10,000+</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let person of salesPersonStats" class="border-t">
+                <td class="px-3 py-2 font-medium text-gray-900">{{ person.name }}</td>
+                <td class="px-3 py-2 text-right">{{ person.totalSales }}</td>
+                <td class="px-3 py-2 text-right">{{ person.totalItems }}</td>
+                <td class="px-3 py-2 text-right">₹{{ person.totalRevenue | number:'1.2-2' }}</td>
+                <td class="px-3 py-2 text-right">₹{{ person.avgOrder | number:'1.2-2' }}</td>
+                <td class="px-3 py-2 text-right">{{ person.coupon3000 }}</td>
+                <td class="px-3 py-2 text-right">{{ person.coupon5000 }}</td>
+                <td class="px-3 py-2 text-right">{{ person.coupon7500 }}</td>
+                <td class="px-3 py-2 text-right">{{ person.coupon10000 }}</td>
+              </tr>
+              <tr *ngIf="salesPersonStats.length === 0">
+                <td class="px-3 py-6 text-center text-gray-500" colspan="9">No sales person data available for this period.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -166,6 +260,7 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
   paymentFilter: 'all'|'cash'|'card'|'upi'|'other' = 'all';
   locationFilter: string = 'all';
   showDetails = false;
+  activeSalesPersons: SalesPerson[] = [];
   
   // Computed values (updated by updateData)
   filtered: Sale[] = [];
@@ -174,14 +269,22 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
   itemsSold = 0;
   payments: Array<{method: string; count: number}> = [];
   topProducts: Array<{name: string; revenue: number}> = [];
+  salesPersonStats: SalesPersonPerformance[] = [];
+  bestWeekPerformer: SalesPersonHighlight | null = null;
+  bestMonthPerformer: SalesPersonHighlight | null = null;
+  mostSalesPerformer: SalesPersonHighlight | null = null;
 
   constructor(
     public router: Router, 
     private app: AppService,
-    private authService: AuthService
+    private authService: AuthService,
+    private salesPersonService: SalesPersonService
   ) {}
 
   ngOnInit(): void {
+    // Load active sales persons
+    this.loadActiveSalesPersons();
+    
     // Load initial data
     this.app.appState$.pipe(take(1)).subscribe(state => {
       if (!state.dataLoaded) {
@@ -195,6 +298,18 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
     this.routerSubscription = this.app.appState$.subscribe(state => {
       if (state.dataLoaded) {
         this.updateData(state);
+      }
+    });
+  }
+
+  private loadActiveSalesPersons(): void {
+    this.salesPersonService.getActiveSalesPersons().subscribe({
+      next: (persons) => {
+        this.activeSalesPersons = persons;
+      },
+      error: (error) => {
+        console.error('Error loading active sales persons:', error);
+        this.activeSalesPersons = [];
       }
     });
   }
@@ -238,6 +353,18 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
     this.topProducts = Object.values(productMap)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
+
+    // Sales person performance for current period
+    this.salesPersonStats = this.computeSalesPersonStats(this.filtered);
+
+    // Highlights for week/month and overall sales count
+    const baseSales = this.applyNonDateFilters(state.sales);
+    const weekSales = this.filterByPeriod(baseSales, 'week');
+    const monthSales = this.filterByPeriod(baseSales, 'month');
+
+    this.bestWeekPerformer = this.getTopSalesPerson(weekSales, 'revenue');
+    this.bestMonthPerformer = this.getTopSalesPerson(monthSales, 'revenue');
+    this.mostSalesPerformer = this.getTopSalesPerson(baseSales, 'count');
   }
 
   isAdmin(): boolean {
@@ -292,26 +419,126 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  private filterByPeriod(sales: Sale[], period: Period): Sale[] {
+    const now = new Date();
+    if (period === 'today') {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return sales.filter(s => new Date(s.createdAt).getTime() >= start.getTime());
+    }
+    if (period === 'week') {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const day = startOfToday.getDay();
+      const diffToMonday = (day === 0 ? -6 : 1 - day);
+      const start = new Date(startOfToday);
+      start.setDate(startOfToday.getDate() + diffToMonday);
+      return sales.filter(s => new Date(s.createdAt).getTime() >= start.getTime());
+    }
+    if (period === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return sales.filter(s => new Date(s.createdAt).getTime() >= start.getTime());
+    }
+    return sales;
+  }
+
+  private applyNonDateFilters(sales: Sale[]): Sale[] {
+    let filteredSales = sales;
+
+    if (this.paymentFilter !== 'all') {
+      filteredSales = filteredSales.filter((s: Sale) => s.paymentMethod.toLowerCase() === this.paymentFilter);
+    }
+
+    if (this.isAdmin() && this.locationFilter !== 'all') {
+      filteredSales = filteredSales.filter(sale => sale.location?.id?.toString() === this.locationFilter);
+    }
+
+    return filteredSales;
+  }
+
   getFilteredSales(state: AppState): Sale[] {
     if (!state) return [];
-    let sales = state.sales;
-    
-    // Filter by date
+    let sales = this.applyNonDateFilters(state.sales);
     sales = sales.filter((s: Sale) => this.inRange(new Date(s.createdAt)));
-    
-    // Filter by payment method
-    if (this.paymentFilter !== 'all') {
-      sales = sales.filter((s: Sale) => s.paymentMethod.toLowerCase() === this.paymentFilter);
-    }
-    
-    // Filter by location (ADMIN only)
-    if (this.isAdmin() && this.locationFilter !== 'all') {
-      sales = sales.filter(sale => {
-        return sale.location?.id?.toString() === this.locationFilter;
-      });
-    }
-    
     return sales;
+  }
+
+  private computeSalesPersonStats(sales: Sale[]): SalesPersonPerformance[] {
+    const statsMap: Record<string, SalesPersonPerformance> = {};
+    
+    // Get the current user's location
+    const currentUser = this.authService.getCurrentUser();
+    const userLocationId = currentUser?.locationId;
+    
+    // Filter active sales persons by location (including null locationId persons)
+    const relevantSalesPersons = this.activeSalesPersons.filter(person => 
+      person.locationId === null || person.locationId === userLocationId || currentUser?.crossLocationAccess
+    );
+    
+    // Create a map of sales person names (normalized) for quick lookup
+    const activeSalesPersonNames = new Set(
+      relevantSalesPersons.map(p => p.name.toLowerCase().trim())
+    );
+    
+    sales.forEach(sale => {
+      const name = sale.salesPersonName?.trim() || 'Unassigned';
+      const normalizedName = name.toLowerCase();
+      
+      // Only include sales from active sales persons
+      if (!activeSalesPersonNames.has(normalizedName) && name !== 'Unassigned') {
+        return; // Skip this sale
+      }
+      
+      if (!statsMap[name]) {
+        statsMap[name] = {
+          name,
+          totalSales: 0,
+          totalItems: 0,
+          totalRevenue: 0,
+          avgOrder: 0,
+          coupon3000: 0,
+          coupon5000: 0,
+          coupon7500: 0,
+          coupon10000: 0
+        };
+      }
+
+      statsMap[name].totalSales += 1;
+      statsMap[name].totalRevenue += sale.total;
+      statsMap[name].totalItems += sale.items.reduce((sum, item) => sum + item.quantity, 0);
+
+      if (sale.total >= 3000) statsMap[name].coupon3000 += 1;
+      if (sale.total >= 5000) statsMap[name].coupon5000 += 1;
+      if (sale.total >= 7500) statsMap[name].coupon7500 += 1;
+      if (sale.total >= 10000) statsMap[name].coupon10000 += 1;
+    });
+
+    return Object.values(statsMap)
+      .map(stat => ({
+        ...stat,
+        avgOrder: stat.totalSales ? stat.totalRevenue / stat.totalSales : 0
+      }))
+      .sort((a, b) => b.totalRevenue - a.totalRevenue);
+  }
+
+  private getTopSalesPerson(sales: Sale[], mode: 'revenue' | 'count'): SalesPersonHighlight | null {
+    if (!sales.length) return null;
+    const stats = this.computeSalesPersonStats(sales);
+    if (!stats.length) return null;
+
+    if (mode === 'count') {
+      const topByCount = [...stats].sort((a, b) => b.totalSales - a.totalSales)[0];
+      return {
+        name: topByCount.name,
+        totalSales: topByCount.totalSales,
+        totalRevenue: topByCount.totalRevenue
+      };
+    }
+
+    const topByRevenue = stats[0];
+    return {
+      name: topByRevenue.name,
+      totalSales: topByRevenue.totalSales,
+      totalRevenue: topByRevenue.totalRevenue
+    };
   }
 
   exportCsv(): void {

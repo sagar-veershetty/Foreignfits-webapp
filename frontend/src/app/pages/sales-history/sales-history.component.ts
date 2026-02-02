@@ -6,10 +6,11 @@ import { take, filter } from 'rxjs/operators';
 import { Router, NavigationEnd } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Sale } from '../../core/models';
+import { Sale, SalesPerson } from '../../core/models';
 import { PrintReceiptComponent } from '../sales/print-receipt.component';
 import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
 import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
+import { SalesPersonService } from '../../core/services/sales-person.service';
 
 @Component({
   selector: 'app-sales-history',
@@ -45,9 +46,12 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   showExchangeModal = false;
   exchangeSale: Sale | null = null;
 
+  activeSalesPersons: SalesPerson[] = [];
+
   constructor(
     private appService: AppService,
     private authService: AuthService,
+    private salesPersonService: SalesPersonService,
     private router: Router
   ) {
     this.appState$ = this.appService.appState$;
@@ -84,6 +88,9 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
           });
         }
       });
+
+    // Load active sales persons for dropdown
+    this.loadActiveSalesPersons();
   }
 
   ngOnDestroy(): void {
@@ -110,6 +117,42 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       }
     });
     return Array.from(salesPersons).sort();
+  }
+
+  getSalesPersonOptions(appState: AppState): string[] {
+    if (this.activeSalesPersons.length > 0) {
+      const user = this.authService.getCurrentUser();
+      const locationId = user?.locationId ? Number(user.locationId) : null;
+
+      const filtered = this.activeSalesPersons
+        .filter(person => this.isAdmin() || !locationId || person.locationId === locationId || person.locationId == null)
+        .map(person => person.name)
+        .filter(name => !!name && name.trim().length > 0)
+        .sort((a, b) => a.localeCompare(b));
+
+      if (filtered.length > 0) {
+        return filtered;
+      }
+
+      return this.activeSalesPersons
+        .map(person => person.name)
+        .filter(name => !!name && name.trim().length > 0)
+        .sort((a, b) => a.localeCompare(b));
+    }
+
+    return this.getUniqueSalesPersons(appState);
+  }
+
+  private loadActiveSalesPersons(): void {
+    this.salesPersonService.getActiveSalesPersons().subscribe({
+      next: (salesPersons) => {
+        this.activeSalesPersons = salesPersons || [];
+      },
+      error: (err) => {
+        console.error('[SalesHistory] Failed to load active sales persons', err);
+        this.activeSalesPersons = [];
+      }
+    });
   }
 
   getPaymentMethodClass(method: string): string {

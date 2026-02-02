@@ -40,6 +40,12 @@ Chart.register(...registerables);
       </div>
     </div>
 
+    <!-- Sales Person Performance -->
+    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Sales Person Performance</h3>
+      <canvas #salesPersonChart></canvas>
+    </div>
+
     <!-- Daily Sales Overview -->
     <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-6">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Daily Sales & Revenue Overview</h3>
@@ -55,6 +61,7 @@ export class SalesChartsComponent implements OnChanges, AfterViewInit, OnDestroy
   @ViewChild('paymentChart') paymentCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('hourlyChart') hourlyCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('topProductsChart') topProductsCanvas!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('salesPersonChart') salesPersonCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('dailyOverviewChart') dailyOverviewCanvas!: ElementRef<HTMLCanvasElement>;
 
   private charts: Chart[] = [];
@@ -77,6 +84,7 @@ export class SalesChartsComponent implements OnChanges, AfterViewInit, OnDestroy
     this.createPaymentChart();
     this.createHourlyChart();
     this.createTopProductsChart();
+    this.createSalesPersonChart();
     this.createDailyOverviewChart();
   }
 
@@ -317,6 +325,92 @@ export class SalesChartsComponent implements OnChanges, AfterViewInit, OnDestroy
     this.charts.push(new Chart(ctx, config));
   }
 
+  private createSalesPersonChart(): void {
+    const ctx = this.salesPersonCanvas.nativeElement.getContext('2d');
+    if (!ctx) return;
+
+    const salesPersonData = this.getSalesPersonData();
+
+    const config: ChartConfiguration = {
+      type: 'bar',
+      data: {
+        labels: salesPersonData.labels,
+        datasets: [
+          {
+            label: 'Revenue (₹)',
+            data: salesPersonData.revenue,
+            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 1,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Sales Count',
+            data: salesPersonData.count,
+            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+            borderColor: 'rgb(16, 185, 129)',
+            borderWidth: 1,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: 'top'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                if (context.datasetIndex === 0) {
+                  return `${label}: ₹${(context.parsed.y || 0).toFixed(2)}`;
+                }
+                return `${label}: ${context.parsed.y || 0}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 0,
+              autoSkip: false
+            }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Revenue (₹)'
+            },
+            beginAtZero: true
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            title: {
+              display: true,
+              text: 'Sales Count'
+            },
+            beginAtZero: true,
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      }
+    };
+
+    this.charts.push(new Chart(ctx, config));
+  }
+
   private createDailyOverviewChart(): void {
     const ctx = this.dailyOverviewCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
@@ -472,6 +566,30 @@ export class SalesChartsComponent implements OnChanges, AfterViewInit, OnDestroy
     return {
       labels: sortedProducts.map(p => p.name),
       data: sortedProducts.map(p => p.revenue)
+    };
+  }
+
+  private getSalesPersonData(): { labels: string[]; revenue: number[]; count: number[] } {
+    const stats: Record<string, { revenue: number; count: number }> = {};
+
+    this.sales.forEach(sale => {
+      const name = sale.salesPersonName?.trim() || 'Unassigned';
+      if (!stats[name]) {
+        stats[name] = { revenue: 0, count: 0 };
+      }
+      stats[name].revenue += sale.total;
+      stats[name].count += 1;
+    });
+
+    const entries = Object.entries(stats)
+      .map(([name, value]) => ({ name, ...value }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 8);
+
+    return {
+      labels: entries.map(entry => entry.name),
+      revenue: entries.map(entry => entry.revenue),
+      count: entries.map(entry => entry.count)
     };
   }
 
