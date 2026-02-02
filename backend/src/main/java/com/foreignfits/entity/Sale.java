@@ -88,6 +88,13 @@ public class Sale {
     @Column(name = "generated_coupon_code", length = 20)
     private String generatedCouponCode;
     
+    // Instant discount fields (based on purchase amount)
+    @Column(name = "instant_discount_percent", precision = 5, scale = 2)
+    private BigDecimal instantDiscountPercent; // e.g., 10.00 for 10%
+    
+    @Column(name = "instant_discount_amount", precision = 12, scale = 2)
+    private BigDecimal instantDiscountAmount; // Actual discount amount
+    
     // Exchange-related fields
     @Column(name = "is_exchange_sale")
     private Boolean isExchangeSale = false;
@@ -169,6 +176,12 @@ public class Sale {
     
     public String getGeneratedCouponCode() { return generatedCouponCode; }
     public void setGeneratedCouponCode(String generatedCouponCode) { this.generatedCouponCode = generatedCouponCode; }
+    
+    public BigDecimal getInstantDiscountPercent() { return instantDiscountPercent; }
+    public void setInstantDiscountPercent(BigDecimal instantDiscountPercent) { this.instantDiscountPercent = instantDiscountPercent; }
+    
+    public BigDecimal getInstantDiscountAmount() { return instantDiscountAmount; }
+    public void setInstantDiscountAmount(BigDecimal instantDiscountAmount) { this.instantDiscountAmount = instantDiscountAmount; }
     
     public Boolean getIsExchangeSale() { return isExchangeSale; }
     public void setIsExchangeSale(Boolean isExchangeSale) { this.isExchangeSale = isExchangeSale; }

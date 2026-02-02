@@ -3,7 +3,12 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   { 
     path: '', 
-    loadComponent: () => import('./pages/home/home.component').then(m => m.HomeComponent)
+    loadComponent: () => import('./pages/public-home/public-home.component').then(m => m.PublicHomeComponent)
+  },
+  { 
+    path: 'home', 
+    loadComponent: () => import('./pages/home/home.component').then(m => m.HomeComponent),
+    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
   },
   {
     path: 'unauthorized',

@@ -46,17 +46,27 @@ public class CouponService {
     /**
      * Generate coupon for a qualifying sale (₹3000+)
      * Uses REQUIRES_NEW to run in separate transaction from sale
+     * 
+     * @param saleId The ID of the sale (not the entity, to avoid transaction conflicts)
+     * @param saleTotal The total amount of the sale
+     * @param customerName Customer's name
+     * @param customerPhone Customer's phone number
+     * @param customerCountryCode Customer's country code
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public Coupon generateCouponForSale(Sale sale) {
+    public Coupon generateCouponForSale(Long saleId, BigDecimal saleTotal, String customerName, 
+                                        String customerPhone, String customerCountryCode) {
+        System.out.println("=== generateCouponForSale CALLED for sale #" + saleId + ", Total: ₹" + saleTotal);
         try {
             // Check if sale qualifies (≥ ₹3000)
-            if (sale.getTotal().compareTo(MINIMUM_SALE_AMOUNT_FOR_GENERATION) < 0) {
+            if (saleTotal.compareTo(MINIMUM_SALE_AMOUNT_FOR_GENERATION) < 0) {
+                System.out.println("=== Sale #" + saleId + " does NOT qualify. Required: ₹3000, Actual: ₹" + saleTotal);
                 logger.debug("Sale {} does not qualify for coupon generation. Amount: {}", 
-                    sale.getId(), sale.getTotal());
+                    saleId, saleTotal);
                 return null;
             }
             
+            System.out.println("=== Sale #" + saleId + " QUALIFIES for coupon! Generating code...");
             // Generate unique code
             String code = generateUniqueCouponCode();
             
@@ -68,24 +78,24 @@ public class CouponService {
             coupon.setStatus(CouponStatus.ACTIVE);
             
             // Customer info
-            coupon.setCustomerName(sale.getCustomerName());
-            coupon.setCustomerPhone(sale.getCustomerPhone());
-            coupon.setCustomerCountryCode(sale.getCustomerCountryCode());
+            coupon.setCustomerName(customerName);
+            coupon.setCustomerPhone(customerPhone);
+            coupon.setCustomerCountryCode(customerCountryCode);
             
-            // Generation details
-            coupon.setGeneratedFromSale(sale);
+            // Generation details - store sale ID directly
+            coupon.setGeneratedFromSaleId(saleId);
             coupon.setGeneratedAt(LocalDateTime.now());
             coupon.setValidUntil(LocalDateTime.now().plusDays(COUPON_VALIDITY_DAYS));
             
             Coupon savedCoupon = couponRepository.save(coupon);
             
             logger.info("Generated coupon {} for sale {}. Customer: {}, Valid until: {}", 
-                code, sale.getId(), sale.getCustomerName(), coupon.getValidUntil());
+                code, saleId, customerName, coupon.getValidUntil());
             
             return savedCoupon;
             
         } catch (Exception e) {
-            logger.error("Error generating coupon for sale {}: {}", sale.getId(), e.getMessage(), e);
+            logger.error("Error generating coupon for sale {}: {}", saleId, e.getMessage(), e);
             return null;
         }
     }
@@ -99,24 +109,31 @@ public class CouponService {
             // Normalize code
             String normalizedCode = code.toUpperCase().trim();
             
+            System.out.println("=== VALIDATING COUPON: " + normalizedCode + " for purchase: ₹" + purchaseAmount);
+            
             Optional<Coupon> couponOpt = couponRepository.findByCode(normalizedCode);
             
             if (!couponOpt.isPresent()) {
+                System.out.println("=== VALIDATION FAILED: Invalid coupon code");
                 logger.warn("Coupon validation failed: Invalid code {}", normalizedCode);
                 return new CouponValidationResult(false, "Invalid coupon code");
             }
             
             Coupon coupon = couponOpt.get();
             
+            System.out.println("=== Coupon found! Status: " + coupon.getStatus() + ", Discount: ₹" + coupon.getDiscountAmount());
+            
             // Check status
             if (coupon.getStatus() != CouponStatus.ACTIVE) {
                 String statusMessage = getStatusMessage(coupon.getStatus());
+                System.out.println("=== VALIDATION FAILED: " + statusMessage);
                 logger.warn("Coupon {} validation failed: {}", normalizedCode, statusMessage);
                 return new CouponValidationResult(false, statusMessage);
             }
             
             // Check expiry
             if (LocalDateTime.now().isAfter(coupon.getValidUntil())) {
+                System.out.println("=== VALIDATION FAILED: Coupon expired on " + coupon.getValidUntil());
                 logger.warn("Coupon {} has expired. Valid until: {}", normalizedCode, coupon.getValidUntil());
                 return new CouponValidationResult(false, "Coupon has expired");
             }
@@ -125,6 +142,7 @@ public class CouponService {
             if (purchaseAmount.compareTo(coupon.getMinPurchaseAmount()) < 0) {
                 String message = String.format("Minimum purchase of ₹%.2f required to use this coupon", 
                     coupon.getMinPurchaseAmount());
+                System.out.println("=== VALIDATION FAILED: " + message);
                 logger.warn("Coupon {} validation failed: Purchase amount {} is less than minimum {}", 
                     normalizedCode, purchaseAmount, coupon.getMinPurchaseAmount());
                 return new CouponValidationResult(false, message);
@@ -132,11 +150,13 @@ public class CouponService {
             
             // Check if discount exceeds purchase amount (shouldn't happen, but safety check)
             if (coupon.getDiscountAmount().compareTo(purchaseAmount) >= 0) {
+                System.out.println("=== VALIDATION FAILED: Discount exceeds purchase amount");
                 logger.warn("Coupon {} discount {} exceeds or equals purchase amount {}", 
                     normalizedCode, coupon.getDiscountAmount(), purchaseAmount);
                 return new CouponValidationResult(false, "Coupon discount cannot exceed purchase amount");
             }
             
+            System.out.println("=== VALIDATION SUCCESS! Discount: ₹" + coupon.getDiscountAmount());
             logger.info("Coupon {} validated successfully. Discount: ₹{}", normalizedCode, coupon.getDiscountAmount());
             return new CouponValidationResult(true, "Coupon is valid", coupon);
             
@@ -155,16 +175,23 @@ public class CouponService {
         try {
             // Fetch coupon fresh in this transaction to avoid conflicts
             String normalizedCode = couponCode.toUpperCase().trim();
+            System.out.println("=== REDEEMING COUPON: " + normalizedCode + " in sale #" + sale.getId());
+            
             Coupon coupon = couponRepository.findByCode(normalizedCode)
                 .orElseThrow(() -> new RuntimeException("Coupon not found: " + normalizedCode));
             
+            System.out.println("=== Coupon found! Current status: " + coupon.getStatus());
+            
             coupon.setStatus(CouponStatus.USED);
             coupon.setRedeemedAt(LocalDateTime.now());
-            coupon.setRedeemedInSale(sale);
-            coupon.setRedeemedByUser(user);
-            coupon.setRedeemedAtLocation(sale.getLocation());
+            // Store redemption IDs directly
+            coupon.setRedeemedInSaleId(sale.getId());
+            coupon.setRedeemedByUserId(user.getId());
+            coupon.setRedeemedAtLocationId(sale.getLocation().getId());
             
             couponRepository.save(coupon);
+            
+            System.out.println("=== COUPON " + normalizedCode + " MARKED AS USED! Status: " + coupon.getStatus());
             
             logger.info("Coupon {} redeemed in sale {}. Amount saved: ₹{}. Redeemed by: {}", 
                 coupon.getCode(), sale.getId(), coupon.getDiscountAmount(), user.getName());

@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/coupons")
+@RequestMapping("/coupons")
 @CrossOrigin(origins = "*")
 public class CouponController {
     

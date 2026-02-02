@@ -48,25 +48,17 @@ public class CouponDto {
         dto.setCustomerPhone(coupon.getCustomerPhone());
         dto.setCustomerCountryCode(coupon.getCustomerCountryCode());
         
-        if (coupon.getGeneratedFromSale() != null) {
-            dto.setGeneratedFromSaleId(coupon.getGeneratedFromSale().getId());
-        }
+        // Use ID fields directly (no relationships)
+        dto.setGeneratedFromSaleId(coupon.getGeneratedFromSaleId());
         
         dto.setGeneratedAt(coupon.getGeneratedAt());
         dto.setValidUntil(coupon.getValidUntil());
         dto.setRedeemedAt(coupon.getRedeemedAt());
         
-        if (coupon.getRedeemedInSale() != null) {
-            dto.setRedeemedInSaleId(coupon.getRedeemedInSale().getId());
-        }
-        
-        if (coupon.getRedeemedByUser() != null) {
-            dto.setRedeemedByUsername(coupon.getRedeemedByUser().getName());
-        }
-        
-        if (coupon.getRedeemedAtLocation() != null) {
-            dto.setRedeemedAtLocationName(coupon.getRedeemedAtLocation().getName());
-        }
+        // Use ID fields directly (no relationships)
+        dto.setRedeemedInSaleId(coupon.getRedeemedInSaleId());
+        dto.setRedeemedByUsername(null); // No username available without relationship
+        dto.setRedeemedAtLocationName(null); // No location name available without relationship
         
         dto.setNotes(coupon.getNotes());
         dto.setCreatedAt(coupon.getCreatedAt());

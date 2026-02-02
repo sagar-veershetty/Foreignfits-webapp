@@ -34,5 +34,7 @@ export interface ReceiptData {
   locationAddress?: string; // Store location address
   locationPhone?: string; // Store location phone numbers
   exchangeDetails?: ExchangeDetails; // Exchange-specific information
+  instantDiscount?: { percent: number; amount: number }; // Instant discount based on purchase amount
+  appliedCoupon?: { code: string; discount: number }; // Applied coupon discount
   generatedCoupon?: GeneratedCouponInfo; // Generated coupon for this sale
 }
