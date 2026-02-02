@@ -66,6 +66,7 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
       );
       
       if (hasBarcodeData) {
+        let matchedAnyBarcode = false;
         // Barcode-level matching (for new sales with barcode tracking)
         this.sale.items.forEach(item => {
           console.log(`Checking item ${item.product.name}, barcodes:`, item.barcodes);
@@ -107,6 +108,7 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
           console.log(`Length > 0?`, scannedBarcodesForItem.length > 0);
           
           if (scannedBarcodesForItem.length > 0) {
+            matchedAnyBarcode = true;
             console.log(`INSIDE if block for ${item.product.name}`);
             // Extract barcode numbers for storage
             const barcodeNumbers = scannedBarcodesForItem.map(barcode => {
@@ -125,75 +127,15 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
             console.log(`SKIPPED setting maps - no matched barcodes for ${item.product.name}`);
           }
         });
+
+        if (!matchedAnyBarcode) {
+          console.log('No barcode matches found in sale items; falling back to lookup-based matching');
+          this.populateReturnMapsFromLookup(scannedBarcodesStr, returnMap, barcodeMap);
+          return;
+        }
       } else {
         // Fallback: Product-level matching (for old sales without barcode tracking)
-        // We need to lookup which products the scanned barcodes belong to
-        console.log('Sale has no barcode data, using product-level matching');
-        
-        // Don't set the signals yet - wait for async lookups to complete
-        let lookupsCompleted = 0;
-        const totalLookups = this.scannedBarcodes.length;
-        
-        // Lookup each barcode to find its product
-        this.scannedBarcodes.forEach(barcode => {
-          this.appService.lookupBarcode(barcode).subscribe({
-            next: (barcodeData) => {
-              const productId = barcodeData.product.id;
-              console.log(`Barcode ${barcode} belongs to product ${productId} (${barcodeData.product.name})`);
-              console.log('Sale items:', this.sale.items.map(item => ({
-                productId: item.product.id,
-                productName: item.product.name,
-                idType: typeof item.product.id
-              })));
-              console.log('Looking for productId:', productId, 'type:', typeof productId);
-              
-              // Find this product in sale items
-              const saleItem = this.sale.items.find(item => {
-                const matches = item.product.id === productId || item.product.id.toString() === productId.toString();
-                console.log(`Comparing ${item.product.id} (${typeof item.product.id}) with ${productId} (${typeof productId}): ${matches}`);
-                return matches;
-              });
-              
-              if (saleItem) {
-                console.log(`Found matching sale item for ${barcodeData.product.name}`);
-                
-                // Use string keys for consistency with sale item product IDs
-                const productIdKey = saleItem.product.id;
-                
-                // Update the maps
-                const currentBarcodes = barcodeMap.get(productIdKey) || [];
-                currentBarcodes.push(barcode);
-                barcodeMap.set(productIdKey, currentBarcodes);
-                returnMap.set(productIdKey, currentBarcodes.length);
-                
-                console.log(`Updated returnMap for ${productIdKey}:`, returnMap.get(productIdKey));
-              } else {
-                console.log(`No matching sale item found for product ${barcodeData.product.name}`);
-              }
-              
-              // Check if all lookups are complete
-              lookupsCompleted++;
-              if (lookupsCompleted === totalLookups) {
-                console.log('All lookups completed. Final Return Map:', returnMap);
-                console.log('All lookups completed. Final Barcode Map:', barcodeMap);
-                // Now update the signals
-                this.selectedReturnItems.set(new Map(returnMap));
-                this.selectedReturnBarcodes.set(new Map(barcodeMap));
-              }
-            },
-            error: (error) => {
-              console.error(`Failed to lookup barcode ${barcode}:`, error);
-              lookupsCompleted++;
-              if (lookupsCompleted === totalLookups) {
-                // Update signals even if some lookups failed
-                this.selectedReturnItems.set(new Map(returnMap));
-                this.selectedReturnBarcodes.set(new Map(barcodeMap));
-              }
-            }
-          });
-        });
-        
-        // Return early - don't set signals at the bottom
+        this.populateReturnMapsFromLookup(scannedBarcodesStr, returnMap, barcodeMap);
         return;
       }
       
@@ -215,6 +157,77 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     
     console.log('Final selectedReturnItems after set:', this.selectedReturnItems());
     console.log('Final selectedReturnBarcodes after set:', this.selectedReturnBarcodes());
+  }
+
+  private populateReturnMapsFromLookup(
+    scannedBarcodesStr: string[],
+    returnMap: Map<string, number>,
+    barcodeMap: Map<string, string[]>
+  ): void {
+    console.log('Using product-level lookup matching for scanned barcodes');
+
+    // Don't set the signals yet - wait for async lookups to complete
+    let lookupsCompleted = 0;
+    const totalLookups = scannedBarcodesStr.length;
+
+    // Lookup each barcode to find its product
+    scannedBarcodesStr.forEach(barcode => {
+      this.appService.lookupBarcode(barcode).subscribe({
+        next: (barcodeData) => {
+          const productId = barcodeData.product.id;
+          console.log(`Barcode ${barcode} belongs to product ${productId} (${barcodeData.product.name})`);
+          console.log('Sale items:', this.sale.items.map(item => ({
+            productId: item.product.id,
+            productName: item.product.name,
+            idType: typeof item.product.id
+          })));
+          console.log('Looking for productId:', productId, 'type:', typeof productId);
+
+          // Find this product in sale items
+          const saleItem = this.sale.items.find(item => {
+            const matches = item.product.id === productId || item.product.id.toString() === productId.toString();
+            console.log(`Comparing ${item.product.id} (${typeof item.product.id}) with ${productId} (${typeof productId}): ${matches}`);
+            return matches;
+          });
+
+          if (saleItem) {
+            console.log(`Found matching sale item for ${barcodeData.product.name}`);
+
+            // Use string keys for consistency with sale item product IDs
+            const productIdKey = saleItem.product.id;
+
+            // Update the maps
+            const currentBarcodes = barcodeMap.get(productIdKey) || [];
+            currentBarcodes.push(barcode);
+            barcodeMap.set(productIdKey, currentBarcodes);
+            returnMap.set(productIdKey, currentBarcodes.length);
+
+            console.log(`Updated returnMap for ${productIdKey}:`, returnMap.get(productIdKey));
+          } else {
+            console.log(`No matching sale item found for product ${barcodeData.product.name}`);
+          }
+
+          // Check if all lookups are complete
+          lookupsCompleted++;
+          if (lookupsCompleted === totalLookups) {
+            console.log('All lookups completed. Final Return Map:', returnMap);
+            console.log('All lookups completed. Final Barcode Map:', barcodeMap);
+            // Now update the signals
+            this.selectedReturnItems.set(new Map(returnMap));
+            this.selectedReturnBarcodes.set(new Map(barcodeMap));
+          }
+        },
+        error: (error) => {
+          console.error(`Failed to lookup barcode ${barcode}:`, error);
+          lookupsCompleted++;
+          if (lookupsCompleted === totalLookups) {
+            // Update signals even if some lookups failed
+            this.selectedReturnItems.set(new Map(returnMap));
+            this.selectedReturnBarcodes.set(new Map(barcodeMap));
+          }
+        }
+      });
+    });
   }
 
   ngAfterViewInit() {
@@ -254,8 +267,12 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
       if (barcodesToReturn.length > 0 && item.barcodePrices) {
         // Sum up the prices for each specific barcode being returned
         const barcodeTotal = barcodesToReturn.reduce((sum, barcode) => {
-          const barcodePrice = item.barcodePrices?.[barcode];
-          const price = barcodePrice != null ? Number(barcodePrice) : 0;
+          const normalizedBarcode = String(barcode).trim();
+          const barcodePrice = item.barcodePrices?.[barcode]
+            ?? item.barcodePrices?.[normalizedBarcode]
+            ?? item.barcodePrices?.[normalizedBarcode.toUpperCase()]
+            ?? item.barcodePrices?.[normalizedBarcode.toLowerCase()];
+          const price = barcodePrice != null ? Number(barcodePrice) : Number(item.price || 0);
           console.log(`  Barcode ${barcode} price: ${price}`);
           return sum + price;
         }, 0);
@@ -347,8 +364,12 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     // If specific barcodes are selected and we have barcode prices, calculate average
     if (selectedBarcodes.length > 0 && item.barcodePrices) {
       const barcodePricesSum = selectedBarcodes.reduce((sum, barcode) => {
-        const price = item.barcodePrices[barcode];
-        return sum + (price != null ? Number(price) : 0);
+        const normalizedBarcode = String(barcode).trim();
+        const price = item.barcodePrices?.[barcode]
+          ?? item.barcodePrices?.[normalizedBarcode]
+          ?? item.barcodePrices?.[normalizedBarcode.toUpperCase()]
+          ?? item.barcodePrices?.[normalizedBarcode.toLowerCase()];
+        return sum + (price != null ? Number(price) : Number(item.price || 0));
       }, 0);
       return selectedBarcodes.length > 0 ? barcodePricesSum / selectedBarcodes.length : item.price;
     }
@@ -366,8 +387,12 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     // If specific barcodes are selected and we have barcode prices, sum them up
     if (selectedBarcodes.length > 0 && item.barcodePrices) {
       return selectedBarcodes.reduce((sum, barcode) => {
-        const price = item.barcodePrices[barcode];
-        return sum + (price != null ? Number(price) : 0);
+        const normalizedBarcode = String(barcode).trim();
+        const price = item.barcodePrices?.[barcode]
+          ?? item.barcodePrices?.[normalizedBarcode]
+          ?? item.barcodePrices?.[normalizedBarcode.toUpperCase()]
+          ?? item.barcodePrices?.[normalizedBarcode.toLowerCase()];
+        return sum + (price != null ? Number(price) : Number(item.price || 0));
       }, 0);
     }
     

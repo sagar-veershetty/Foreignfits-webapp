@@ -203,11 +203,11 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
         exchangeId: sale.exchangeId,
         exchangePriceDifference: sale.exchangePriceDifference,
         total: sale.total,
-        willDisplay: sale.exchangePriceDifference !== undefined ? Math.abs(sale.exchangePriceDifference) : sale.total
+        willDisplay: sale.exchangePriceDifference != null ? Math.abs(sale.exchangePriceDifference) : sale.total
       });
     }
     
-    if (sale.isExchangeSale && sale.exchangePriceDifference !== undefined) {
+    if (sale.isExchangeSale && sale.exchangePriceDifference != null) {
       return Math.abs(sale.exchangePriceDifference);
     }
     return sale.total;
@@ -217,7 +217,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
    * Get the label for the display amount
    */
   getAmountLabel(sale: Sale): string {
-    if (sale.isExchangeSale && sale.exchangePriceDifference !== undefined) {
+    if (sale.isExchangeSale && sale.exchangePriceDifference != null) {
       return sale.exchangePriceDifference >= 0 ? 'Customer Paid' : 'Refunded';
     }
     return 'Total';
@@ -351,13 +351,13 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
           const paymentTotal = matchingPayments.reduce((pSum, p) => pSum + p.amount, 0);
           return sum + paymentTotal;
         }
-        // For single payments, include the full total
-        return sum + (sale.total || 0);
+        // For single payments, include the full total (use exchange difference when applicable)
+        return sum + this.getDisplayAmount(sale);
       }, 0);
     }
     
     // If no payment filter, sum all sale totals
-    return filteredSales.reduce((sum, s) => sum + (s.total || 0), 0);
+    return filteredSales.reduce((sum, s) => sum + this.getDisplayAmount(s), 0);
   }
 
   viewSaleDetails(sale: Sale): void {

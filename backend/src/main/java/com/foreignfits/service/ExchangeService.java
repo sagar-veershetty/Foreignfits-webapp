@@ -46,9 +46,9 @@ public class ExchangeService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Calculate totals
-        BigDecimal returnedTotal = calculateItemsTotal(request.getReturnedItems(), location);
-        BigDecimal exchangedTotal = calculateItemsTotal(request.getExchangedItems(), location);
+    // Calculate totals
+    BigDecimal returnedTotal = calculateReturnedItemsTotal(request.getReturnedItems(), originalSale, location);
+    BigDecimal exchangedTotal = calculateExchangedItemsTotal(request.getExchangedItems(), location);
         BigDecimal priceDifference = exchangedTotal.subtract(returnedTotal);
 
         // Create new sale for exchanged items (save it first without items)
@@ -260,12 +260,12 @@ public class ExchangeService {
         locationInventoryRepository.save(inventory);
     }
 
-    private BigDecimal calculateItemsTotal(List<ExchangeRequest.ExchangeItemRequest> items, Location location) {
+    private BigDecimal calculateReturnedItemsTotal(List<ExchangeRequest.ExchangeItemRequest> items, Sale originalSale, Location location) {
         BigDecimal total = BigDecimal.ZERO;
         for (ExchangeRequest.ExchangeItemRequest item : items) {
             Product product = productRepository.findById(item.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
-            
+
             LocationInventory inventory = locationInventoryRepository
                     .findByLocationIdAndProductSku(location.getId(), product.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
@@ -277,7 +277,49 @@ public class ExchangeService {
             } else if (item.getBarcode() != null) {
                 barcodeNumbers.add(item.getBarcode());
             }
-            
+
+            // Prefer the original sale item price for returns to avoid price drift
+            SaleItem saleItem = originalSale.getItems() == null ? null : originalSale.getItems().stream()
+                    .filter(i -> i.getProduct() != null && i.getProduct().getId().equals(item.getProductId()))
+                    .findFirst()
+                    .orElse(null);
+
+            BigDecimal unitPrice = saleItem != null ? saleItem.getPrice() : null;
+            if (unitPrice == null && saleItem != null && saleItem.getQuantity() != null && saleItem.getQuantity() > 0) {
+                unitPrice = saleItem.getTotal().divide(new BigDecimal(saleItem.getQuantity()), 2, java.math.RoundingMode.HALF_UP);
+            }
+            if (unitPrice == null) {
+                unitPrice = inventory.getSalePrice();
+            }
+
+            int quantityForPrice = item.getQuantity() != null ? item.getQuantity() : 0;
+            if (!barcodeNumbers.isEmpty()) {
+                quantityForPrice = barcodeNumbers.size();
+            }
+
+            total = total.add(unitPrice.multiply(new BigDecimal(quantityForPrice)));
+        }
+        return total;
+    }
+
+    private BigDecimal calculateExchangedItemsTotal(List<ExchangeRequest.ExchangeItemRequest> items, Location location) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (ExchangeRequest.ExchangeItemRequest item : items) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+
+            LocationInventory inventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(location.getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
+
+            // Get list of barcodes (support both single barcode and multiple barcodes)
+            List<String> barcodeNumbers = new ArrayList<>();
+            if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
+                barcodeNumbers.addAll(item.getBarcodes());
+            } else if (item.getBarcode() != null) {
+                barcodeNumbers.add(item.getBarcode());
+            }
+
             // Calculate total using barcode-specific prices
             BigDecimal itemTotal = BigDecimal.ZERO;
             for (String barcodeNumber : barcodeNumbers) {
@@ -294,12 +336,12 @@ public class ExchangeService {
                     itemTotal = itemTotal.add(inventory.getSalePrice());
                 }
             }
-            
+
             // If no barcodes provided, use inventory price * quantity
             if (itemTotal.compareTo(BigDecimal.ZERO) == 0) {
                 itemTotal = inventory.getSalePrice().multiply(new BigDecimal(item.getQuantity()));
             }
-            
+
             total = total.add(itemTotal);
         }
         return total;

@@ -818,6 +818,9 @@ export class AppService {
       },
       pointsRedeemed: apiSale.pointsRedeemed,
       discountFromPoints: apiSale.discountFromPoints,
+      isExchangeSale: apiSale.isExchangeSale ?? false,
+      exchangeId: apiSale.exchangeId ?? undefined,
+      exchangePriceDifference: apiSale.exchangePriceDifference ?? undefined,
       createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
     };
   }

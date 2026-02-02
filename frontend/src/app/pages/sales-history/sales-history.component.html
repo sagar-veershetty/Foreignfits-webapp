@@ -287,16 +287,16 @@
               <div class="flex flex-col">
                 <div class="text-sm font-bold" 
                      [ngClass]="{
-                       'text-green-600': !sale.isExchangeSale || (sale.exchangePriceDifference && sale.exchangePriceDifference > 0),
-                       'text-red-600': sale.isExchangeSale && sale.exchangePriceDifference && sale.exchangePriceDifference < 0,
+                       'text-green-600': !sale.isExchangeSale || (sale.exchangePriceDifference != null && sale.exchangePriceDifference > 0),
+                       'text-red-600': sale.isExchangeSale && sale.exchangePriceDifference != null && sale.exchangePriceDifference < 0,
                        'text-gray-600': sale.isExchangeSale && sale.exchangePriceDifference === 0
                      }">
                   ₹{{ getDisplayAmount(sale).toFixed(2) }}
                 </div>
                 <div *ngIf="sale.isExchangeSale" class="text-xs font-medium"
                      [ngClass]="{
-                       'text-green-600': sale.exchangePriceDifference && sale.exchangePriceDifference > 0,
-                       'text-red-600': sale.exchangePriceDifference && sale.exchangePriceDifference < 0,
+                       'text-green-600': sale.exchangePriceDifference != null && sale.exchangePriceDifference > 0,
+                       'text-red-600': sale.exchangePriceDifference != null && sale.exchangePriceDifference < 0,
                        'text-gray-600': sale.exchangePriceDifference === 0
                      }">
                   {{ getAmountLabel(sale) }}
@@ -647,14 +647,12 @@
             </div>
             
             <div class="border-t border-gray-300 pt-2 flex justify-between text-lg">
-              <span class="font-bold text-gray-900">Total:</span>
-              <span class="font-bold text-green-600">₹{{ selectedSale.total.toFixed(2) }}</span>
-            </div>
-            <!-- Exchange Information -->
-            <div *ngIf="selectedSale.isExchangeSale && selectedSale.exchangePriceDifference !== undefined" 
-                 class="border-t border-blue-200 pt-2 flex justify-between text-lg bg-blue-50 px-3 py-2 rounded">
-              <span class="font-bold text-blue-900">{{ getAmountLabel(selectedSale) }}:</span>
-              <span class="font-bold text-blue-600">₹{{ getDisplayAmount(selectedSale).toFixed(2) }}</span>
+              <span class="font-bold text-gray-900">
+                {{ selectedSale.isExchangeSale && selectedSale.exchangePriceDifference !== undefined ? getAmountLabel(selectedSale) : 'Total' }}:
+              </span>
+              <span class="font-bold text-green-600">
+                ₹{{ (selectedSale.isExchangeSale && selectedSale.exchangePriceDifference !== undefined ? getDisplayAmount(selectedSale) : selectedSale.total).toFixed(2) }}
+              </span>
             </div>
           </div>
         </div>
