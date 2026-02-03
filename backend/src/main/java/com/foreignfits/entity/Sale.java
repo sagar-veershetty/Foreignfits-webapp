@@ -104,6 +104,16 @@ public class Sale {
     
     @Column(name = "exchange_price_difference", precision = 12, scale = 2)
     private BigDecimal exchangePriceDifference; // Amount customer paid/received in exchange
+
+    @Column(name = "paid_amount", precision = 12, scale = 2)
+    private BigDecimal paidAmount;
+
+    @Column(name = "pending_amount", precision = 12, scale = 2)
+    private BigDecimal pendingAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20)
+    private PaymentStatus paymentStatus = PaymentStatus.PAID;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sold_by_id", nullable = false)
@@ -120,6 +130,10 @@ public class Sale {
     
     public enum PaymentMethod {
         CASH, CARD, UPI, OTHER // Keep OTHER for backward compatibility with existing data
+    }
+
+    public enum PaymentStatus {
+        UNPAID, PARTIALLY_PAID, PAID
     }
     
     // Manual getters and setters to ensure compatibility
@@ -191,6 +205,15 @@ public class Sale {
     
     public BigDecimal getExchangePriceDifference() { return exchangePriceDifference; }
     public void setExchangePriceDifference(BigDecimal exchangePriceDifference) { this.exchangePriceDifference = exchangePriceDifference; }
+
+    public BigDecimal getPaidAmount() { return paidAmount; }
+    public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
+
+    public BigDecimal getPendingAmount() { return pendingAmount; }
+    public void setPendingAmount(BigDecimal pendingAmount) { this.pendingAmount = pendingAmount; }
+
+    public PaymentStatus getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
     
     public User getSoldBy() { return soldBy; }
     public void setSoldBy(User soldBy) { this.soldBy = soldBy; }

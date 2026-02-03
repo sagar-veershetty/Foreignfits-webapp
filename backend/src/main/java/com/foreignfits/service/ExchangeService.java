@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ExchangeService {
 
+    private static final BigDecimal GST_RATE = new BigDecimal("0.05");
+
     private final ExchangeRepository exchangeRepository;
     private final ExchangeItemRepository exchangeItemRepository;
     private final SaleRepository saleRepository;
@@ -46,10 +48,12 @@ public class ExchangeService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-    // Calculate totals
-    BigDecimal returnedTotal = calculateReturnedItemsTotal(request.getReturnedItems(), originalSale, location);
-    BigDecimal exchangedTotal = calculateExchangedItemsTotal(request.getExchangedItems(), location);
-        BigDecimal priceDifference = exchangedTotal.subtract(returnedTotal);
+    // Calculate totals (GST included in prices)
+    BigDecimal returnedSubtotal = calculateReturnedItemsTotal(request.getReturnedItems(), originalSale, location);
+    calculateReturnedItemsTax(request.getReturnedItems(), originalSale, location);
+    BigDecimal exchangedSubtotal = calculateExchangedItemsTotal(request.getExchangedItems(), location);
+    BigDecimal exchangedTax = calculateExchangedItemsTax(request.getExchangedItems(), location);
+    BigDecimal priceDifference = exchangedSubtotal.subtract(returnedSubtotal);
 
         // Create new sale for exchanged items (save it first without items)
         Sale newSale = new Sale();
@@ -61,9 +65,9 @@ public class ExchangeService {
         // For the new sale, we need to store the EXCHANGED total (not the difference)
         // The priceDifference tells us if customer pays extra or gets refund
         // But the Sale entity must have positive values for validation
-        newSale.setSubtotal(exchangedTotal.divide(new BigDecimal("1.05"), 2, java.math.RoundingMode.HALF_UP)); // Remove GST to get subtotal
-        newSale.setTax(exchangedTotal.subtract(newSale.getSubtotal())); // Tax is the difference
-        newSale.setTotal(exchangedTotal); // Total is the exchanged items value
+    newSale.setSubtotal(exchangedSubtotal); // Subtotal includes GST
+    newSale.setTax(exchangedTax); // GST portion included
+    newSale.setTotal(exchangedSubtotal); // Total already includes GST
         newSale.setPaymentMethod(Sale.PaymentMethod.UPI);
         newSale.setSoldBy(user);
         newSale.setCreatedAt(LocalDateTime.now());
@@ -345,6 +349,92 @@ public class ExchangeService {
             total = total.add(itemTotal);
         }
         return total;
+    }
+
+    private BigDecimal calculateReturnedItemsTax(List<ExchangeRequest.ExchangeItemRequest> items, Sale originalSale, Location location) {
+        BigDecimal taxTotal = BigDecimal.ZERO;
+        for (ExchangeRequest.ExchangeItemRequest item : items) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+
+            LocationInventory inventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(location.getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
+
+            SaleItem saleItem = originalSale.getItems() == null ? null : originalSale.getItems().stream()
+                    .filter(i -> i.getProduct() != null && i.getProduct().getId().equals(item.getProductId()))
+                    .findFirst()
+                    .orElse(null);
+
+            BigDecimal unitPrice = saleItem != null ? saleItem.getPrice() : null;
+            if (unitPrice == null && saleItem != null && saleItem.getQuantity() != null && saleItem.getQuantity() > 0) {
+                unitPrice = saleItem.getTotal().divide(new BigDecimal(saleItem.getQuantity()), 2, java.math.RoundingMode.HALF_UP);
+            }
+            if (unitPrice == null) {
+                unitPrice = inventory.getSalePrice();
+            }
+
+            int quantityForPrice = item.getQuantity() != null ? item.getQuantity() : 0;
+            List<String> barcodeNumbers = new ArrayList<>();
+            if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
+                barcodeNumbers.addAll(item.getBarcodes());
+            } else if (item.getBarcode() != null) {
+                barcodeNumbers.add(item.getBarcode());
+            }
+            if (!barcodeNumbers.isEmpty()) {
+                quantityForPrice = barcodeNumbers.size();
+            }
+
+            BigDecimal taxable = unitPrice.multiply(new BigDecimal(quantityForPrice));
+            BigDecimal taxPortion = taxable.multiply(GST_RATE)
+                .divide(BigDecimal.ONE.add(GST_RATE), 6, java.math.RoundingMode.HALF_UP);
+            taxTotal = taxTotal.add(taxPortion);
+        }
+
+        return taxTotal.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calculateExchangedItemsTax(List<ExchangeRequest.ExchangeItemRequest> items, Location location) {
+        BigDecimal taxTotal = BigDecimal.ZERO;
+        for (ExchangeRequest.ExchangeItemRequest item : items) {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
+
+            LocationInventory inventory = locationInventoryRepository
+                    .findByLocationIdAndProductSku(location.getId(), product.getSku())
+                    .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
+
+            List<String> barcodeNumbers = new ArrayList<>();
+            if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {
+                barcodeNumbers.addAll(item.getBarcodes());
+            } else if (item.getBarcode() != null) {
+                barcodeNumbers.add(item.getBarcode());
+            }
+
+            if (!barcodeNumbers.isEmpty()) {
+                for (String barcodeNumber : barcodeNumbers) {
+                    Optional<Barcode> barcodeOpt = barcodeRepository.findByBarcodeNumber(barcodeNumber);
+                    BigDecimal unitPrice = inventory.getSalePrice();
+                    if (barcodeOpt.isPresent()) {
+                        Barcode barcodeEntity = barcodeOpt.get();
+                        if (barcodeEntity.getSalePrice() != null && barcodeEntity.getSalePrice() > 0) {
+                            unitPrice = BigDecimal.valueOf(barcodeEntity.getSalePrice());
+                        }
+                    }
+                    BigDecimal taxPortion = unitPrice.multiply(GST_RATE)
+                        .divide(BigDecimal.ONE.add(GST_RATE), 6, java.math.RoundingMode.HALF_UP);
+                    taxTotal = taxTotal.add(taxPortion);
+                }
+            } else {
+                BigDecimal unitPrice = inventory.getSalePrice();
+                BigDecimal taxable = unitPrice.multiply(new BigDecimal(item.getQuantity()));
+                BigDecimal taxPortion = taxable.multiply(GST_RATE)
+                    .divide(BigDecimal.ONE.add(GST_RATE), 6, java.math.RoundingMode.HALF_UP);
+                taxTotal = taxTotal.add(taxPortion);
+            }
+        }
+
+        return taxTotal.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     public List<ExchangeDto> getExchangesByOriginalSale(Long saleId) {

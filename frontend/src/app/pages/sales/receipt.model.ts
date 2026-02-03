@@ -24,6 +24,7 @@ export interface ReceiptData {
   date: string;
   time: string;
   customer: string;
+  gstin?: string;
   items: ReceiptItem[];
   subtotal: number;
   taxLabel: string;

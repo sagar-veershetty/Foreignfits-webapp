@@ -180,6 +180,9 @@ export interface Sale {
   isExchangeSale?: boolean;
   exchangeId?: number;
   exchangePriceDifference?: number;
+  paidAmount?: number;
+  pendingAmount?: number;
+  paymentStatus?: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
 }
 
 export interface User {

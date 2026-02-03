@@ -81,6 +81,15 @@ export const routes: Routes = [
     data: { roles: ['admin','sales'] }
   },
   { 
+    path: 'pending-payments', 
+    loadComponent: () => import('./pages/pending-payments/pending-payments.component').then(m => m.PendingPaymentsComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales'] }
+  },
+  { 
     path: 'sales-analytics', 
     loadComponent: () => import('./pages/sales-analytics/sales-analytics.component').then(m => m.SalesAnalyticsComponent),
     canActivate: [

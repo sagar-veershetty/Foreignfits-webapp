@@ -6,6 +6,7 @@ import com.foreignfits.dto.SaleDto;
 import com.foreignfits.dto.SaleItemDto;
 import com.foreignfits.dto.SalePaymentDto;
 import com.foreignfits.dto.UserDto;
+import com.foreignfits.dto.request.CollectSalePaymentRequest;
 import com.foreignfits.dto.request.CreateSaleRequest;
 import com.foreignfits.dto.request.SaleItemRequest;
 import com.foreignfits.entity.*;
@@ -48,7 +49,8 @@ public class SaleService {
     private final com.foreignfits.repository.ExchangeItemRepository exchangeItemRepository;
     private final CouponService couponService;
     
-    private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // 5% GST (inclusive)
+    private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // Flat 5% GST (included in price)
+    private static final Long GANGA_LOCATION_ID = 3L;
     
     public List<SaleDto> getAllSales() {
         return saleRepository.findAll().stream()
@@ -61,6 +63,72 @@ public class SaleService {
                 .orElseThrow(() -> new RuntimeException("Sale not found with id: " + id));
         return convertToDto(sale);
     }
+
+    public SaleDto addPaymentToSale(Long saleId, CollectSalePaymentRequest request) {
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + saleId));
+
+        BigDecimal existingPaid = sale.getPaidAmount();
+        if (existingPaid == null) {
+            if (sale.getPayments() != null && !sale.getPayments().isEmpty()) {
+                existingPaid = sale.getPayments().stream()
+                        .map(SalePayment::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            } else if (sale.getPaymentMethod() != null) {
+                existingPaid = sale.getTotal();
+            } else {
+                existingPaid = BigDecimal.ZERO;
+            }
+        }
+
+        BigDecimal pending = sale.getTotal().subtract(existingPaid);
+        if (pending.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("This sale has no pending balance");
+        }
+
+        BigDecimal amount = request.getAmount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Payment amount must be greater than 0");
+        }
+
+        if (amount.compareTo(pending) > 0) {
+            throw new RuntimeException("Payment amount exceeds pending balance (Pending: " + pending + ")");
+        }
+
+        SalePayment payment = new SalePayment();
+        payment.setSale(sale);
+        try {
+            payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(request.getPaymentMethod()));
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid payment method: " + request.getPaymentMethod() +
+                ". Valid values are: CASH, CARD, UPI, OTHER");
+        }
+        payment.setAmount(amount);
+        payment.setReference(request.getReference());
+        SalePayment savedPayment = salePaymentRepository.save(payment);
+
+        List<SalePayment> payments = sale.getPayments();
+        if (payments == null) {
+            payments = new ArrayList<>();
+        }
+        payments.add(savedPayment);
+        sale.setPayments(payments);
+
+        BigDecimal newPaidAmount = existingPaid.add(amount);
+        BigDecimal newPendingAmount = sale.getTotal().subtract(newPaidAmount);
+        if (newPendingAmount.compareTo(BigDecimal.ZERO) < 0) {
+            newPendingAmount = BigDecimal.ZERO;
+        }
+
+        sale.setPaidAmount(newPaidAmount);
+        sale.setPendingAmount(newPendingAmount);
+        sale.setPaymentStatus(newPendingAmount.compareTo(BigDecimal.ZERO) > 0
+                ? Sale.PaymentStatus.PARTIALLY_PAID
+                : Sale.PaymentStatus.PAID);
+
+        Sale updatedSale = saleRepository.save(sale);
+        return convertToDto(updatedSale);
+    }
     
     public SaleDto createSale(CreateSaleRequest request, Long soldById) {
         System.out.println("Creating sale with salesPersonName: " + request.getSalesPersonName());
@@ -68,9 +136,12 @@ public class SaleService {
         User soldBy = userRepository.findById(soldById)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + soldById));
         
-        // Get the location where sale is being made
+    // Get the location where sale is being made
         Location saleLocation = locationRepository.findById(request.getLocationId())
                 .orElseThrow(() -> new RuntimeException("Location not found with id: " + request.getLocationId()));
+
+    String saleLocationName = saleLocation.getName() != null ? saleLocation.getName().toLowerCase() : "";
+    boolean isGangaWholesale = saleLocation.getId().equals(GANGA_LOCATION_ID) || saleLocationName.contains("ganga");
         
         // Get user's assigned location if they are SALES role
         Long userLocationId = null;
@@ -162,19 +233,20 @@ public class SaleService {
             subtotal = subtotal.add(itemTotal);
         }
         
-        // Calculate tax and total (GST is inclusive - already in product prices)
-        // Total = Subtotal (customer doesn't pay extra for GST)
-        // But we show the GST amount separately for record-keeping
-        BigDecimal total = subtotal; // Customer pays only the product prices
-        BigDecimal tax = subtotal.multiply(GST_RATE).divide(BigDecimal.ONE.add(GST_RATE), 2, RoundingMode.HALF_UP);
+    // Start with subtotal (pre-tax, pre-discount)
+    BigDecimal total = subtotal;
         
         // Apply coupon if provided
         BigDecimal couponDiscount = BigDecimal.ZERO;
         String validCouponCode = null;
         
         System.out.println("=== COUPON CHECK: request.getCouponCode() = " + request.getCouponCode());
-        
-        if (request.getCouponCode() != null && !request.getCouponCode().isEmpty()) {
+
+        if (isGangaWholesale && request.getCouponCode() != null && !request.getCouponCode().isEmpty()) {
+            System.out.println("=== GANGA WHOLESALE: Coupon ignored for wholesale sales");
+        }
+
+    if (!isGangaWholesale && request.getCouponCode() != null && !request.getCouponCode().isEmpty()) {
             System.out.println("=== ENTERING COUPON BLOCK...");
             com.foreignfits.dto.CouponValidationResult validation = couponService.validateCoupon(
                 request.getCouponCode(), 
@@ -204,16 +276,16 @@ public class SaleService {
         BigDecimal instantDiscountAmount = BigDecimal.ZERO;
         
         // Check subtotal against thresholds
-        if (subtotal.compareTo(new BigDecimal("10000")) >= 0) {
+        if (!isGangaWholesale && subtotal.compareTo(new BigDecimal("10000")) >= 0) {
             instantDiscountPercent = new BigDecimal("15.00");
-        } else if (subtotal.compareTo(new BigDecimal("7500")) >= 0) {
+        } else if (!isGangaWholesale && subtotal.compareTo(new BigDecimal("7500")) >= 0) {
             instantDiscountPercent = new BigDecimal("12.00");
-        } else if (subtotal.compareTo(new BigDecimal("5000")) >= 0) {
+        } else if (!isGangaWholesale && subtotal.compareTo(new BigDecimal("5000")) >= 0) {
             instantDiscountPercent = new BigDecimal("10.00");
         }
         
         // Calculate instant discount amount if applicable
-        if (instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0) {
+        if (!isGangaWholesale && instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0) {
             instantDiscountAmount = subtotal.multiply(instantDiscountPercent)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
             
@@ -225,6 +297,14 @@ public class SaleService {
             
             System.out.println("=== INSTANT DISCOUNT APPLIED: " + instantDiscountPercent + "% = ₹" + instantDiscountAmount);
         }
+
+        // Calculate GST portion included in the discounted subtotal
+    BigDecimal totalDiscount = couponDiscount.add(instantDiscountAmount);
+        if (totalDiscount.compareTo(subtotal) > 0) {
+            totalDiscount = subtotal;
+        }
+        BigDecimal tax = calculateGstForSaleItems(saleItems, subtotal, totalDiscount);
+        // Total already includes GST (tax is just the included portion)
         
         // Create sale
         Sale sale = new Sale();
@@ -266,7 +346,11 @@ public class SaleService {
         System.out.println("=== SALE RE-SAVED AFTER ITEMS - ID: " + savedSale.getId() + ", Total: ₹" + savedSale.getTotal());
         
         // ✅ SPLIT PAYMENT SUPPORT: Handle multiple payment methods
-        if (request.getPayments() != null && !request.getPayments().isEmpty()) {
+    BigDecimal paidAmount = null;
+    BigDecimal pendingAmount = null;
+    Sale.PaymentStatus paymentStatus = Sale.PaymentStatus.PAID;
+
+    if (request.getPayments() != null && !request.getPayments().isEmpty()) {
             System.out.println("=== VALIDATING PAYMENTS - Sale Total: ₹" + savedSale.getTotal());
             
             // Validate that payment amounts sum to sale total
@@ -276,7 +360,20 @@ public class SaleService {
             
             System.out.println("=== Payment Sum: ₹" + paymentSum + ", Sale Total: ₹" + savedSale.getTotal());
             
-            if (paymentSum.compareTo(savedSale.getTotal()) != 0) {
+            String locationName = saleLocation.getName() != null ? saleLocation.getName().toLowerCase() : "";
+            boolean allowPartialPayment = saleLocation.getId().equals(GANGA_LOCATION_ID)
+                || locationName.contains("ganga");
+
+            if (paymentSum.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("At least one valid payment amount is required");
+            }
+
+            if (allowPartialPayment) {
+                if (paymentSum.compareTo(savedSale.getTotal()) > 0) {
+                    throw new RuntimeException("Payment sum (" + paymentSum +
+                        ") exceeds sale total (" + savedSale.getTotal() + ")");
+                }
+            } else if (paymentSum.compareTo(savedSale.getTotal()) != 0) {
                 throw new RuntimeException("Payment sum (" + paymentSum + 
                     ") does not match sale total (" + savedSale.getTotal() + ")");
             }
@@ -297,6 +394,18 @@ public class SaleService {
                 }
             }
             savedSale.setPayments(payments);
+
+            paidAmount = paymentSum;
+            pendingAmount = savedSale.getTotal().subtract(paymentSum);
+            if (pendingAmount.compareTo(BigDecimal.ZERO) < 0) {
+                pendingAmount = BigDecimal.ZERO;
+            }
+
+            if (paidAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                paymentStatus = Sale.PaymentStatus.UNPAID;
+            } else if (pendingAmount.compareTo(BigDecimal.ZERO) > 0) {
+                paymentStatus = Sale.PaymentStatus.PARTIALLY_PAID;
+            }
             
         } else if (request.getPaymentMethod() != null) {
             // Backward compatibility: Convert single payment method to payment record
@@ -307,9 +416,18 @@ public class SaleService {
             payment.setReference(null); // No reference for old format
             SalePayment savedPayment = salePaymentRepository.save(payment);
             savedSale.setPayments(List.of(savedPayment));
+
+            paidAmount = savedSale.getTotal();
+            pendingAmount = BigDecimal.ZERO;
+            paymentStatus = Sale.PaymentStatus.PAID;
         } else {
             throw new RuntimeException("Payment method or payments list is required");
         }
+
+        savedSale.setPaidAmount(paidAmount);
+        savedSale.setPendingAmount(pendingAmount);
+        savedSale.setPaymentStatus(paymentStatus);
+        savedSale = saleRepository.save(savedSale);
         
         // Update inventory and create stock movements
         for (SaleItem item : saleItems) {
@@ -527,6 +645,9 @@ public class SaleService {
         dto.setIsExchangeSale(sale.getIsExchangeSale());
         dto.setExchangeId(sale.getExchangeId());
         dto.setExchangePriceDifference(sale.getExchangePriceDifference());
+    dto.setPaidAmount(sale.getPaidAmount());
+    dto.setPendingAmount(sale.getPendingAmount());
+    dto.setPaymentStatus(sale.getPaymentStatus());
         dto.setCreatedAt(sale.getCreatedAt());
         
         // Convert sold by user
@@ -565,6 +686,33 @@ public class SaleService {
         }
         
         return dto;
+    }
+
+    private BigDecimal calculateGstForSaleItems(List<SaleItem> items, BigDecimal subtotal, BigDecimal totalDiscount) {
+        if (items == null || items.isEmpty() || subtotal == null || subtotal.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal discountRatio = BigDecimal.ZERO;
+        if (totalDiscount != null && totalDiscount.compareTo(BigDecimal.ZERO) > 0) {
+            discountRatio = totalDiscount.divide(subtotal, 6, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal taxTotal = BigDecimal.ZERO;
+        for (SaleItem item : items) {
+            BigDecimal itemTotal = item.getTotal() != null ? item.getTotal() : BigDecimal.ZERO;
+            BigDecimal itemDiscount = itemTotal.multiply(discountRatio);
+            BigDecimal taxable = itemTotal.subtract(itemDiscount);
+            if (taxable.compareTo(BigDecimal.ZERO) < 0) {
+                taxable = BigDecimal.ZERO;
+            }
+
+            BigDecimal taxPortion = taxable.multiply(GST_RATE)
+                .divide(BigDecimal.ONE.add(GST_RATE), 6, RoundingMode.HALF_UP);
+            taxTotal = taxTotal.add(taxPortion);
+        }
+
+        return taxTotal.setScale(2, RoundingMode.HALF_UP);
     }
     
     private SalePaymentDto convertPaymentToDto(SalePayment payment) {

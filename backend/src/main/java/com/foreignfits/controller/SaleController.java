@@ -2,6 +2,7 @@ package com.foreignfits.controller;
 
 import com.foreignfits.dto.SaleDto;
 import com.foreignfits.dto.UserDto;
+import com.foreignfits.dto.request.CollectSalePaymentRequest;
 import com.foreignfits.dto.request.CreateSaleRequest;
 import com.foreignfits.entity.User;
 import com.foreignfits.service.SaleService;
@@ -19,7 +20,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/sales")
@@ -144,6 +144,38 @@ public class SaleController {
             return ResponseEntity.ok(sale);
         } catch (Exception e) {
             // Return detailed error message for debugging
+            return ResponseEntity.badRequest().body(
+                java.util.Map.of(
+                    "error", e.getMessage(),
+                    "type", e.getClass().getSimpleName()
+                )
+            );
+        }
+    }
+
+    @PostMapping("/{id}/payments")
+    @PreAuthorize("hasAuthority('create:sale')")
+    public ResponseEntity<?> collectPayment(
+            @PathVariable Long id,
+            @Valid @RequestBody CollectSalePaymentRequest request,
+            Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            UserDto currentUser = userService.getUserByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            SaleDto sale = saleService.getSaleById(id);
+
+            // If user is SALES, verify they have access to this sale's location
+            if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+                if (!sale.getLocation().getId().equals(currentUser.getLocationId())) {
+                    return ResponseEntity.status(403).build();
+                }
+            }
+
+            SaleDto updatedSale = saleService.addPaymentToSale(id, request);
+            return ResponseEntity.ok(updatedSale);
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(
                 java.util.Map.of(
                     "error", e.getMessage(),

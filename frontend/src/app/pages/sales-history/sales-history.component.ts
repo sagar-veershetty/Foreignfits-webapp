@@ -21,6 +21,8 @@ import { SalesPersonService } from '../../core/services/sales-person.service';
 export class SalesHistoryComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
   appState$: Observable<AppState>;
+
+  private readonly gstin = '29CBIPV3211R1ZW';
   
   // Expose Math for template
   Math = Math;
@@ -37,6 +39,14 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   // Sale details modal
   showSaleDetails: boolean = false;
   selectedSale: Sale | null = null;
+
+  // Collect payment form
+  collectPaymentAmount = 0;
+  collectPaymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER' = 'CASH';
+  collectPaymentReference = '';
+  collectPaymentError = '';
+  collectPaymentSuccess = '';
+  isCollectingPayment = false;
 
   // Receipt modal
   showReceiptModal = false;
@@ -213,6 +223,40 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     return sale.total;
   }
 
+  getPaidAmount(sale: Sale): number {
+    if (sale.paidAmount != null) {
+      return sale.paidAmount;
+    }
+
+    if (sale.payments && sale.payments.length > 0) {
+      return sale.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    }
+
+    return sale.total;
+  }
+
+  getPendingAmount(sale: Sale): number {
+    if (sale.pendingAmount != null) {
+      return sale.pendingAmount;
+    }
+
+    const pending = sale.total - this.getPaidAmount(sale);
+    return pending > 0 ? pending : 0;
+  }
+
+  getPaymentStatusLabel(sale: Sale): string {
+    if (sale.paymentStatus) {
+      return sale.paymentStatus.replace('_', ' ');
+    }
+
+    const pending = this.getPendingAmount(sale);
+    if (pending > 0) {
+      return 'PARTIALLY PAID';
+    }
+
+    return 'PAID';
+  }
+
   /**
    * Get the label for the display amount
    */
@@ -363,11 +407,62 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   viewSaleDetails(sale: Sale): void {
     this.selectedSale = sale;
     this.showSaleDetails = true;
+
+    this.collectPaymentAmount = this.getPendingAmount(sale);
+    this.collectPaymentMethod = 'CASH';
+    this.collectPaymentReference = '';
+    this.collectPaymentError = '';
+    this.collectPaymentSuccess = '';
   }
 
   closeSaleDetails(): void {
     this.showSaleDetails = false;
     this.selectedSale = null;
+    this.collectPaymentError = '';
+    this.collectPaymentSuccess = '';
+  }
+
+  recordFollowUpPayment(): void {
+    if (!this.selectedSale) return;
+
+    this.collectPaymentError = '';
+    this.collectPaymentSuccess = '';
+
+    const pending = this.getPendingAmount(this.selectedSale);
+    if (this.collectPaymentAmount <= 0) {
+      this.collectPaymentError = 'Payment amount must be greater than 0.';
+      return;
+    }
+
+    if (this.collectPaymentAmount - pending > 0.01) {
+      this.collectPaymentError = `Payment amount exceeds pending balance (₹${pending.toFixed(2)}).`;
+      return;
+    }
+
+    this.isCollectingPayment = true;
+    this.appService.collectSalePayment(this.selectedSale.id, {
+      paymentMethod: this.collectPaymentMethod,
+      amount: this.collectPaymentAmount,
+      reference: this.collectPaymentReference?.trim() || undefined
+    }).subscribe({
+      next: (updatedSale) => {
+        this.selectedSale = updatedSale;
+        this.collectPaymentSuccess = 'Payment recorded successfully.';
+        this.collectPaymentAmount = this.getPendingAmount(updatedSale);
+        this.collectPaymentReference = '';
+
+        // Refresh sales list to keep filters and totals in sync
+        this.appService.refreshSales().subscribe();
+      },
+      error: (err) => {
+        const message = err?.error?.error || err?.error?.message || 'Failed to record payment.';
+        this.collectPaymentError = message;
+        this.isCollectingPayment = false;
+      },
+      complete: () => {
+        this.isCollectingPayment = false;
+      }
+    });
   }
 
   printSale(): void {
@@ -386,9 +481,10 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       date: this.selectedSale.createdAt.toLocaleDateString('en-GB'),
       time: this.selectedSale.createdAt.toLocaleTimeString('en-GB'),
       customer: this.selectedSale.customerName || 'Walk-in Customer',
+      gstin: this.gstin,
       items: receiptItems,
       subtotal: this.selectedSale.subtotal,
-      taxLabel: '5% GST (included)',
+  taxLabel: 'GST (5% included)',
       tax: this.selectedSale.tax,
       total: this.selectedSale.total,
       paymentMethod: this.selectedSale.paymentMethod.toUpperCase()

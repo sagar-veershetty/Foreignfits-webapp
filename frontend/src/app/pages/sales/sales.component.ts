@@ -23,6 +23,8 @@ import { ExchangeModalComponent } from '../../components/sales/exchange-modal.co
   templateUrl: './sales.component.html'
 })
 export class SalesComponent implements OnInit {
+  private readonly gstin = '29CBIPV3211R1ZW';
+  private readonly gangaLocationId = 3;
   showReceiptModal = false;
   receiptData: ReceiptData | null = null;
   appState$: Observable<AppState>;
@@ -258,6 +260,10 @@ export class SalesComponent implements OnInit {
     this.customerCoupons = [];
     this.showCustomerCoupons = false;
     
+    if (this.isGangaStore()) {
+      return;
+    }
+
     // Only fetch if we have a valid phone number (at least 10 digits)
     if (this.customerPhone && this.customerPhone.length >= 10) {
       this.isLoadingLoyalty = true;
@@ -302,6 +308,11 @@ export class SalesComponent implements OnInit {
    * Apply points redemption
    */
   applyPointsRedemption(): void {
+    if (this.isGangaStore()) {
+      alert('Loyalty discounts are not available for Ganga wholesale sales.');
+      return;
+    }
+
     if (!this.loyaltyCustomer || this.pointsToRedeem <= 0) return;
     
     // Check minimum points requirement
@@ -339,6 +350,8 @@ export class SalesComponent implements OnInit {
    * Load customer's active coupons
    */
   loadCustomerCoupons(): void {
+    if (this.isGangaStore()) return;
+
     if (!this.customerPhone || this.customerPhone.length < 10) return;
     
     this.couponService.getCustomerCoupons(this.customerPhone, this.customerCountryCode).subscribe({
@@ -358,6 +371,11 @@ export class SalesComponent implements OnInit {
    * Apply coupon code
    */
   applyCoupon(): void {
+    if (this.isGangaStore()) {
+      this.couponError = 'Coupons are not applicable for Ganga wholesale sales.';
+      return;
+    }
+
     if (!this.couponCode || !this.couponCode.trim()) {
       this.couponError = 'Please enter a coupon code';
       return;
@@ -429,17 +447,35 @@ export class SalesComponent implements OnInit {
     return appState.currentSale.reduce((sum, item) => sum + item.quantity, 0);
   }
 
+  private getDiscountTotal(appState: AppState): number {
+    if (this.isGangaStore()) {
+      return 0;
+    }
+
+    const loyaltyDiscount = this.discountFromPoints || 0;
+    const instantDiscount = this.getInstantDiscount(appState).amount;
+    const couponDiscount = this.couponDiscount || 0;
+    return loyaltyDiscount + instantDiscount + couponDiscount;
+  }
+
   getTax(appState: AppState): number {
-    // GST is inclusive - calculate the tax portion from subtotal
-    // Tax = Subtotal × (GST_RATE / (1 + GST_RATE))
+    // GST included in price at a flat 5%
     const subtotal = this.getSubtotal(appState);
-    return subtotal * (0.05 / 1.05);
+    if (subtotal <= 0) return 0;
+
+    const totalDiscount = Math.min(subtotal, this.getDiscountTotal(appState));
+    const taxable = Math.max(0, subtotal - totalDiscount);
+    return Number(((taxable * 0.05) / 1.05).toFixed(2));
   }
 
   /**
    * Calculate instant discount based on subtotal thresholds
    */
   getInstantDiscount(appState: AppState): { percent: number, amount: number } {
+    if (this.isGangaStore()) {
+      return { percent: 0, amount: 0 };
+    }
+
     const subtotal = this.getSubtotal(appState);
     
     if (subtotal >= 10000) {
@@ -454,13 +490,11 @@ export class SalesComponent implements OnInit {
   }
 
   getTotal(appState: AppState): number {
-    // Total equals subtotal since GST is inclusive (customer doesn't pay extra)
-    // Subtract loyalty discount, instant discount, and coupon discount if applied
+    // Total already includes GST; subtract discounts only
     const subtotal = this.getSubtotal(appState);
-    const loyaltyDiscount = this.discountFromPoints || 0;
-    const instantDiscount = this.getInstantDiscount(appState).amount;
-    const couponDiscount = this.couponDiscount || 0;
-    return Math.max(0, subtotal - loyaltyDiscount - instantDiscount - couponDiscount);
+    const totalDiscount = this.getDiscountTotal(appState);
+    const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
+    return Number(discountedSubtotal.toFixed(2));
   }
 
   completeSale(appState: AppState): void {
@@ -489,9 +523,9 @@ export class SalesComponent implements OnInit {
       customerName: this.customerName,
       customerPhone: this.customerPhone,
       customerCountryCode: this.customerCountryCode,
-      pointsToRedeem: this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
-      discountFromPoints: this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
-      couponCode: this.couponCode && this.couponDiscount > 0 ? this.couponCode.toUpperCase() : undefined,
+      pointsToRedeem: !this.isGangaStore() && this.pointsToRedeem > 0 ? this.pointsToRedeem : undefined,
+      discountFromPoints: !this.isGangaStore() && this.discountFromPoints > 0 ? this.discountFromPoints : undefined,
+      couponCode: !this.isGangaStore() && this.couponCode && this.couponDiscount > 0 ? this.couponCode.toUpperCase() : undefined,
     };
 
     // DEBUG: Log what's being sent
@@ -503,8 +537,17 @@ export class SalesComponent implements OnInit {
       // Validate split payments
       const total = this.getTotal(appState);
       const paid = this.getTotalPayments();
-      
-      if (Math.abs(total - paid) >= 0.01) {
+
+      if (this.isGangaStore()) {
+        if (paid <= 0) {
+          alert('Please enter at least one payment amount.');
+          return;
+        }
+        if (paid - total > 0.01) {
+          alert(`Payment total (₹${paid.toFixed(2)}) exceeds sale total (₹${total.toFixed(2)}). Please adjust payment amounts.`);
+          return;
+        }
+      } else if (Math.abs(total - paid) >= 0.01) {
         alert(`Payment total (₹${paid.toFixed(2)}) does not match sale total (₹${total.toFixed(2)}). Please adjust payment amounts.`);
         return;
       }
@@ -586,9 +629,10 @@ export class SalesComponent implements OnInit {
           date: now.toLocaleDateString('en-GB'),
           time: now.toLocaleTimeString('en-GB'),
           customer: this.customerName || 'Walk-in Customer',
+          gstin: this.gstin,
           items: receiptItems,
           subtotal,
-          taxLabel: '5% GST (included)',
+          taxLabel: 'GST (5% included)',
           tax,
           total,
           paymentMethod: paymentMethodLabel,
@@ -678,6 +722,28 @@ export class SalesComponent implements OnInit {
   }
 
   /**
+   * Start a part payment flow (Ganga wholesale only)
+   */
+  startPartPayment(appState: AppState): void {
+    this.useSplitPayment = true;
+    if (this.payments.length === 0) {
+      this.payments.push({
+        paymentMethod: 'CASH',
+        amount: 0,
+        reference: ''
+      });
+      return;
+    }
+
+    if (this.payments.length === 1) {
+      const total = this.getTotal(appState);
+      if (Math.abs(this.payments[0].amount - total) < 0.01) {
+        this.payments[0].amount = 0;
+      }
+    }
+  }
+
+  /**
    * Add a new payment row
    */
   addPaymentRow(): void {
@@ -729,7 +795,16 @@ export class SalesComponent implements OnInit {
       const paid = this.getTotalPayments();
       const hasValidPayments = this.payments.length > 0 && 
                                this.payments.every(p => p.amount > 0);
-      return hasValidPayments && Math.abs(total - paid) < 0.01; // Allow small rounding differences
+
+      if (!hasValidPayments) {
+        return false;
+      }
+
+      if (this.isGangaStore()) {
+        return paid <= total + 0.01;
+      }
+
+      return Math.abs(total - paid) < 0.01; // Allow small rounding differences
     }
     
     return true; // Single payment mode is always valid if cart has items
@@ -740,6 +815,13 @@ export class SalesComponent implements OnInit {
    */
   hasInvalidPaymentAmounts(): boolean {
     return this.payments.some(p => p.amount <= 0);
+  }
+
+  isGangaStore(): boolean {
+    const user = this.authService.getCurrentUser();
+    const locationIdMatch = !!user?.locationId && Number(user.locationId) === this.gangaLocationId;
+    const locationNameMatch = user?.locationName?.toLowerCase().includes('ganga') || false;
+    return locationIdMatch || locationNameMatch;
   }
 
   /**
@@ -924,9 +1006,9 @@ export class SalesComponent implements OnInit {
         console.log('Final returnedTotal:', returnedTotal);
         console.log('Final priceDifference:', priceDifference);
         
-        // Calculate subtotal and tax for new items
-        const subtotal = newTotal / 1.05; // Remove GST to get subtotal
-        const tax = newTotal - subtotal;
+  // Use backend-calculated subtotal and tax (GST included)
+  const subtotal = typeof newSale.subtotal === 'number' ? newSale.subtotal : newTotal;
+  const tax = typeof newSale.tax === 'number' ? newSale.tax : 0;
         
         // Format payment method
         let paymentMethodLabel = 'EXCHANGE';
@@ -942,11 +1024,12 @@ export class SalesComponent implements OnInit {
           date: now.toLocaleDateString('en-GB'),
           time: now.toLocaleTimeString('en-GB'),
           customer: this.exchangeSale?.customerName || 'Walk-in Customer',
+          gstin: this.gstin,
           items: newItems,
           subtotal,
-          taxLabel: '5% GST (included)',
+          taxLabel: 'GST (5% included)',
           tax,
-          total: newTotal,
+          total: subtotal,
           paymentMethod: paymentMethodLabel,
           locationName: locationName,
           locationAddress: locationAddress,

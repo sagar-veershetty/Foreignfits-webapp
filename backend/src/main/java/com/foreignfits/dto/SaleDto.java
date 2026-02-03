@@ -36,6 +36,9 @@ public class SaleDto {
     private Boolean isExchangeSale;
     private Long exchangeId;
     private BigDecimal exchangePriceDifference;
+    private BigDecimal paidAmount;
+    private BigDecimal pendingAmount;
+    private Sale.PaymentStatus paymentStatus;
     private UserDto soldBy;
     private LocationDto location;
     private LocalDateTime createdAt;
@@ -109,6 +112,15 @@ public class SaleDto {
     
     public BigDecimal getExchangePriceDifference() { return exchangePriceDifference; }
     public void setExchangePriceDifference(BigDecimal exchangePriceDifference) { this.exchangePriceDifference = exchangePriceDifference; }
+
+    public BigDecimal getPaidAmount() { return paidAmount; }
+    public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
+
+    public BigDecimal getPendingAmount() { return pendingAmount; }
+    public void setPendingAmount(BigDecimal pendingAmount) { this.pendingAmount = pendingAmount; }
+
+    public Sale.PaymentStatus getPaymentStatus() { return paymentStatus; }
+    public void setPaymentStatus(Sale.PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
     
     public UserDto getSoldBy() { return soldBy; }
     public void setSoldBy(UserDto soldBy) { this.soldBy = soldBy; }

@@ -539,6 +539,31 @@ export class AppService {
       );
   }
 
+  /**
+   * Record a follow-up payment against an existing sale
+   */
+  collectSalePayment(saleId: string, payment: { paymentMethod: string; amount: number; reference?: string }): Observable<Sale> {
+    return this.http.post<any>(`${this.API_BASE_URL}/sales/${saleId}/payments`, payment)
+      .pipe(
+        map(apiSale => this.convertApiSaleToSale(apiSale)),
+        tap(updatedSale => {
+          const currentState = this._appStateSubject.value;
+          const existingIndex = currentState.sales.findIndex(s => s.id === updatedSale.id);
+          const updatedSales = existingIndex >= 0
+            ? currentState.sales.map(s => (s.id === updatedSale.id ? updatedSale : s))
+            : [...currentState.sales, updatedSale];
+
+          this.updateAppState({
+            ...currentState,
+            sales: updatedSales
+          });
+        }),
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
 
   /**
    * Delete a sale by ID (ADMIN only)
@@ -821,6 +846,9 @@ export class AppService {
       isExchangeSale: apiSale.isExchangeSale ?? false,
       exchangeId: apiSale.exchangeId ?? undefined,
       exchangePriceDifference: apiSale.exchangePriceDifference ?? undefined,
+      paidAmount: apiSale.paidAmount ?? undefined,
+      pendingAmount: apiSale.pendingAmount ?? undefined,
+      paymentStatus: apiSale.paymentStatus ?? undefined,
       createdAt: apiSale.createdAt ? new Date(apiSale.createdAt) : new Date(),
     };
   }

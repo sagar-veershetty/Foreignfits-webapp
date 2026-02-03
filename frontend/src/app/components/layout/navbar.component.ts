@@ -48,6 +48,12 @@ export class NavbarComponent {
       iconPath: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'
     },
     { 
+      id: 'pending-payments', 
+      label: 'Pending Payments', 
+      route: '/pending-payments',
+      iconPath: 'M12 8c-1.657 0-3 1.343-3 3v3a3 3 0 006 0v-3c0-1.657-1.343-3-3-3zm0-5a5 5 0 00-5 5v1a5 5 0 0010 0V8a5 5 0 00-5-5z'
+    },
+    { 
       id: 'add-product', 
       label: 'Add Product', 
       route: '/add-product',
@@ -132,6 +138,14 @@ export class NavbarComponent {
     // Sales History - available to users with view sales history permission
     if (this.authService.canViewSalesHistory()) {
       tabs.push(this.tabs.find(t => t.id === 'sales-history')!);
+
+      const isAdmin = this.authService.hasCrossLocationAccess();
+      const locationName = user.locationName?.toLowerCase() || '';
+      const isGangaStore = locationName.includes('ganga');
+
+      if (isAdmin || isGangaStore) {
+        tabs.push(this.tabs.find(t => t.id === 'pending-payments')!);
+      }
     }
     
     // Add Product - available to users with add product permission (admin only)
