@@ -487,7 +487,9 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   taxLabel: 'GST (5% included)',
       tax: this.selectedSale.tax,
       total: this.selectedSale.total,
-      paymentMethod: this.selectedSale.paymentMethod.toUpperCase()
+      paymentMethod: this.selectedSale.paymentMethod.toUpperCase(),
+      paidAmount: this.getPaidAmount(this.selectedSale),
+      pendingAmount: this.getPendingAmount(this.selectedSale)
     };
 
     // Close sale details modal and open receipt modal

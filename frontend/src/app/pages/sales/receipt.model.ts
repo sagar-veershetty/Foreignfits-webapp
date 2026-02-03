@@ -31,6 +31,8 @@ export interface ReceiptData {
   tax: number;
   total: number;
   paymentMethod: string;
+  paidAmount?: number;
+  pendingAmount?: number;
   locationName?: string; // Store location name for dynamic address
   locationAddress?: string; // Store location address
   locationPhone?: string; // Store location phone numbers

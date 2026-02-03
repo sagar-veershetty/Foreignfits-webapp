@@ -127,6 +127,16 @@
         <div>PAYMENT METHOD</div>
         <div>{{ receipt?.paymentMethod }}</div>
       </div>
+      <div *ngIf="receipt?.pendingAmount && receipt?.pendingAmount > 0" style="margin-top: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px;">
+          <span>Paid:</span>
+          <span>₹{{ receipt?.paidAmount?.toFixed(2) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #dc2626;">
+          <span>Pending:</span>
+          <span>₹{{ receipt?.pendingAmount?.toFixed(2) }}</span>
+        </div>
+      </div>
       
       <!-- Generated Coupon Section -->
       <div *ngIf="receipt?.generatedCoupon" style="margin-top: 20px; padding: 15px; border: 3px solid #9333ea; border-radius: 8px; background-color: #faf5ff; text-align: center;">

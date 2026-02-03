@@ -590,6 +590,8 @@ export class SalesComponent implements OnInit {
         const subtotal = this.getSubtotal(appState);
         const tax = this.getTax(appState);
         const total = this.getTotal(appState);
+  const paidAmount = this.useSplitPayment ? this.getTotalPayments() : total;
+  const pendingAmount = Math.max(0, total - paidAmount);
         
         // Format payment method for receipt
         let paymentMethodLabel = '';
@@ -635,6 +637,8 @@ export class SalesComponent implements OnInit {
           taxLabel: 'GST (5% included)',
           tax,
           total,
+          paidAmount,
+          pendingAmount,
           paymentMethod: paymentMethodLabel,
           locationName: locationName,
           locationAddress: locationAddress,
