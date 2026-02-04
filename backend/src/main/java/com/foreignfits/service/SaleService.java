@@ -19,6 +19,7 @@ import com.foreignfits.repository.StockMovementRepository;
 import com.foreignfits.repository.StockTransferRepository;
 import com.foreignfits.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +40,6 @@ public class SaleService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockMovementRepository stockMovementRepository;
-    private final LoyaltyService loyaltyService;
     private final LocationInventoryRepository locationInventoryRepository;
     private final LocationRepository locationRepository;
     private final StockTransferRepository stockTransferRepository;
@@ -326,7 +326,14 @@ public class SaleService {
         sale.setSoldBy(soldBy);
         sale.setLocation(saleLocation); // ✅ Set the location where sale was made
         
-        Sale savedSale = saleRepository.save(sale);
+        Sale savedSale;
+        try {
+            savedSale = saleRepository.save(sale);
+        } catch (DataIntegrityViolationException ex) {
+            Long maxId = saleRepository.findMaxId();
+            saleRepository.resetIdentity(maxId + 1);
+            savedSale = saleRepository.save(sale);
+        }
         
         System.out.println("=== SALE SAVED - ID: " + savedSale.getId() + ", Total: ₹" + savedSale.getTotal() + ", Coupon Discount: ₹" + couponDiscount);
         
@@ -415,7 +422,7 @@ public class SaleService {
             payment.setAmount(savedSale.getTotal());
             payment.setReference(null); // No reference for old format
             SalePayment savedPayment = salePaymentRepository.save(payment);
-            savedSale.setPayments(List.of(savedPayment));
+            savedSale.setPayments(new ArrayList<>(List.of(savedPayment)));
 
             paidAmount = savedSale.getTotal();
             pendingAmount = BigDecimal.ZERO;

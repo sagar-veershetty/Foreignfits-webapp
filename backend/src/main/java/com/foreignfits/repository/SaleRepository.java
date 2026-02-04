@@ -2,6 +2,7 @@ package com.foreignfits.repository;
 
 import com.foreignfits.entity.Sale;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -37,4 +38,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     
     @Query("SELECT SUM(s.total) FROM Sale s WHERE s.createdAt = CURRENT_DATE")
     BigDecimal getTodaysRevenue();
+
+    @Query("SELECT COALESCE(MAX(s.id), 0) FROM Sale s")
+    Long findMaxId();
+
+    @Modifying
+    @Query(value = "ALTER TABLE sales ALTER COLUMN id RESTART WITH ?1", nativeQuery = true)
+    void resetIdentity(Long nextId);
 }

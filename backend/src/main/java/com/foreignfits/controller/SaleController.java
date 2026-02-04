@@ -143,13 +143,16 @@ public class SaleController {
             SaleDto sale = saleService.createSale(request, userId);
             return ResponseEntity.ok(sale);
         } catch (Exception e) {
+            String message = (e.getMessage() != null && !e.getMessage().isBlank())
+                    ? e.getMessage()
+                    : "Unexpected error while creating sale";
+
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("error", message);
+            payload.put("type", e.getClass().getSimpleName());
+
             // Return detailed error message for debugging
-            return ResponseEntity.badRequest().body(
-                java.util.Map.of(
-                    "error", e.getMessage(),
-                    "type", e.getClass().getSimpleName()
-                )
-            );
+            return ResponseEntity.badRequest().body(payload);
         }
     }
 
@@ -176,12 +179,15 @@ public class SaleController {
             SaleDto updatedSale = saleService.addPaymentToSale(id, request);
             return ResponseEntity.ok(updatedSale);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(
-                java.util.Map.of(
-                    "error", e.getMessage(),
-                    "type", e.getClass().getSimpleName()
-                )
-            );
+            String message = (e.getMessage() != null && !e.getMessage().isBlank())
+                    ? e.getMessage()
+                    : "Unexpected error while collecting payment";
+
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("error", message);
+            payload.put("type", e.getClass().getSimpleName());
+
+            return ResponseEntity.badRequest().body(payload);
         }
     }
     @DeleteMapping("/{id}")

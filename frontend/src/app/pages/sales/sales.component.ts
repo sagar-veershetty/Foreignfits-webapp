@@ -686,10 +686,13 @@ export class SalesComponent implements OnInit {
         } else if (status === 403) {
           alert("You don't have permission to complete sales. Please sign in as Sales or Admin.");
         } else if (status === 400) {
-          const message = err?.error?.message || err?.error?.error || 'Request invalid.';
+          const message = typeof err?.error === 'string'
+            ? err.error
+            : err?.error?.message || err?.error?.error || 'Request invalid.';
           alert(`Failed to complete sale: ${message}`);
         } else {
-          alert('Failed to complete sale. Please try again.');
+          const message = err?.error?.message || err?.error?.error || err?.error || 'Failed to complete sale. Please try again.';
+          alert(`Failed to complete sale: ${message}`);
         }
       }
     });

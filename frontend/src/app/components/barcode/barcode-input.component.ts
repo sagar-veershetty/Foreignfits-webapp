@@ -21,7 +21,7 @@ import { ZXingScannerModule } from '@zxing/ngx-scanner';
         (keydown.enter)="handleEnter()"
         class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
       />
-      <button type="button" (click)="showScanner = true" class="absolute inset-y-0 right-2 my-auto h-8 px-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs">
+      <button type="button" (click)="openScanner()" class="absolute inset-y-0 right-2 my-auto h-8 px-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs">
         Scan
       </button>
 
@@ -47,13 +47,22 @@ import { ZXingScannerModule } from '@zxing/ngx-scanner';
             <p class="text-xs">• Try different angles if not detecting</p>
           </div>
 
+          <div *ngIf="cameraError" class="w-full rounded-md bg-red-50 border border-red-200 text-red-700 text-xs p-2 mb-2 text-center">
+            {{ cameraError }}
+          </div>
+
           <zxing-scanner
             (scanSuccess)="onCodeResult($event)"
             (camerasFound)="onCamerasFound($event)"
+            (camerasNotFound)="onCamerasNotFound()"
+            (permissionResponse)="onPermissionResponse($event)"
             (torchCompatible)="onTorchCompatible($event)"
+            (scanError)="onScanError($event)"
             [formats]="barcodeFormats"
             [tryHarder]="true"
             [enable]="showScanner"
+            [device]="preferredCamera"
+            [videoConstraints]="videoConstraints"
             [autofocusEnabled]="true"
             [torch]="torchEnabled"
             style="width:100%;height:300px;"
@@ -77,6 +86,19 @@ export class BarcodeInputComponent implements OnChanges {
   showScanner = false;
   torchEnabled = false;
   torchAvailable = false;
+  cameraError = '';
+  preferredCamera: MediaDeviceInfo | undefined;
+
+  readonly isSecureContext =
+    (typeof window !== 'undefined' && window.isSecureContext) ||
+    (typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname));
+  readonly isIos = typeof navigator !== 'undefined'
+    ? /iPad|iPhone|iPod/.test(navigator.userAgent)
+    : false;
+
+  readonly videoConstraints: MediaTrackConstraints = {
+    facingMode: { ideal: 'environment' }
+  };
 
   // Add more barcode formats including QR code for better detection
   barcodeFormats = [
@@ -112,6 +134,23 @@ export class BarcodeInputComponent implements OnChanges {
     this.emitScan();
   }
 
+  openScanner() {
+    this.cameraError = '';
+  this.preferredCamera = undefined;
+
+    if (!this.isSecureContext) {
+      this.showScanner = true;
+      this.cameraError = 'Camera access is blocked on HTTP. Please open this site over HTTPS to use the scanner.';
+      return;
+    }
+
+    if (this.isIos) {
+      this.cameraError = 'On iOS, allow camera permissions in Safari and ensure the page is opened over HTTPS.';
+    }
+
+  this.showScanner = true;
+  }
+
   onCodeResult(result: string) {
     if (result) {
       this.scan.emit(result);
@@ -129,10 +168,36 @@ export class BarcodeInputComponent implements OnChanges {
   closeScanner() {
     this.showScanner = false;
     this.torchEnabled = false;
+    this.cameraError = '';
   }
 
-  onCamerasFound(cameras: any[]) {
-    // Cameras found callback
+  onCamerasFound(cameras: MediaDeviceInfo[]) {
+    if (!cameras || cameras.length === 0) {
+      this.cameraError = 'No cameras were detected on this device.';
+      return;
+    }
+
+    const backCamera = cameras.find(camera =>
+      /back|rear|environment/i.test(camera.label)
+    );
+
+    this.preferredCamera = backCamera || cameras[0];
+  }
+
+  onCamerasNotFound() {
+    this.cameraError = 'No cameras were detected on this device.';
+  }
+
+  onPermissionResponse(allowed: boolean) {
+    if (!allowed) {
+      this.cameraError = 'Camera permission denied. Please allow camera access and try again.';
+    }
+  }
+
+  onScanError(error: unknown) {
+    if (error) {
+      this.cameraError = 'Unable to access the camera. Please check permissions and try again.';
+    }
   }
 
   onTorchCompatible(isCompatible: boolean) {

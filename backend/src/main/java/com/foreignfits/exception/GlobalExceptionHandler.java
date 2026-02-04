@@ -10,6 +10,15 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<String> handleRuntimeException(RuntimeException e) {
+        log.error("=== RUNTIME EXCEPTION CAUGHT ===", e);
+        log.error("Exception Type: {}", e.getClass().getName());
+        log.error("Exception Message: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Error: " + e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleException(Exception e) {
         log.error("=== EXCEPTION CAUGHT ===", e);
