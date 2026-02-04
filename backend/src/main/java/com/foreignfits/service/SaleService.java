@@ -9,6 +9,7 @@ import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CollectSalePaymentRequest;
 import com.foreignfits.dto.request.CreateSaleRequest;
 import com.foreignfits.dto.request.SaleItemRequest;
+import com.foreignfits.dto.request.UpdateSalePaymentMethodRequest;
 import com.foreignfits.entity.*;
 import com.foreignfits.repository.LocationInventoryRepository;
 import com.foreignfits.repository.LocationRepository;
@@ -103,8 +104,9 @@ public class SaleService {
             throw new RuntimeException("Invalid payment method: " + request.getPaymentMethod() +
                 ". Valid values are: CASH, CARD, UPI, OTHER");
         }
-        payment.setAmount(amount);
+    payment.setAmount(amount);
         payment.setReference(request.getReference());
+    payment.setCreatedAt(LocalDateTime.now());
         SalePayment savedPayment = salePaymentRepository.save(payment);
 
         List<SalePayment> payments = sale.getPayments();
@@ -128,6 +130,39 @@ public class SaleService {
 
         Sale updatedSale = saleRepository.save(sale);
         return convertToDto(updatedSale);
+    }
+
+    public SaleDto updatePaymentMethod(Long saleId, Long paymentId, UpdateSalePaymentMethodRequest request) {
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + saleId));
+
+        SalePayment payment = salePaymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Payment not found with id: " + paymentId));
+
+        if (payment.getSale() == null || !payment.getSale().getId().equals(saleId)) {
+            throw new RuntimeException("Payment does not belong to this sale");
+        }
+
+        try {
+            payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(request.getPaymentMethod()));
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid payment method: " + request.getPaymentMethod() +
+                ". Valid values are: CASH, CARD, UPI, OTHER");
+        }
+
+        salePaymentRepository.save(payment);
+
+        if (sale.getPayments() != null && sale.getPayments().size() == 1) {
+            try {
+                sale.setPaymentMethod(Sale.PaymentMethod.valueOf(request.getPaymentMethod()));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore if invalid for sale.paymentMethod; payment is already updated.
+            }
+            saleRepository.save(sale);
+        }
+
+        return convertToDto(saleRepository.findById(saleId)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + saleId)));
     }
     
     public SaleDto createSale(CreateSaleRequest request, Long soldById) {
@@ -394,6 +429,7 @@ public class SaleService {
                     payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(paymentDto.getPaymentMethod()));
                     payment.setAmount(paymentDto.getAmount());
                     payment.setReference(paymentDto.getReference());
+                    payment.setCreatedAt(LocalDateTime.now());
                     payments.add(salePaymentRepository.save(payment));
                 } catch (IllegalArgumentException e) {
                     throw new RuntimeException("Invalid payment method: " + paymentDto.getPaymentMethod() + 
@@ -421,6 +457,7 @@ public class SaleService {
             payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(request.getPaymentMethod().name()));
             payment.setAmount(savedSale.getTotal());
             payment.setReference(null); // No reference for old format
+            payment.setCreatedAt(LocalDateTime.now());
             SalePayment savedPayment = salePaymentRepository.save(payment);
             savedSale.setPayments(new ArrayList<>(List.of(savedPayment)));
 
@@ -728,6 +765,7 @@ public class SaleService {
         dto.setPaymentMethod(payment.getPaymentMethod().name());
         dto.setAmount(payment.getAmount());
         dto.setReference(payment.getReference());
+    dto.setCreatedAt(payment.getCreatedAt());
         return dto;
     }
     

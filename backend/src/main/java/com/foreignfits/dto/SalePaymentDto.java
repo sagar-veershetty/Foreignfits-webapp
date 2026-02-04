@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -22,6 +23,8 @@ public class SalePaymentDto {
     private BigDecimal amount;
     
     private String reference;
+
+    private LocalDateTime createdAt;
     
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -34,4 +37,7 @@ public class SalePaymentDto {
     
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

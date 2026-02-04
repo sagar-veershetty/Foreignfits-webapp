@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "sale_payments")
@@ -39,6 +40,9 @@ public class SalePayment {
     
     @Column(name = "reference", length = 100)
     private String reference; // For card transaction ID, check number, etc.
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
     
     public enum PaymentMethod {
         CASH, CARD, UPI, OTHER // Keep OTHER for backward compatibility with existing data
@@ -59,4 +63,7 @@ public class SalePayment {
     
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

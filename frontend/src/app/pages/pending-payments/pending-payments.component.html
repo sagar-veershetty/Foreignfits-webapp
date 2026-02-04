@@ -54,7 +54,7 @@
         <p class="text-gray-500 text-sm">No pending payments found.</p>
       </div>
 
-      <div *ngFor="let sale of getPendingSales(appState)" class="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+      <div *ngFor="let sale of getPendingSales(appState)" (click)="openSaleDetails(sale)" class="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center gap-4 cursor-pointer hover:bg-orange-50 transition-colors">
         <div class="flex-1">
           <div class="flex items-center gap-3">
             <p class="text-sm font-semibold text-orange-600">#{{ sale.id.slice(0, 8).toUpperCase() }}</p>
@@ -82,7 +82,7 @@
             <p class="text-xs text-gray-500">Paid: ₹{{ getPaidAmount(sale).toFixed(2) }}</p>
           </div>
           <button
-            (click)="openCollectModal(sale)"
+            (click)="openSaleDetails(sale); $event.stopPropagation()"
             class="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700"
           >
             Collect Payment
@@ -93,62 +93,129 @@
   </div>
 </div>
 
-<div *ngIf="showCollectModal && selectedSale" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4" (click)="closeCollectModal()">
-  <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-5" (click)="$event.stopPropagation()">
-    <div class="flex items-center justify-between mb-4">
-      <div>
-        <h2 class="text-lg font-bold text-gray-900">Collect Payment</h2>
-        <p class="text-xs text-gray-500">Bill #{{ selectedSale.id.slice(0, 8).toUpperCase() }}</p>
+<div *ngIf="showSaleDetails && selectedSale" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4" (click)="closeSaleDetails()">
+  <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" (click)="$event.stopPropagation()">
+    <div class="sticky top-0 bg-gradient-to-r from-orange-500 to-amber-600 text-white px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center rounded-t-xl z-10">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-lg sm:text-2xl font-bold truncate">Sale Details</h2>
+        <p class="text-orange-100 text-xs sm:text-sm truncate">Bill #{{ selectedSale.id.slice(0, 8).toUpperCase() }}</p>
       </div>
-      <button (click)="closeCollectModal()" class="text-gray-400 hover:text-gray-600">
-        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <button (click)="closeSaleDetails()" class="text-white hover:bg-orange-400 rounded-lg p-2 transition-colors flex-shrink-0 ml-2">
+        <svg class="h-5 w-5 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
 
-    <div class="grid grid-cols-1 gap-3">
-      <div>
-        <label class="text-xs text-gray-600">Payment Method</label>
-        <select [(ngModel)]="collectPaymentMethod" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-          <option value="CASH">Cash</option>
-          <option value="CARD">Card</option>
-          <option value="UPI">UPI</option>
-          <option value="OTHER">Other</option>
-        </select>
+    <div class="p-4 sm:p-6 space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Date & Time</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.createdAt | date:'MMM d, y h:mm a' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Customer</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.customerName || 'Walk-in Customer' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Mobile Number</p>
+          <p class="text-sm font-semibold text-gray-900">
+            <span *ngIf="selectedSale.customerPhone && selectedSale.customerCountryCode">
+              {{ selectedSale.customerCountryCode }} {{ selectedSale.customerPhone }}
+            </span>
+            <span *ngIf="!selectedSale.customerPhone" class="text-gray-400">N/A</span>
+          </p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Sales Person</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.salesPersonName || 'N/A' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Payment Method</p>
+          <span *ngIf="!hasSplitPayment(selectedSale)" [class]="getPaymentMethodClass(selectedSale.paymentMethod)">
+            {{ selectedSale.paymentMethod.toUpperCase() }}
+          </span>
+          <div *ngIf="!hasSplitPayment(selectedSale) && selectedSale.payments?.[0]?.createdAt" class="text-[11px] text-gray-500 mt-1">
+            Received: {{ selectedSale.payments?.[0]?.createdAt | date:'MMM d, y h:mm a' }}
+          </div>
+          <div *ngIf="hasSplitPayment(selectedSale)" class="space-y-2">
+            <div *ngFor="let payment of selectedSale.payments" class="flex justify-between items-start">
+              <div class="space-y-1">
+                <span [class]="getPaymentMethodClass(payment.paymentMethod.toLowerCase())">
+                  {{ payment.paymentMethod }}
+                </span>
+                <p *ngIf="payment.createdAt" class="text-[11px] text-gray-500">
+                  Received: {{ payment.createdAt | date:'MMM d, y h:mm a' }}
+                </p>
+              </div>
+              <span class="text-sm font-semibold text-gray-900">₹{{ payment.amount.toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Payment Status</p>
+          <p class="text-sm font-semibold text-gray-900">{{ getPaymentStatusLabel(selectedSale) }}</p>
+          <div class="mt-2 text-xs text-gray-600 space-y-1">
+            <div class="flex justify-between">
+              <span>Paid</span>
+              <span class="font-semibold">₹{{ getPaidAmount(selectedSale).toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between" *ngIf="getPendingAmount(selectedSale) > 0">
+              <span>Pending</span>
+              <span class="font-semibold text-orange-600">₹{{ getPendingAmount(selectedSale).toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Sold By</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.soldBy || 'N/A' }}</p>
+        </div>
+        <div class="bg-gray-50 p-3 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Location</p>
+          <p class="text-sm font-semibold text-gray-900">{{ selectedSale.location.name || 'N/A' }}</p>
+        </div>
       </div>
-      <div>
-        <label class="text-xs text-gray-600">Amount</label>
-        <input type="number" min="0" step="0.01" [(ngModel)]="collectPaymentAmount"
-               class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-yellow-900 mb-3">Collect Pending Payment</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs text-gray-600">Payment Method</label>
+            <select [(ngModel)]="collectPaymentMethod" class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="CASH">Cash</option>
+              <option value="CARD">Card</option>
+              <option value="UPI">UPI</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-gray-600">Amount</label>
+            <input type="number" min="0" step="0.01" [(ngModel)]="collectPaymentAmount"
+                   class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label class="text-xs text-gray-600">Reference (optional)</label>
+            <input type="text" [(ngModel)]="collectPaymentReference"
+                   class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+          </div>
+        </div>
+
+        <div *ngIf="collectPaymentError" class="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+          {{ collectPaymentError }}
+        </div>
+        <div *ngIf="collectPaymentSuccess" class="mt-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
+          {{ collectPaymentSuccess }}
+        </div>
+
+        <div class="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <button (click)="recordFollowUpPayment()"
+                  [disabled]="isCollectingPayment"
+                  class="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:bg-gray-300">
+            {{ isCollectingPayment ? 'Recording...' : 'Record Payment' }}
+          </button>
+          <p class="text-xs text-gray-600">Pending balance: ₹{{ getPendingAmount(selectedSale).toFixed(2) }}</p>
+        </div>
       </div>
-      <div>
-        <label class="text-xs text-gray-600">Reference (optional)</label>
-        <input type="text" [(ngModel)]="collectPaymentReference"
-               class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-      </div>
-    </div>
-
-    <div class="mt-3 text-xs text-gray-600">
-      Pending balance: ₹{{ getPendingAmount(selectedSale).toFixed(2) }}
-    </div>
-
-    <div *ngIf="collectPaymentError" class="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
-      {{ collectPaymentError }}
-    </div>
-    <div *ngIf="collectPaymentSuccess" class="mt-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
-      {{ collectPaymentSuccess }}
-    </div>
-
-    <div class="mt-4 flex items-center gap-3">
-      <button (click)="recordFollowUpPayment()"
-              [disabled]="isCollectingPayment"
-              class="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:bg-gray-300">
-        {{ isCollectingPayment ? 'Recording...' : 'Record Payment' }}
-      </button>
-      <button (click)="closeCollectModal()" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200">
-        Cancel
-      </button>
     </div>
   </div>
 </div>

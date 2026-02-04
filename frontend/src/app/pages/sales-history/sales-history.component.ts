@@ -48,6 +48,12 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   collectPaymentSuccess = '';
   isCollectingPayment = false;
 
+  editingPaymentId: string | null = null;
+  editingPaymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER' = 'CASH';
+  updatePaymentError = '';
+  updatePaymentSuccess = '';
+  isUpdatingPayment = false;
+
   // Receipt modal
   showReceiptModal = false;
   receiptData: ReceiptData | null = null;
@@ -255,6 +261,46 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     }
 
     return 'PAID';
+  }
+
+  startEditPayment(paymentId?: string, paymentMethod?: 'CASH' | 'CARD' | 'UPI' | 'OTHER'): void {
+    if (!paymentId) return;
+    this.editingPaymentId = paymentId;
+    this.editingPaymentMethod = paymentMethod || 'CASH';
+    this.updatePaymentError = '';
+    this.updatePaymentSuccess = '';
+  }
+
+  cancelEditPayment(): void {
+    this.editingPaymentId = null;
+    this.updatePaymentError = '';
+    this.updatePaymentSuccess = '';
+  }
+
+  savePaymentMethod(sale: Sale, paymentId?: string): void {
+    if (!paymentId) return;
+
+    this.isUpdatingPayment = true;
+    this.updatePaymentError = '';
+    this.updatePaymentSuccess = '';
+
+    this.appService.updateSalePaymentMethod(sale.id, paymentId, this.editingPaymentMethod)
+      .subscribe({
+        next: (updatedSale) => {
+          this.selectedSale = updatedSale;
+          this.editingPaymentId = null;
+          this.updatePaymentSuccess = 'Payment method updated.';
+          this.appService.refreshSales().subscribe();
+        },
+        error: (err) => {
+          const message = err?.error?.error || err?.error?.message || 'Failed to update payment method.';
+          this.updatePaymentError = message;
+          this.isUpdatingPayment = false;
+        },
+        complete: () => {
+          this.isUpdatingPayment = false;
+        }
+      });
   }
 
   /**

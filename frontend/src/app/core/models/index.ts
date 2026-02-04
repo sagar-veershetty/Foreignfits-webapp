@@ -150,6 +150,7 @@ export interface SalePayment {
   paymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER';
   amount: number;
   reference?: string;
+  createdAt?: Date;
 }
 
 export interface Sale {

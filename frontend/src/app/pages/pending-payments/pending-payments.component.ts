@@ -19,7 +19,7 @@ export class PendingPaymentsComponent implements OnInit {
   searchQuery = '';
   locationFilter: string = 'all';
 
-  showCollectModal = false;
+  showSaleDetails = false;
   selectedSale: Sale | null = null;
   collectPaymentAmount = 0;
   collectPaymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER' = 'CASH';
@@ -105,18 +105,45 @@ export class PendingPaymentsComponent implements OnInit {
     return pending > 0 ? pending : 0;
   }
 
-  openCollectModal(sale: Sale): void {
+  getPaymentMethodClass(method: string): string {
+    const classes = {
+      cash: 'px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800',
+      card: 'px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800',
+      upi: 'px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800',
+      other: 'px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800'
+    };
+    return classes[method as keyof typeof classes] || classes.other;
+  }
+
+  hasSplitPayment(sale: Sale): boolean {
+    return !!(sale.payments && sale.payments.length > 1);
+  }
+
+  getPaymentStatusLabel(sale: Sale): string {
+    if (sale.paymentStatus) {
+      return sale.paymentStatus.replace('_', ' ');
+    }
+
+    const pending = this.getPendingAmount(sale);
+    if (pending > 0) {
+      return 'PARTIALLY PAID';
+    }
+
+    return 'PAID';
+  }
+
+  openSaleDetails(sale: Sale): void {
     this.selectedSale = sale;
     this.collectPaymentAmount = this.getPendingAmount(sale);
     this.collectPaymentMethod = 'CASH';
     this.collectPaymentReference = '';
     this.collectPaymentError = '';
     this.collectPaymentSuccess = '';
-    this.showCollectModal = true;
+    this.showSaleDetails = true;
   }
 
-  closeCollectModal(): void {
-    this.showCollectModal = false;
+  closeSaleDetails(): void {
+    this.showSaleDetails = false;
     this.selectedSale = null;
     this.collectPaymentError = '';
     this.collectPaymentSuccess = '';
