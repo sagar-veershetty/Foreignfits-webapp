@@ -381,42 +381,47 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     }
     
     // Filter by date
-    if (this.filterMode === 'all') return sales;
+    let filtered = sales;
 
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (this.filterMode !== 'all') {
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    if (this.filterMode === 'today') {
-      return sales.filter(s => new Date(s.createdAt).getTime() >= startOfToday.getTime());
+      if (this.filterMode === 'today') {
+        filtered = sales.filter(s => new Date(s.createdAt).getTime() >= startOfToday.getTime());
+      } else if (this.filterMode === 'week') {
+        // Start of the current week (Mon) at 00:00
+        const day = startOfToday.getDay();
+        const diffToMonday = (day === 0 ? -6 : 1 - day); // Sunday -> -6
+        const startOfWeek = new Date(startOfToday);
+        startOfWeek.setDate(startOfToday.getDate() + diffToMonday);
+        filtered = sales.filter(s => new Date(s.createdAt).getTime() >= startOfWeek.getTime());
+      } else if (this.filterMode === 'month') {
+        // Start of the current month at 00:00
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        filtered = sales.filter(s => new Date(s.createdAt).getTime() >= startOfMonth.getTime());
+      } else if (this.filterMode === 'range' && this.fromDate && this.toDate) {
+        const start = new Date(this.fromDate);
+        const end = new Date(this.toDate);
+        // Include the whole end day
+        end.setHours(23, 59, 59, 999);
+        filtered = sales.filter(s => {
+          const t = new Date(s.createdAt).getTime();
+          return t >= start.getTime() && t <= end.getTime();
+        });
+      }
     }
 
-    if (this.filterMode === 'week') {
-      // Start of the current week (Mon) at 00:00
-      const day = startOfToday.getDay();
-      const diffToMonday = (day === 0 ? -6 : 1 - day); // Sunday -> -6
-      const startOfWeek = new Date(startOfToday);
-      startOfWeek.setDate(startOfToday.getDate() + diffToMonday);
-      return sales.filter(s => new Date(s.createdAt).getTime() >= startOfWeek.getTime());
-    }
+    return filtered.sort((a, b) => {
+      const aId = Number(a.id);
+      const bId = Number(b.id);
 
-    if (this.filterMode === 'month') {
-      // Start of the current month at 00:00
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      return sales.filter(s => new Date(s.createdAt).getTime() >= startOfMonth.getTime());
-    }
+      if (!Number.isNaN(aId) && !Number.isNaN(bId)) {
+        return bId - aId;
+      }
 
-    if (this.filterMode === 'range' && this.fromDate && this.toDate) {
-      const start = new Date(this.fromDate);
-      const end = new Date(this.toDate);
-      // Include the whole end day
-      end.setHours(23, 59, 59, 999);
-      return sales.filter(s => {
-        const t = new Date(s.createdAt).getTime();
-        return t >= start.getTime() && t <= end.getTime();
-      });
-    }
-
-    return sales;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }
 
   getFilteredCount(appState: AppState): number {
