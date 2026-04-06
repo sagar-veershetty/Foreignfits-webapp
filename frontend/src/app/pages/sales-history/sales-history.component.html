@@ -172,6 +172,14 @@
               <p class="text-gray-500">Location</p>
               <p class="font-medium text-gray-900 text-xs truncate">{{ sale.location.name }}</p>
             </div>
+            <div>
+              <p class="text-gray-500">Sales Summary</p>
+              <div class="text-[11px] text-gray-600">
+                <div *ngFor="let summary of getSalesPersonSummary(sale)">
+                  {{ summary.name }}: {{ summary.items }} item(s)
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -228,8 +236,13 @@
               (click)="viewSaleDetails(sale)"
               class="hover:bg-blue-50 transition-colors cursor-pointer">
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">
-                {{ sale.createdAt | date:'short' }}
+              <div class="text-sm text-gray-700">
+                {{ sale.salesPersonName || '—' }}
+              </div>
+              <div class="text-[11px] text-gray-500 mt-1">
+                <div *ngFor="let summary of getSalesPersonSummary(sale)">
+                  {{ summary.name }}: {{ summary.items }} item(s)
+                </div>
               </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -582,6 +595,17 @@
         </div>
       </div>
 
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">Sales Person Summary</h3>
+        <div class="space-y-2">
+          <div *ngFor="let summary of getSalesPersonSummary(selectedSale)" class="flex justify-between text-sm">
+            <span class="font-medium text-gray-800">{{ summary.name }}</span>
+            <span class="text-gray-600">{{ summary.items }} item(s) • {{ summary.quantity }} qty</span>
+          </div>
+          <div *ngIf="getSalesPersonSummary(selectedSale).length === 0" class="text-xs text-gray-400">No items recorded.</div>
+        </div>
+      </div>
+
       <!-- Exchange Information -->
       <div *ngIf="selectedSale.isExchangeSale" 
            class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-5 shadow-md">
@@ -712,6 +736,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Color</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sales Person</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barcodes</th>
                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Qty</th>
                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price</th>
@@ -726,6 +751,9 @@
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-700">{{ item.product.size }}</td>
                 <td class="px-4 py-3 text-sm text-gray-700">{{ item.product.color }}</td>
+                <td class="px-4 py-3 text-sm text-gray-700">
+                  {{ item.salesPersonName || selectedSale.salesPersonName || '—' }}
+                </td>
                 <td class="px-4 py-3">
                   <div *ngIf="item.barcodes && item.barcodes.length > 0" class="flex flex-wrap gap-1">
                     <span *ngFor="let barcode of item.barcodes" 

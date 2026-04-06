@@ -480,6 +480,21 @@ export class AppService {
     });
   }
 
+  updateSaleItemSalesPerson(productId: string, salesPersonName?: string): void {
+    const currentState = this._appStateSubject.value;
+    this.updateAppState({
+      ...currentState,
+      currentSale: currentState.currentSale.map(item =>
+        item.productId === productId
+          ? {
+              ...item,
+              salesPersonName: salesPersonName?.trim() || undefined
+            }
+          : item
+      )
+    });
+  }
+
   // Barcode lookup
   lookupBarcode(barcodeNumber: string): Observable<any> {
     return this.http.get<any>(`${this.API_BASE_URL}/barcodes/lookup/${barcodeNumber}`)
@@ -830,6 +845,7 @@ export class AppService {
           price: item.price,
           total: item.total,
           barcodes,
+          salesPersonName: item.salesPersonName || undefined,
           // Preserve per-barcode pricing when backend provides it (used in exchanges/receipts)
           barcodePrices: item.barcodePrices || undefined
         };
@@ -960,7 +976,8 @@ export class AppService {
       items: items.map(item => ({
         productId: parseInt(item.productId),
         quantity: item.quantity,
-        barcodeNumbers: item.barcodes || [] // Send scanned barcode numbers
+        barcodeNumbers: item.barcodes || [], // Send scanned barcode numbers
+        salesPersonName: item.salesPersonName || undefined
       })),
       locationId: saleData.locationId,
       customerName: saleData.customerName,

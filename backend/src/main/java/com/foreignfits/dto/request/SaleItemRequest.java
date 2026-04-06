@@ -23,6 +23,8 @@ public class SaleItemRequest {
     
     @NotEmpty(message = "Barcode numbers are required for sale")
     private List<String> barcodeNumbers; // Scanned barcode numbers for this item
+
+    private String salesPersonName; // Optional: sales person responsible for this item
     
     // Manual getters and setters to ensure compatibility
     public Long getProductId() { return productId; }
@@ -33,4 +35,7 @@ public class SaleItemRequest {
     
     public List<String> getBarcodeNumbers() { return barcodeNumbers; }
     public void setBarcodeNumbers(List<String> barcodeNumbers) { this.barcodeNumbers = barcodeNumbers; }
+
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
 }

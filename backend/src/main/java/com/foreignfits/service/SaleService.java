@@ -263,6 +263,11 @@ public class SaleService {
             saleItem.setPrice(avgUnitPrice); // Store average price for display
             saleItem.setTotal(itemTotal); // Use actual sum of individual prices
             saleItem.setBarcodes(validatedBarcodes); // ✅ Store the actual barcodes used
+            if (itemRequest.getSalesPersonName() != null && !itemRequest.getSalesPersonName().isBlank()) {
+                saleItem.setSalesPersonName(itemRequest.getSalesPersonName().trim());
+            } else if (request.getSalesPersonName() != null && !request.getSalesPersonName().isBlank()) {
+                saleItem.setSalesPersonName(request.getSalesPersonName().trim());
+            }
             
             saleItems.add(saleItem);
             subtotal = subtotal.add(itemTotal);
@@ -775,6 +780,7 @@ public class SaleService {
         dto.setQuantity(item.getQuantity());
         dto.setPrice(item.getPrice());
         dto.setTotal(item.getTotal());
+    dto.setSalesPersonName(item.getSalesPersonName());
         
         // Map barcodes to list of barcode numbers and create barcodePrices map
         if (item.getBarcodes() != null && !item.getBarcodes().isEmpty()) {

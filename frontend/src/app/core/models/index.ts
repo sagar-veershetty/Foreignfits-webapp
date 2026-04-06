@@ -143,6 +143,7 @@ export interface SaleItem {
   total: number;
   barcodes?: string[]; // Scanned barcode numbers for this item
   barcodePrices?: { [barcodeNumber: string]: number }; // Individual barcode prices
+  salesPersonName?: string;
 }
 
 export interface SalePayment {

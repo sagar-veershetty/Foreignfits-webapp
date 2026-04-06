@@ -263,6 +263,24 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     return 'PAID';
   }
 
+  getSalesPersonSummary(sale: Sale): Array<{ name: string; items: number; quantity: number }> {
+    const summary = new Map<string, { items: number; quantity: number }>();
+
+    (sale.items || []).forEach(item => {
+      const name = item.salesPersonName || sale.salesPersonName || 'Unassigned';
+      const existing = summary.get(name) || { items: 0, quantity: 0 };
+      existing.items += 1;
+      existing.quantity += item.quantity || 0;
+      summary.set(name, existing);
+    });
+
+    return Array.from(summary.entries()).map(([name, stats]) => ({
+      name,
+      items: stats.items,
+      quantity: stats.quantity
+    }));
+  }
+
   startEditPayment(paymentId?: string, paymentMethod?: 'CASH' | 'CARD' | 'UPI' | 'OTHER'): void {
     if (!paymentId) return;
     this.editingPaymentId = paymentId;

@@ -17,6 +17,7 @@ public class SaleItemDto {
     private Integer quantity;
     private BigDecimal price;
     private BigDecimal total;
+    private String salesPersonName;
     private List<String> barcodes; // List of barcode numbers sold in this item
     private Map<String, BigDecimal> barcodePrices; // Map of barcode number to individual price
     
@@ -35,6 +36,9 @@ public class SaleItemDto {
     
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
+
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
     
     public List<String> getBarcodes() { return barcodes; }
     public void setBarcodes(List<String> barcodes) { this.barcodes = barcodes; }

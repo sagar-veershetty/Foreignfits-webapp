@@ -248,6 +248,10 @@ export class SalesComponent implements OnInit {
     this.appService.removeFromSale(productId);
   }
 
+  updateItemSalesPerson(productId: string, salesPersonName?: string): void {
+    this.appService.updateSaleItemSalesPerson(productId, salesPersonName);
+  }
+
   /**
    * Fetch loyalty customer when phone number is entered
    */

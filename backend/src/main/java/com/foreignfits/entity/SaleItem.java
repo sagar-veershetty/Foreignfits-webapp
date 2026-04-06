@@ -48,6 +48,9 @@ public class SaleItem {
     @Digits(integer = 10, fraction = 2, message = "Total format is invalid")
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal total;
+
+    @Column(name = "sales_person_name", length = 100)
+    private String salesPersonName;
     
     // Track which specific barcodes were sold in this item
     @ManyToMany(fetch = FetchType.LAZY)
@@ -76,6 +79,9 @@ public class SaleItem {
     
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
+
+    public String getSalesPersonName() { return salesPersonName; }
+    public void setSalesPersonName(String salesPersonName) { this.salesPersonName = salesPersonName; }
     
     public List<Barcode> getBarcodes() { return barcodes; }
     public void setBarcodes(List<Barcode> barcodes) { this.barcodes = barcodes; }
