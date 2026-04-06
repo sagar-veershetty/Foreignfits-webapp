@@ -495,6 +495,14 @@ export class AppService {
     });
   }
 
+  setCurrentSale(items: SaleItem[]): void {
+    const currentState = this._appStateSubject.value;
+    this.updateAppState({
+      ...currentState,
+      currentSale: items
+    });
+  }
+
   // Barcode lookup
   lookupBarcode(barcodeNumber: string): Observable<any> {
     return this.http.get<any>(`${this.API_BASE_URL}/barcodes/lookup/${barcodeNumber}`)

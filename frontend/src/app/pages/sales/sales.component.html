@@ -207,18 +207,8 @@
                   <span class="text-sm font-semibold text-green-600">₹{{ item.price | number:'1.2-2' }} each</span>
                 </div>
 
-                <div class="mt-3">
-                  <label class="block text-xs text-gray-500 mb-1">Sales Person (optional)</label>
-                  <select
-                    class="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                    [ngModel]="item.salesPersonName || ''"
-                    (ngModelChange)="updateItemSalesPerson(item.productId, $event)"
-                  >
-                    <option value="">Select sales person...</option>
-                    <option *ngFor="let person of salesPersons" [value]="person.name">
-                      {{ person.name }}
-                    </option>
-                  </select>
+                <div class="mt-3 text-xs text-gray-500">
+                  Sales Person: <span class="font-medium text-gray-700">{{ item.salesPersonName || 'Unassigned' }}</span>
                 </div>
               </div>
               
@@ -332,21 +322,76 @@
             </div>
           </div>
 
-          <div>
-            <label class="block text-sm font-medium mb-1">
-              Sales Person Name (Optional)
-              <span class="text-xs text-gray-500 font-normal ml-1">- For incentive tracking</span>
-            </label>
-            <select 
-              [(ngModel)]="salesPersonName" 
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
-            >
-              <option value="">Select sales person...</option>
-              <option *ngFor="let person of salesPersons" [value]="person.name">
-                {{ person.name }}
-              </option>
-            </select>
-            <p class="text-xs text-gray-500 mt-1">Select team member who assisted with this sale</p>
+          <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-semibold text-gray-800">Sales Person Split</span>
+              <span class="text-xs text-gray-500">Assign cart units</span>
+            </div>
+
+            <div class="space-y-2">
+              <div *ngFor="let split of salesPersonSplits; let i = index" class="flex gap-2 items-center">
+                <select
+                  [(ngModel)]="split.name"
+                  class="flex-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                >
+                  <option value="">Select sales person...</option>
+                  <option *ngFor="let person of salesPersons" [value]="person.name">
+                    {{ person.name }}
+                  </option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  [(ngModel)]="split.items"
+                  class="w-24 px-2 py-1 border border-gray-300 rounded text-sm"
+                  placeholder="Units"
+                />
+                <button
+                  (click)="removeSalesPersonSplitRow(i)"
+                  class="px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                  title="Remove">
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <button
+              (click)="addSalesPersonSplitRow()"
+              class="mt-2 w-full px-3 py-2 border-2 border-dashed border-gray-300 rounded text-xs text-gray-600 hover:border-blue-400 hover:text-blue-600">
+              Add Sales Person
+            </button>
+
+            <div class="mt-2 text-xs text-gray-600 flex justify-between">
+              <span>Total units: <strong>{{ getTotalQuantity(appState) }}</strong></span>
+              <span>Remaining: <strong>{{ getRemainingSplitItems(appState) }}</strong></span>
+            </div>
+
+            <div *ngIf="hasInvalidSalesPersonSplits(appState)" class="mt-2 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded p-2">
+              ⚠️ Ensure each row has a name, and assigned units don’t exceed total cart units.
+            </div>
+
+            <button
+              (click)="applySalesPersonSplits(appState)"
+              [disabled]="hasInvalidSalesPersonSplits(appState)"
+              class="mt-2 w-full px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-300">
+              Apply Split to Cart
+            </button>
+          </div>
+
+          <div *ngIf="appState.currentSale.length > 0" class="rounded-lg border border-gray-200 bg-white p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-semibold text-gray-800">Current Assignment</span>
+              <span class="text-xs text-gray-500">Based on cart items</span>
+            </div>
+            <div class="space-y-1">
+              <div *ngFor="let entry of getSalesPersonBreakdown(appState)" class="flex items-center justify-between text-sm">
+                <div class="text-gray-700">
+                  <span class="font-medium">{{ entry.name }}</span>
+                  <span class="text-xs text-gray-500 ml-2">({{ entry.quantity }} unit{{ entry.quantity === 1 ? '' : 's' }})</span>
+                </div>
+                <span class="font-semibold text-gray-900">₹{{ entry.total | number:'1.2-2' }}</span>
+              </div>
+            </div>
           </div>
 
           <!-- Loyalty Info -->

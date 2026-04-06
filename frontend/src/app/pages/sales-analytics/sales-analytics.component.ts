@@ -16,6 +16,7 @@ type SalesPersonPerformance = {
   name: string;
   totalSales: number;
   totalItems: number;
+  totalUnits: number;
   totalRevenue: number;
   avgOrder: number;
   coupon3000: number;
@@ -155,6 +156,7 @@ type SalesPersonHighlight = {
                 <th class="px-3 py-2 text-left">Sales Person</th>
                 <th class="px-3 py-2 text-right">Total Sales</th>
                 <th class="px-3 py-2 text-right">Items Sold</th>
+                <th class="px-3 py-2 text-right">Units</th>
                 <th class="px-3 py-2 text-right">Revenue</th>
                 <th class="px-3 py-2 text-right">Avg Order</th>
                 <th class="px-3 py-2 text-right">₹3,000+</th>
@@ -168,6 +170,7 @@ type SalesPersonHighlight = {
                 <td class="px-3 py-2 font-medium text-gray-900">{{ person.name }}</td>
                 <td class="px-3 py-2 text-right">{{ person.totalSales }}</td>
                 <td class="px-3 py-2 text-right">{{ person.totalItems }}</td>
+                <td class="px-3 py-2 text-right">{{ person.totalUnits }}</td>
                 <td class="px-3 py-2 text-right">₹{{ person.totalRevenue | number:'1.2-2' }}</td>
                 <td class="px-3 py-2 text-right">₹{{ person.avgOrder | number:'1.2-2' }}</td>
                 <td class="px-3 py-2 text-right">{{ person.coupon3000 }}</td>
@@ -228,6 +231,7 @@ type SalesPersonHighlight = {
                 <th class="px-3 py-2 text-left">Date</th>
                 <th class="px-3 py-2 text-left">ID</th>
                 <th class="px-3 py-2 text-left">Items</th>
+                <th class="px-3 py-2 text-left">Units</th>
                 <th class="px-3 py-2 text-right">Subtotal</th>
                 <th class="px-3 py-2 text-right">Tax</th>
                 <th class="px-3 py-2 text-right">Total</th>
@@ -239,6 +243,7 @@ type SalesPersonHighlight = {
                 <td class="px-3 py-2">{{ sale.createdAt | date:'short' }}</td>
                 <td class="px-3 py-2">#{{ sale.id }}</td>
                 <td class="px-3 py-2">{{ sale.items.length }}</td>
+                <td class="px-3 py-2">{{ getSaleUnits(sale) }}</td>
                 <td class="px-3 py-2 text-right">₹{{ sale.subtotal | number:'1.2-2' }}</td>
                 <td class="px-3 py-2 text-right">₹{{ sale.tax | number:'1.2-2' }}</td>
                 <td class="px-3 py-2 text-right">₹{{ sale.total | number:'1.2-2' }}</td>
@@ -477,38 +482,53 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
     const activeSalesPersonNames = new Set(
       relevantSalesPersons.map(p => p.name.toLowerCase().trim())
     );
+    const hasActiveSalesPersonFilter = activeSalesPersonNames.size > 0;
     
     sales.forEach(sale => {
-      const name = sale.salesPersonName?.trim() || 'Unassigned';
-      const normalizedName = name.toLowerCase();
-      
-      // Only include sales from active sales persons
-      if (!activeSalesPersonNames.has(normalizedName) && name !== 'Unassigned') {
-        return; // Skip this sale
-      }
-      
-      if (!statsMap[name]) {
-        statsMap[name] = {
-          name,
-          totalSales: 0,
-          totalItems: 0,
-          totalRevenue: 0,
-          avgOrder: 0,
-          coupon3000: 0,
-          coupon5000: 0,
-          coupon7500: 0,
-          coupon10000: 0
-        };
-      }
+  const perPersonTotals = new Map<string, { revenue: number; items: number; units: number }>();
 
-      statsMap[name].totalSales += 1;
-      statsMap[name].totalRevenue += sale.total;
-      statsMap[name].totalItems += sale.items.reduce((sum, item) => sum + item.quantity, 0);
+      sale.items.forEach(item => {
+        const name = item.salesPersonName?.trim() || 'Unassigned';
+        const normalizedName = name.toLowerCase();
 
-      if (sale.total >= 3000) statsMap[name].coupon3000 += 1;
-      if (sale.total >= 5000) statsMap[name].coupon5000 += 1;
-      if (sale.total >= 7500) statsMap[name].coupon7500 += 1;
-      if (sale.total >= 10000) statsMap[name].coupon10000 += 1;
+        // Only include sales from active sales persons when list is available
+        if (hasActiveSalesPersonFilter && name !== 'Unassigned' && !activeSalesPersonNames.has(normalizedName)) {
+          return;
+        }
+
+        const entry = perPersonTotals.get(name) || { revenue: 0, items: 0, units: 0 };
+        entry.revenue += item.total || 0;
+        entry.items += 1;
+        entry.units += item.quantity || 0;
+        perPersonTotals.set(name, entry);
+      });
+
+      perPersonTotals.forEach((entry, name) => {
+        if (!statsMap[name]) {
+          statsMap[name] = {
+            name,
+            totalSales: 0,
+            totalItems: 0,
+            totalUnits: 0,
+            totalRevenue: 0,
+            avgOrder: 0,
+            coupon3000: 0,
+            coupon5000: 0,
+            coupon7500: 0,
+            coupon10000: 0
+          };
+        }
+
+        statsMap[name].totalSales += 1;
+        statsMap[name].totalRevenue += entry.revenue;
+  statsMap[name].totalItems += entry.items;
+  statsMap[name].totalUnits += entry.units;
+
+        if (entry.revenue >= 3000) statsMap[name].coupon3000 += 1;
+        if (entry.revenue >= 5000) statsMap[name].coupon5000 += 1;
+        if (entry.revenue >= 7500) statsMap[name].coupon7500 += 1;
+        if (entry.revenue >= 10000) statsMap[name].coupon10000 += 1;
+      });
     });
 
     return Object.values(statsMap)
@@ -539,6 +559,10 @@ export class SalesAnalyticsComponent implements OnInit, OnDestroy {
       totalSales: topByRevenue.totalSales,
       totalRevenue: topByRevenue.totalRevenue
     };
+  }
+
+  getSaleUnits(sale: Sale): number {
+    return sale.items.reduce((sum, item) => sum + item.quantity, 0);
   }
 
   exportCsv(): void {

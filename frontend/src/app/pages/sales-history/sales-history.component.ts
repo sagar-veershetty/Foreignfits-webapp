@@ -128,6 +128,11 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   getUniqueSalesPersons(appState: AppState): string[] {
     const salesPersons = new Set<string>();
     appState.sales.forEach(sale => {
+      (sale.items || []).forEach(item => {
+        if (item.salesPersonName && item.salesPersonName.trim()) {
+          salesPersons.add(item.salesPersonName.trim());
+        }
+      });
       if (sale.salesPersonName && sale.salesPersonName.trim()) {
         salesPersons.add(sale.salesPersonName.trim());
       }
@@ -281,6 +286,29 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     }));
   }
 
+  getSalesPersonNames(sale: Sale): string[] {
+    const names = new Set<string>();
+    (sale.items || []).forEach(item => {
+      if (item.salesPersonName && item.salesPersonName.trim()) {
+        names.add(item.salesPersonName.trim());
+      }
+    });
+
+    if (sale.salesPersonName && sale.salesPersonName.trim()) {
+      names.add(sale.salesPersonName.trim());
+    }
+
+    return Array.from(names);
+  }
+
+  getSaleUnits(sale: Sale): number {
+    return (sale.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+  }
+
+  getFilteredUnitsCount(appState: AppState): number {
+    return this.getFilteredSales(appState).reduce((sum, sale) => sum + this.getSaleUnits(sale), 0);
+  }
+
   startEditPayment(paymentId?: string, paymentMethod?: 'CASH' | 'CARD' | 'UPI' | 'OTHER'): void {
     if (!paymentId) return;
     this.editingPaymentId = paymentId;
@@ -394,7 +422,9 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     // Filter by sales person name (for incentive tracking)
     if (this.salesPersonFilter !== 'all') {
       sales = sales.filter(sale => {
-        return sale.salesPersonName?.trim() === this.salesPersonFilter;
+        const matchesItem = (sale.items || []).some(item => item.salesPersonName?.trim() === this.salesPersonFilter);
+        const matchesSale = sale.salesPersonName?.trim() === this.salesPersonFilter;
+        return matchesItem || matchesSale;
       });
     }
     

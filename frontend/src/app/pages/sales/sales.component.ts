@@ -34,6 +34,7 @@ export class SalesComponent implements OnInit {
   customerCountryCode = '+91'; // Default to India
   salesPersonName = ''; // Sales person who assisted with the sale
   salesPersons: SalesPerson[] = []; // List of active sales persons for dropdown
+  salesPersonSplits: Array<{ name: string; items: number }> = [{ name: '', items: 0 }];
   paymentMethod: 'cash' | 'card' | 'upi' = 'cash';
   completedSale: Sale | null = null;
   showSuccessMessage = false;
@@ -451,6 +452,123 @@ export class SalesComponent implements OnInit {
     return appState.currentSale.reduce((sum, item) => sum + item.quantity, 0);
   }
 
+  getSalesPersonBreakdown(appState: AppState): Array<{ name: string; total: number; quantity: number }> {
+    const summary = new Map<string, { name: string; total: number; quantity: number }>();
+
+    appState.currentSale.forEach((item) => {
+      const name = (item.salesPersonName || 'Unassigned').trim() || 'Unassigned';
+      const existing = summary.get(name) || { name, total: 0, quantity: 0 };
+      existing.total += item.total;
+      existing.quantity += item.quantity;
+      summary.set(name, existing);
+    });
+
+    return Array.from(summary.values()).sort((a, b) => b.total - a.total);
+  }
+
+  addSalesPersonSplitRow(): void {
+    this.salesPersonSplits.push({ name: '', items: 0 });
+  }
+
+  removeSalesPersonSplitRow(index: number): void {
+    this.salesPersonSplits.splice(index, 1);
+    if (this.salesPersonSplits.length === 0) {
+      this.salesPersonSplits.push({ name: '', items: 0 });
+    }
+  }
+
+  getTotalSplitItems(): number {
+    return this.salesPersonSplits.reduce((sum, split) => sum + (split.items || 0), 0);
+  }
+
+  getRemainingSplitItems(appState: AppState): number {
+    const totalUnits = this.getTotalQuantity(appState);
+    return totalUnits - this.getTotalSplitItems();
+  }
+
+  hasInvalidSalesPersonSplits(appState: AppState): boolean {
+    const totalUnits = this.getTotalQuantity(appState);
+    const totalSplit = this.getTotalSplitItems();
+    if (totalSplit > totalUnits) return true;
+
+    return this.salesPersonSplits.some(split => {
+      if (split.items < 0) return true;
+      if (split.items > 0 && !split.name?.trim()) return true;
+      return false;
+    });
+  }
+
+  applySalesPersonSplits(appState: AppState): void {
+    if (appState.currentSale.length === 0) return;
+
+    const assignments: string[] = [];
+    this.salesPersonSplits.forEach(split => {
+      const name = split.name?.trim();
+      if (!name || split.items <= 0) return;
+
+      for (let i = 0; i < split.items; i += 1) {
+        assignments.push(name);
+      }
+    });
+
+    const units: Array<{
+      productId: string;
+      product: SaleItem['product'];
+      price: number;
+      barcode?: string;
+    }> = [];
+
+    appState.currentSale.forEach(item => {
+      const barcodes = item.barcodes || [];
+      for (let i = 0; i < item.quantity; i += 1) {
+        const barcode = barcodes[i];
+        const price = barcode && item.barcodePrices?.[barcode] ? item.barcodePrices[barcode] : item.price;
+        units.push({
+          productId: item.productId,
+          product: item.product,
+          price,
+          barcode
+        });
+      }
+    });
+
+    const grouped = new Map<string, SaleItem>();
+
+    units.forEach((unit, index) => {
+      const name = assignments[index];
+      const key = `${unit.productId}::${name || ''}`;
+      const existing = grouped.get(key);
+      const unitPrice = unit.price || 0;
+
+      if (existing) {
+        existing.quantity += 1;
+        existing.total += unitPrice;
+        existing.price = existing.quantity > 0 ? Number((existing.total / existing.quantity).toFixed(2)) : existing.price;
+        if (unit.barcode) {
+          existing.barcodes = existing.barcodes ? [...existing.barcodes, unit.barcode] : [unit.barcode];
+          if (existing.barcodePrices) {
+            existing.barcodePrices[unit.barcode] = unitPrice;
+          } else {
+            existing.barcodePrices = { [unit.barcode]: unitPrice };
+          }
+        }
+      } else {
+        grouped.set(key, {
+          productId: unit.productId,
+          product: unit.product,
+          quantity: 1,
+          price: Number(unitPrice.toFixed(2)),
+          total: unitPrice,
+          barcodes: unit.barcode ? [unit.barcode] : undefined,
+          barcodePrices: unit.barcode ? { [unit.barcode]: unitPrice } : undefined,
+          salesPersonName: name || undefined
+        });
+      }
+    });
+
+    this.appService.setCurrentSale(Array.from(grouped.values()));
+  }
+
   private getDiscountTotal(appState: AppState): number {
     if (this.isGangaStore()) {
       return 0;
@@ -568,11 +686,6 @@ export class SalesComponent implements OnInit {
       saleData.paymentMethod = this.paymentMethod;
     }
 
-    // Add salesPersonName only if it has a value
-    if (this.salesPersonName && this.salesPersonName.trim()) {
-      saleData.salesPersonName = this.salesPersonName.trim();
-    }
-
     this.appService.createSale(saleData, appState.currentSale).subscribe({
       next: (sale) => {
         // Show success message
@@ -669,6 +782,7 @@ export class SalesComponent implements OnInit {
         this.customerPhone = '';
         this.customerCountryCode = '+91';
         this.salesPersonName = '';
+  this.salesPersonSplits = [{ name: '', items: 0 }];
         this.barcodeInput = '';
         this.loyaltyCustomer = null;
         this.pointsToEarn = null;
