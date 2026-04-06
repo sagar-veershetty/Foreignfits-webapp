@@ -265,10 +265,6 @@ export class SalesComponent implements OnInit {
     this.customerCoupons = [];
     this.showCustomerCoupons = false;
     
-    if (this.isGangaStore()) {
-      return;
-    }
-
     // Only fetch if we have a valid phone number (at least 10 digits)
     if (this.customerPhone && this.customerPhone.length >= 10) {
       this.isLoadingLoyalty = true;
@@ -278,21 +274,29 @@ export class SalesComponent implements OnInit {
         next: (customer) => {
           this.loyaltyCustomer = customer;
           this.isLoadingLoyalty = false;
+
+          if (customer?.customerName && (!this.customerName || !this.customerName.trim())) {
+            this.customerName = customer.customerName;
+          }
           
-          // Calculate points to earn for current cart
-          const appState = this.appService.appStateBehaviorSubject.value;
-          const total = this.getTotal(appState);
-          if (total > 0) {
-            this.calculatePointsToEarn(total);
+          if (!this.isGangaStore()) {
+            // Calculate points to earn for current cart
+            const appState = this.appService.appStateBehaviorSubject.value;
+            const total = this.getTotal(appState);
+            if (total > 0) {
+              this.calculatePointsToEarn(total);
+            }
           }
         },
         error: () => {
           this.isLoadingLoyalty = false;
         }
       });
-      
-      // Fetch customer coupons
-      this.loadCustomerCoupons();
+
+      if (!this.isGangaStore()) {
+        // Fetch customer coupons
+        this.loadCustomerCoupons();
+      }
     }
   }
 
