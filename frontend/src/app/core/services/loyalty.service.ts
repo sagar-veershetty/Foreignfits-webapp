@@ -28,13 +28,17 @@ export class LoyaltyService {
       .set('countryCode', countryCode);
 
     return this.http.get<LoyaltyCustomer>(`${this.apiUrl}/customer`, { params }).pipe(
-      map(customer => ({
+      map((customer: any) => ({
         ...customer,
-        joinDate: new Date(customer.joinDate),
-        lastPurchaseDate: customer.lastPurchaseDate ? new Date(customer.lastPurchaseDate) : undefined,
+        customerName: customer.customerName || customer.name || '',
+        currentPoints: customer.currentPoints ?? customer.totalPoints ?? 0,
+        joinDate: customer.joinDate ? new Date(customer.joinDate) : (customer.joinedAt ? new Date(customer.joinedAt) : new Date()),
+        lastPurchaseDate: customer.lastPurchaseDate
+          ? new Date(customer.lastPurchaseDate)
+          : (customer.lastPurchaseAt ? new Date(customer.lastPurchaseAt) : undefined),
         dateOfBirth: customer.dateOfBirth ? new Date(customer.dateOfBirth) : undefined,
         tierExpiryDate: customer.tierExpiryDate ? new Date(customer.tierExpiryDate) : undefined
-      })),
+      } as LoyaltyCustomer)),
       catchError(error => {
         return of(null);
       })

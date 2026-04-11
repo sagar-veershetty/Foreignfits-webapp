@@ -275,8 +275,13 @@ export class SalesComponent implements OnInit {
           this.loyaltyCustomer = customer;
           this.isLoadingLoyalty = false;
 
-          if (customer?.customerName && (!this.customerName || !this.customerName.trim())) {
-            this.customerName = customer.customerName;
+          const resolvedName = customer?.customerName || (customer as any)?.name;
+          if (resolvedName && (!this.customerName || !this.customerName.trim())) {
+            this.customerName = resolvedName;
+          }
+
+          if (!resolvedName) {
+            this.tryPopulateCustomerNameFromSales();
           }
           
           if (!this.isGangaStore()) {
@@ -290,6 +295,7 @@ export class SalesComponent implements OnInit {
         },
         error: () => {
           this.isLoadingLoyalty = false;
+          this.tryPopulateCustomerNameFromSales();
         }
       });
 
@@ -297,6 +303,21 @@ export class SalesComponent implements OnInit {
         // Fetch customer coupons
         this.loadCustomerCoupons();
       }
+    }
+  }
+
+  private tryPopulateCustomerNameFromSales(): void {
+    if (!this.customerPhone) return;
+
+    const state = this.appService.appStateBehaviorSubject.value;
+    const match = (state.sales || [])
+      .filter(sale => sale.customerPhone === this.customerPhone
+        && (!sale.customerCountryCode || sale.customerCountryCode === this.customerCountryCode)
+        && sale.customerName)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+    if (match?.customerName && (!this.customerName || !this.customerName.trim())) {
+      this.customerName = match.customerName;
     }
   }
 
