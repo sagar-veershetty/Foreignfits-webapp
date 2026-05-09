@@ -14,8 +14,20 @@ public class ExchangeRequest {
     private Long locationId;
     private String exchangeReason;
     private String notes;
+    private String paymentMethod;
+    private String salesPersonName;
+    private List<ExchangePaymentRequest> payments;
     private List<ExchangeItemRequest> returnedItems;
     private List<ExchangeItemRequest> exchangedItems;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExchangePaymentRequest {
+        private String paymentMethod;
+        private java.math.BigDecimal amount;
+        private String reference;
+    }
 
     @Data
     @NoArgsConstructor

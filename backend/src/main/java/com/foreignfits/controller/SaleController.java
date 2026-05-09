@@ -226,6 +226,40 @@ public class SaleController {
             return ResponseEntity.badRequest().body(payload);
         }
     }
+
+    @PutMapping("/{id}/payment-method")
+    @PreAuthorize("hasAuthority('create:sale')")
+    public ResponseEntity<?> updateSalePaymentMethod(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateSalePaymentMethodRequest request,
+            Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            UserDto currentUser = userService.getUserByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            SaleDto sale = saleService.getSaleById(id);
+
+            if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+                if (!sale.getLocation().getId().equals(currentUser.getLocationId())) {
+                    return ResponseEntity.status(403).build();
+                }
+            }
+
+            SaleDto updatedSale = saleService.updateSalePaymentMethod(id, request);
+            return ResponseEntity.ok(updatedSale);
+        } catch (Exception e) {
+            String message = (e.getMessage() != null && !e.getMessage().isBlank())
+                    ? e.getMessage()
+                    : "Unexpected error while updating payment method";
+
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("error", message);
+            payload.put("type", e.getClass().getSimpleName());
+
+            return ResponseEntity.badRequest().body(payload);
+        }
+    }
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteSale(@PathVariable Long id) {

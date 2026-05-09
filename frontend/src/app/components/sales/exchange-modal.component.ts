@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExchangeService, ExchangeRequest, ExchangeItemRequest } from '../../core/services/exchange.service';
 import { AppService } from '../../core/services/app.service';
-import { Sale, SaleItem, Product } from '../../core/models';
+import { Sale, SaleItem, Product, SalesPerson } from '../../core/models';
 
 @Component({
   selector: 'app-exchange-modal',
@@ -15,6 +15,7 @@ import { Sale, SaleItem, Product } from '../../core/models';
 export class ExchangeModalComponent implements OnInit, AfterViewInit {
   @Input() sale!: Sale;
   @Input() scannedBarcodes: string[] = []; // Barcodes that were scanned for exchange
+  @Input() salesPersons: SalesPerson[] = [];
   @Output() closed = new EventEmitter<void>();
   @Output() exchangeCreated = new EventEmitter<any>(); // Changed to emit exchange data
   @ViewChild('barcodeInput') barcodeInput!: ElementRef<HTMLInputElement>;
@@ -30,12 +31,20 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
   errorMessage = signal<string>('');
   successMessage = signal<string>(''); // Add success message for user feedback
 
+  salesPersonName = '';
+  exchangePaymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER' = 'CASH';
+  useSplitPayment = false;
+  exchangePayments: Array<{ paymentMethod: 'CASH' | 'CARD' | 'UPI' | 'OTHER'; amount: number; reference?: string }> = [];
+
   constructor(
     private exchangeService: ExchangeService,
     private appService: AppService
   ) {}
 
   ngOnInit() {
+    this.salesPersonName = this.sale.salesPersonName
+      || this.sale.items.find(item => item.salesPersonName)?.salesPersonName
+      || '';
     // Initialize with only the scanned barcodes for return
     const returnMap = new Map<string, number>();
     const barcodeMap = new Map<string, string[]>();
@@ -290,6 +299,15 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     return total;
   });
 
+  returnItemsForDisplay = computed(() => {
+    if (this.scannedBarcodes && this.scannedBarcodes.length > 0) {
+      const selected = this.selectedReturnItems();
+      return this.sale.items.filter(item => (selected.get(item.product.id) || 0) > 0);
+    }
+
+    return this.sale.items;
+  });
+
   exchangedTotal = computed(() => {
     return this.exchangeItems().reduce((sum, item) => {
       // Use the price from location inventory
@@ -301,12 +319,82 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
     return this.exchangedTotal() - this.returnedTotal();
   });
 
+  paymentDue = computed(() => Math.abs(this.priceDifference()));
+
+  paymentDirectionLabel(): string {
+    return this.priceDifference() < 0 ? 'Refund Method' : 'Payment Method';
+  }
+
+  paymentAmountLabel(): string {
+    return this.priceDifference() < 0 ? 'Refund Amount' : 'Payment Amount';
+  }
+
   canSubmit = computed(() => {
     const hasReturnItems = Array.from(this.selectedReturnItems().values()).some(qty => qty > 0);
     const hasExchangeItems = this.exchangeItems().length > 0;
     const hasReason = this.exchangeReason().trim().length > 0;
-    return hasReturnItems && hasExchangeItems && hasReason;
+    const amountDue = this.paymentDue();
+    let paymentValid = true;
+    if (amountDue > 0.01 && this.useSplitPayment) {
+      const paymentTotal = this.getPaymentTotal();
+      const hasValidAmounts = this.exchangePayments.length > 0 && this.exchangePayments.every(p => p.amount > 0);
+      paymentValid = hasValidAmounts && Math.abs(paymentTotal - amountDue) < 0.01;
+    }
+    return hasReturnItems && hasExchangeItems && hasReason && paymentValid;
   });
+
+  onSplitPaymentToggle(): void {
+    if (this.useSplitPayment && this.exchangePayments.length === 0) {
+      this.exchangePayments = [{
+        paymentMethod: 'CASH',
+        amount: this.paymentDue()
+      }];
+    }
+
+    if (!this.useSplitPayment) {
+      this.exchangePayments = [];
+    }
+  }
+
+  addPaymentRow(): void {
+    const remaining = this.getRemainingPayment();
+    this.exchangePayments.push({
+      paymentMethod: 'CASH',
+      amount: remaining > 0 ? remaining : this.paymentDue()
+    });
+  }
+
+  removePaymentRow(index: number): void {
+    this.exchangePayments.splice(index, 1);
+  }
+
+  getPaymentTotal(): number {
+    return this.exchangePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  }
+
+  getRemainingPayment(): number {
+    return Math.max(0, this.paymentDue() - this.getPaymentTotal());
+  }
+
+  getPaymentDelta(): number {
+    return Math.abs(this.getPaymentTotal() - this.paymentDue());
+  }
+
+  isSplitPaymentMismatch(): boolean {
+    return this.useSplitPayment && this.paymentDue() > 0.01 && this.getPaymentDelta() > 0.01;
+  }
+
+  getRemainingPaymentForIndex(index: number): number {
+    const currentTotal = this.getPaymentTotal();
+    const currentAmount = this.exchangePayments[index]?.amount || 0;
+    const remaining = this.paymentDue() - (currentTotal - currentAmount);
+    return Math.max(0, remaining);
+  }
+
+  autoFillRemaining(index: number): void {
+    if (!this.exchangePayments[index]) return;
+    this.exchangePayments[index].amount = this.getRemainingPaymentForIndex(index);
+  }
 
   updateReturnQuantity(productId: string, quantity: number, maxQuantity: number) {
     const qty = Math.max(0, Math.min(quantity, maxQuantity));
@@ -575,6 +663,23 @@ export class ExchangeModalComponent implements OnInit, AfterViewInit {
       locationId: Number(this.sale.location.id),
       exchangeReason: this.exchangeReason(),
       notes: this.notes() || undefined,
+      paymentMethod: this.useSplitPayment
+        ? this.exchangePayments[0]?.paymentMethod || 'CASH'
+        : this.exchangePaymentMethod,
+      salesPersonName: this.salesPersonName?.trim() || undefined,
+      payments: this.paymentDue() > 0.01
+        ? (this.useSplitPayment
+          ? this.exchangePayments.map(payment => ({
+            paymentMethod: payment.paymentMethod,
+            amount: payment.amount,
+            reference: payment.reference || undefined
+          }))
+          : [{
+            paymentMethod: this.exchangePaymentMethod,
+            amount: this.paymentDue(),
+            reference: undefined
+          }])
+        : undefined,
       returnedItems,
       exchangedItems
     };

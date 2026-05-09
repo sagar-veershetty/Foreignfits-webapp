@@ -7,7 +7,9 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -16,6 +18,8 @@ import java.util.List;
 @Entity
 @Table(name = "sale_items")
 @Data
+@EqualsAndHashCode(exclude = {"sale", "product", "barcodes"})
+@ToString(exclude = {"sale", "product", "barcodes"})
 @NoArgsConstructor
 @AllArgsConstructor
 public class SaleItem {

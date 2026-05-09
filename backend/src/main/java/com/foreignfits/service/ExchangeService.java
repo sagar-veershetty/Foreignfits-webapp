@@ -33,6 +33,7 @@ public class ExchangeService {
     private final LocationInventoryRepository locationInventoryRepository;
     private final BarcodeHistoryService barcodeHistoryService;
     private final BarcodeRepository barcodeRepository;
+    private final SalePaymentRepository salePaymentRepository;
 
     @Transactional
     public ExchangeDto createExchange(ExchangeRequest request, Long userId) {
@@ -65,11 +66,31 @@ public class ExchangeService {
         // For the new sale, we need to store the EXCHANGED total (not the difference)
         // The priceDifference tells us if customer pays extra or gets refund
         // But the Sale entity must have positive values for validation
-    newSale.setSubtotal(exchangedSubtotal); // Subtotal includes GST
-    newSale.setTax(exchangedTax); // GST portion included
-    newSale.setTotal(exchangedSubtotal); // Total already includes GST
-        newSale.setPaymentMethod(Sale.PaymentMethod.UPI);
+            newSale.setSubtotal(exchangedSubtotal); // Subtotal includes GST
+            newSale.setTax(exchangedTax); // GST portion included
+            newSale.setTotal(exchangedSubtotal); // Total already includes GST
+            Sale.PaymentMethod paymentMethod = Sale.PaymentMethod.UPI;
+            if (request.getPaymentMethod() != null && !request.getPaymentMethod().isBlank()) {
+                try {
+                    paymentMethod = Sale.PaymentMethod.valueOf(request.getPaymentMethod().trim().toUpperCase());
+                } catch (IllegalArgumentException ignored) {
+                    paymentMethod = Sale.PaymentMethod.UPI;
+                }
+            } else if (request.getPayments() != null && !request.getPayments().isEmpty()) {
+                String firstMethod = request.getPayments().get(0).getPaymentMethod();
+                if (firstMethod != null && !firstMethod.isBlank()) {
+                    try {
+                        paymentMethod = Sale.PaymentMethod.valueOf(firstMethod.trim().toUpperCase());
+                    } catch (IllegalArgumentException ignored) {
+                        paymentMethod = Sale.PaymentMethod.UPI;
+                    }
+                }
+            }
+            newSale.setPaymentMethod(paymentMethod);
         newSale.setSoldBy(user);
+            if (request.getSalesPersonName() != null && !request.getSalesPersonName().isBlank()) {
+                newSale.setSalesPersonName(request.getSalesPersonName().trim());
+            }
         newSale.setCreatedAt(LocalDateTime.now());
         newSale = saleRepository.save(newSale);
 
@@ -90,6 +111,57 @@ public class ExchangeService {
         newSale.setIsExchangeSale(true);
         newSale.setExchangeId(exchange.getId());
         newSale.setExchangePriceDifference(priceDifference);
+        newSale = saleRepository.save(newSale);
+
+        // Save payments (supports split payments for the exchange difference)
+        List<SalePayment> paymentEntities = new ArrayList<>();
+        if (request.getPayments() != null && !request.getPayments().isEmpty()) {
+            for (ExchangeRequest.ExchangePaymentRequest paymentRequest : request.getPayments()) {
+                if (paymentRequest == null || paymentRequest.getAmount() == null) {
+                    continue;
+                }
+                SalePayment payment = new SalePayment();
+                payment.setSale(newSale);
+                payment.setAmount(paymentRequest.getAmount());
+                payment.setReference(paymentRequest.getReference());
+                if (paymentRequest.getPaymentMethod() != null) {
+                    try {
+                        payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(paymentRequest.getPaymentMethod().trim().toUpperCase()));
+                    } catch (IllegalArgumentException ignored) {
+                        payment.setPaymentMethod(SalePayment.PaymentMethod.OTHER);
+                    }
+                } else {
+                    payment.setPaymentMethod(SalePayment.PaymentMethod.OTHER);
+                }
+                payment.setCreatedAt(LocalDateTime.now());
+                paymentEntities.add(salePaymentRepository.save(payment));
+            }
+            if (!paymentEntities.isEmpty()) {
+                newSale.setPayments(paymentEntities);
+            }
+        }
+
+        BigDecimal amountDue = priceDifference.abs();
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        if (!paymentEntities.isEmpty()) {
+            paidAmount = paymentEntities.stream()
+                .map(SalePayment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else if (amountDue.compareTo(BigDecimal.ZERO) > 0) {
+            paidAmount = amountDue;
+        }
+
+        BigDecimal pendingAmount = amountDue.subtract(paidAmount);
+        if (pendingAmount.compareTo(BigDecimal.ZERO) < 0) {
+            pendingAmount = BigDecimal.ZERO;
+        }
+
+        newSale.setPaidAmount(paidAmount);
+        newSale.setPendingAmount(pendingAmount);
+        newSale.setPaymentStatus(pendingAmount.compareTo(BigDecimal.ZERO) > 0
+                ? Sale.PaymentStatus.PARTIALLY_PAID
+                : Sale.PaymentStatus.PAID);
+
         newSale = saleRepository.save(newSale);
 
         // Process returned items - add back to inventory
@@ -200,6 +272,9 @@ public class ExchangeService {
             newSaleItem.setProduct(product);
             newSaleItem.setQuantity(item.getQuantity());
             newSaleItem.setBarcodes(barcodeEntities);
+            if (request.getSalesPersonName() != null && !request.getSalesPersonName().isBlank()) {
+                newSaleItem.setSalesPersonName(request.getSalesPersonName().trim());
+            }
             // Set average price for display
             newSaleItem.setPrice(itemTotal.divide(BigDecimal.valueOf(item.getQuantity()), 2, java.math.RoundingMode.HALF_UP));
             newSaleItem.setTotal(itemTotal);

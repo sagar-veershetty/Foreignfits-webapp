@@ -164,6 +164,38 @@ public class SaleService {
         return convertToDto(saleRepository.findById(saleId)
                 .orElseThrow(() -> new RuntimeException("Sale not found with id: " + saleId)));
     }
+
+    public SaleDto updateSalePaymentMethod(Long saleId, UpdateSalePaymentMethodRequest request) {
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + saleId));
+
+        try {
+            sale.setPaymentMethod(Sale.PaymentMethod.valueOf(request.getPaymentMethod()));
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid payment method: " + request.getPaymentMethod() +
+                ". Valid values are: CASH, CARD, UPI, OTHER");
+        }
+
+        if (sale.getPayments() != null && !sale.getPayments().isEmpty()) {
+            if (sale.getPayments().size() == 1) {
+                SalePayment payment = sale.getPayments().get(0);
+                try {
+                    payment.setPaymentMethod(SalePayment.PaymentMethod.valueOf(request.getPaymentMethod()));
+                } catch (IllegalArgumentException e) {
+                    throw new RuntimeException("Invalid payment method: " + request.getPaymentMethod() +
+                        ". Valid values are: CASH, CARD, UPI, OTHER");
+                }
+                salePaymentRepository.save(payment);
+            } else {
+                throw new RuntimeException("Cannot update sale payment method for split payments. Update individual payments instead.");
+            }
+        }
+
+        saleRepository.save(sale);
+
+        return convertToDto(saleRepository.findById(saleId)
+                .orElseThrow(() -> new RuntimeException("Sale not found with id: " + saleId)));
+    }
     
     public SaleDto createSale(CreateSaleRequest request, Long soldById) {
         System.out.println("Creating sale with salesPersonName: " + request.getSalesPersonName());

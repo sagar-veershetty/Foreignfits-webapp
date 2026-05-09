@@ -6,7 +6,9 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -17,6 +19,8 @@ import java.util.List;
 @Entity
 @Table(name = "sales")
 @Data
+@EqualsAndHashCode(exclude = {"items", "payments", "soldBy", "location"})
+@ToString(exclude = {"items", "payments", "soldBy", "location"})
 @NoArgsConstructor
 @AllArgsConstructor
 @EntityListeners(AuditingEntityListener.class)

@@ -6,7 +6,9 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -14,6 +16,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "sale_payments")
 @Data
+@EqualsAndHashCode(exclude = "sale")
+@ToString(exclude = "sale")
 @NoArgsConstructor
 @AllArgsConstructor
 public class SalePayment {

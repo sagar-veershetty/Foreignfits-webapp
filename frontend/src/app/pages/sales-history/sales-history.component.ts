@@ -20,6 +20,7 @@ import { SalesPersonService } from '../../core/services/sales-person.service';
 })
 export class SalesHistoryComponent implements OnInit, OnDestroy {
   private routerSubscription?: Subscription;
+  private refreshSubscription?: Subscription;
   appState$: Observable<AppState>;
 
   private readonly gstin = '29CBIPV3211R1ZW';
@@ -53,6 +54,8 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   updatePaymentError = '';
   updatePaymentSuccess = '';
   isUpdatingPayment = false;
+  showPaymentToast = false;
+  paymentToastMessage = '';
 
   // Receipt modal
   showReceiptModal = false;
@@ -63,6 +66,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   exchangeSale: Sale | null = null;
 
   activeSalesPersons: SalesPerson[] = [];
+  isLoadingSales = false;
 
   constructor(
     private appService: AppService,
@@ -78,10 +82,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     
     // Always refresh sales when visiting this page
     console.log('[SalesHistory] Refreshing sales data...');
-    this.appService.refreshSales().subscribe({
-      next: () => console.log('[SalesHistory] Sales refreshed successfully'),
-      error: (err) => console.error('[SalesHistory] Error refreshing sales:', err)
-    });
+    this.refreshSalesData();
     
     // Also ensure initial data is loaded if not already (for first visit after page refresh)
     this.appService.appState$.pipe(take(1)).subscribe(state => {
@@ -98,10 +99,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
         console.log('[SalesHistory] Navigation event:', event.url);
         if (event.url.includes('/sales-history')) {
           console.log('[SalesHistory] Navigated to sales-history, refreshing sales...');
-          this.appService.refreshSales().subscribe({
-            next: () => console.log('[SalesHistory] Sales refreshed on navigation'),
-            error: (err) => console.error('[SalesHistory] Error refreshing on navigation:', err)
-          });
+          this.refreshSalesData();
         }
       });
 
@@ -112,6 +110,9 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe();
+    }
+    if (this.refreshSubscription) {
+      this.refreshSubscription.unsubscribe();
     }
   }
 
@@ -172,6 +173,20 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.error('[SalesHistory] Failed to load active sales persons', err);
         this.activeSalesPersons = [];
+      }
+    });
+  }
+
+  private refreshSalesData(): void {
+    if (this.refreshSubscription) {
+      this.refreshSubscription.unsubscribe();
+    }
+    this.isLoadingSales = true;
+    this.refreshSubscription = this.appService.refreshSales().subscribe({
+      next: () => console.log('[SalesHistory] Sales refreshed successfully'),
+      error: (err) => console.error('[SalesHistory] Error refreshing sales:', err),
+      complete: () => {
+        this.isLoadingSales = false;
       }
     });
   }
@@ -312,7 +327,14 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   startEditPayment(paymentId?: string, paymentMethod?: 'CASH' | 'CARD' | 'UPI' | 'OTHER'): void {
     if (!paymentId) return;
     this.editingPaymentId = paymentId;
-    this.editingPaymentMethod = paymentMethod || 'CASH';
+    this.editingPaymentMethod = this.normalizePaymentMethod(paymentMethod);
+    this.updatePaymentError = '';
+    this.updatePaymentSuccess = '';
+  }
+
+  startEditSalePaymentMethod(paymentMethod?: string): void {
+    this.editingPaymentId = 'sale';
+    this.editingPaymentMethod = this.normalizePaymentMethod(paymentMethod);
     this.updatePaymentError = '';
     this.updatePaymentSuccess = '';
   }
@@ -321,6 +343,22 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     this.editingPaymentId = null;
     this.updatePaymentError = '';
     this.updatePaymentSuccess = '';
+  }
+
+  private triggerPaymentToast(message: string): void {
+    this.paymentToastMessage = message;
+    this.showPaymentToast = true;
+    setTimeout(() => {
+      this.showPaymentToast = false;
+    }, 2500);
+  }
+
+  private normalizePaymentMethod(paymentMethod?: string): 'CASH' | 'CARD' | 'UPI' | 'OTHER' {
+    const normalized = (paymentMethod || '').toUpperCase();
+    if (normalized === 'CASH' || normalized === 'CARD' || normalized === 'UPI' || normalized === 'OTHER') {
+      return normalized as 'CASH' | 'CARD' | 'UPI' | 'OTHER';
+    }
+    return 'CASH';
   }
 
   savePaymentMethod(sale: Sale, paymentId?: string): void {
@@ -470,6 +508,31 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
 
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+  }
+
+  saveSalePaymentMethod(sale: Sale): void {
+    this.isUpdatingPayment = true;
+    this.updatePaymentError = '';
+    this.updatePaymentSuccess = '';
+
+    this.appService.updateSalePaymentMethodOnly(sale.id, this.editingPaymentMethod)
+      .subscribe({
+        next: (updatedSale) => {
+          this.selectedSale = updatedSale;
+          this.editingPaymentId = null;
+          this.updatePaymentSuccess = 'Payment method updated.';
+          this.triggerPaymentToast('Exchange payment method updated.');
+          this.appService.refreshSales().subscribe();
+        },
+        error: (err) => {
+          const message = err?.error?.error || err?.error?.message || 'Failed to update payment method.';
+          this.updatePaymentError = message;
+          this.isUpdatingPayment = false;
+        },
+        complete: () => {
+          this.isUpdatingPayment = false;
+        }
+      });
   }
 
   getFilteredCount(appState: AppState): number {

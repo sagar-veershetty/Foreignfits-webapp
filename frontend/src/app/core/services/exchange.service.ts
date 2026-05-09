@@ -15,6 +15,13 @@ export interface ExchangeRequest {
   locationId: number;
   exchangeReason: string;
   notes?: string;
+  paymentMethod?: string;
+  salesPersonName?: string;
+  payments?: Array<{
+    paymentMethod: string;
+    amount: number;
+    reference?: string;
+  }>;
   returnedItems: ExchangeItemRequest[];
   exchangedItems: ExchangeItemRequest[];
 }

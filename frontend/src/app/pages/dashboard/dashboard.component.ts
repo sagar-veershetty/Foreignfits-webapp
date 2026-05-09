@@ -91,9 +91,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       item.minStock && item.quantity <= item.minStock
     ).length;
     
-    const inventoryValue = aggregatedInventory.reduce((sum, item) => 
-      sum + (item.quantity * item.cost), 0
-    );
+    const inventoryValue = aggregatedInventory.reduce((sum, item) => {
+      const qty = Number(item.quantity) || 0;
+      const cost = Number(item.cost) || 0;
+      return sum + (qty * cost);
+    }, 0);
+
+    const invalidCostCount = aggregatedInventory.filter(item => {
+      const cost = Number(item.cost);
+      return !Number.isFinite(cost) || cost <= 0;
+    }).length;
 
     // Recent sales (last 30 days)
     const thirtyDaysAgo = new Date();
@@ -115,6 +122,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       totalStock,
       lowStockCount,
       inventoryValue,
+      invalidCostCount,
       totalSales,
       recentSalesCount: recentSales.length,
       recentMovementsCount: recentMovements.length
@@ -178,10 +186,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     
     return itemsToRank
-      .map(item => ({
-        ...item,
-        totalValue: item.quantity * item.salePrice
-      }))
+      .map(item => {
+        const salePrice = Number(item.salePrice);
+        const normalizedSalePrice = Number.isFinite(salePrice) && salePrice > 0 ? salePrice : 0;
+        return {
+          ...item,
+          normalizedSalePrice,
+          missingSalePrice: !Number.isFinite(salePrice) || salePrice <= 0,
+          totalValue: (Number(item.quantity) || 0) * normalizedSalePrice
+        };
+      })
       .sort((a, b) => b.totalValue - a.totalValue)
       .slice(0, 5);
   });
@@ -418,10 +432,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // Format currency in Indian numbering system
   formatIndianCurrency(value: number): string {
-    if (value === 0) return '0.00';
+    const safeValue = Number(value);
+    if (!Number.isFinite(safeValue)) return '0.00';
+    if (safeValue === 0) return '0.00';
     
     // Convert to string and split into integer and decimal parts
-    const parts = value.toFixed(2).split('.');
+  const parts = safeValue.toFixed(2).split('.');
     const integerPart = parts[0];
     const decimalPart = parts[1];
     

@@ -611,6 +611,30 @@ export class AppService {
       );
   }
 
+  updateSalePaymentMethodOnly(saleId: string, paymentMethod: string): Observable<Sale> {
+    return this.http.put<any>(`${this.API_BASE_URL}/sales/${saleId}/payment-method`, {
+      paymentMethod
+    })
+      .pipe(
+        map(apiSale => this.convertApiSaleToSale(apiSale)),
+        tap(updatedSale => {
+          const currentState = this._appStateSubject.value;
+          const existingIndex = currentState.sales.findIndex(s => s.id === updatedSale.id);
+          const updatedSales = existingIndex >= 0
+            ? currentState.sales.map(s => (s.id === updatedSale.id ? updatedSale : s))
+            : [...currentState.sales, updatedSale];
+
+          this.updateAppState({
+            ...currentState,
+            sales: updatedSales
+          });
+        }),
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
 
   /**
    * Delete a sale by ID (ADMIN only)

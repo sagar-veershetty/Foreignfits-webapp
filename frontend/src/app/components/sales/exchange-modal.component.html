@@ -18,7 +18,7 @@
           <h3 class="text-lg font-semibold text-gray-900">Items to Return</h3>
           
           <div class="space-y-2">
-            <div *ngFor="let item of sale.items" class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div *ngFor="let item of returnItemsForDisplay()" class="border border-gray-200 rounded-lg p-4 bg-gray-50">
               <div class="flex justify-between items-start mb-2">
                 <div class="flex-1">
                   <p class="font-medium text-gray-900">{{ item.product.name }}</p>
@@ -216,6 +216,81 @@
             <p class="text-xs text-gray-600 mt-1">
               {{ priceDifference() > 0 ? 'Customer pays' : priceDifference() < 0 ? 'Refund to customer' : 'No difference' }}
             </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Sales Person</label>
+            <select *ngIf="salesPersons?.length" [(ngModel)]="salesPersonName"
+                    class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+              <option value="">Select sales person</option>
+              <option *ngFor="let person of salesPersons" [value]="person.name">{{ person.name }}</option>
+            </select>
+            <input *ngIf="!salesPersons?.length" type="text" [(ngModel)]="salesPersonName"
+                   placeholder="Enter sales person name"
+                   class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+          <div *ngIf="paymentDue() > 0.01" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <p class="text-sm font-medium text-gray-700">{{ paymentDirectionLabel() }}</p>
+                <p class="text-xs text-gray-500">{{ paymentAmountLabel() }}: ₹{{ paymentDue().toFixed(2) }}</p>
+              </div>
+              <label class="flex items-center gap-2 text-xs text-gray-600">
+                <input type="checkbox" [(ngModel)]="useSplitPayment" (change)="onSplitPaymentToggle()"
+                       class="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+                Split payment
+              </label>
+            </div>
+
+            <div *ngIf="!useSplitPayment" class="space-y-2">
+              <select [(ngModel)]="exchangePaymentMethod"
+                      class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                <option value="CASH">Cash</option>
+                <option value="CARD">Card</option>
+                <option value="UPI">UPI</option>
+                <option value="OTHER">Other</option>
+              </select>
+              <div class="text-xs text-gray-600">Amount due: ₹{{ paymentDue().toFixed(2) }}</div>
+            </div>
+
+            <div *ngIf="useSplitPayment" class="space-y-2">
+              <div *ngFor="let payment of exchangePayments; let i = index"
+                   class="grid grid-cols-1 sm:grid-cols-[1fr_120px_32px] gap-2 items-center rounded-md p-2"
+                   [class.bg-red-50]="isSplitPaymentMismatch()"
+                   [class.border]="isSplitPaymentMismatch()"
+                   [class.border-red-300]="isSplitPaymentMismatch()">
+                <select [(ngModel)]="payment.paymentMethod" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card</option>
+                  <option value="UPI">UPI</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                <input type="number" min="0" step="0.01" [(ngModel)]="payment.amount"
+                       class="w-full px-3 py-2 border border-gray-300 rounded text-sm" />
+                <button (click)="removePaymentRow(i)" class="text-gray-500 hover:text-red-600" title="Remove payment">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <button *ngIf="i === exchangePayments.length - 1"
+                        (click)="autoFillRemaining(i)"
+                        class="text-[11px] text-blue-600 hover:text-blue-800 sm:col-span-3 text-left">
+                  Use remaining ₹{{ getRemainingPaymentForIndex(i).toFixed(2) }}
+                </button>
+              </div>
+              <button (click)="addPaymentRow()" class="text-xs text-blue-600 hover:text-blue-800">
+                + Add payment
+              </button>
+              <div class="text-xs text-gray-600 flex justify-between">
+                <span>Total: ₹{{ getPaymentTotal().toFixed(2) }}</span>
+                <span>Remaining: ₹{{ getRemainingPayment().toFixed(2) }}</span>
+              </div>
+              <div *ngIf="getPaymentDelta() > 0.01" class="text-xs text-red-600">
+                Split payment total must match ₹{{ paymentDue().toFixed(2) }}.
+              </div>
+            </div>
           </div>
         </div>
 
