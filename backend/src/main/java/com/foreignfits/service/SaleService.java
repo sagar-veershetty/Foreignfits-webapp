@@ -28,7 +28,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,6 +51,7 @@ public class SaleService {
     private final com.foreignfits.repository.ExchangeRepository exchangeRepository;
     private final com.foreignfits.repository.ExchangeItemRepository exchangeItemRepository;
     private final CouponService couponService;
+    private final SalesPersonService salesPersonService;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // Flat 5% GST (included in price)
     private static final Long GANGA_LOCATION_ID = 3L;
@@ -222,7 +225,9 @@ public class SaleService {
             }
         }
         
-        // Validate and prepare sale items
+    ensureSalesPersonsFromSale(request, saleLocation.getId());
+
+    // Validate and prepare sale items
         List<SaleItem> saleItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
         
@@ -655,6 +660,30 @@ public class SaleService {
         }
         
         return convertToDto(savedSale);
+    }
+
+    private void ensureSalesPersonsFromSale(CreateSaleRequest request, Long locationId) {
+        if (request == null) {
+            return;
+        }
+
+        Set<String> names = new HashSet<>();
+
+        if (request.getSalesPersonName() != null && !request.getSalesPersonName().isBlank()) {
+            names.add(request.getSalesPersonName());
+        }
+
+        if (request.getItems() != null) {
+            for (SaleItemRequest itemRequest : request.getItems()) {
+                if (itemRequest != null && itemRequest.getSalesPersonName() != null && !itemRequest.getSalesPersonName().isBlank()) {
+                    names.add(itemRequest.getSalesPersonName());
+                }
+            }
+        }
+
+        for (String name : names) {
+            salesPersonService.ensureSalesPersonExists(name, locationId);
+        }
     }
     
     public List<SaleDto> getSalesBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {

@@ -131,6 +131,15 @@ export const routes: Routes = [
     data: { roles: ['admin','sales_manager','sales'] }
   },
   { 
+    path: 'attendance', 
+    loadComponent: () => import('./pages/attendance/attendance.component').then(m => m.AttendanceComponent),
+    canActivate: [
+      () => import('./core/guards/auth.guard').then(m => m.authGuard),
+      () => import('./core/guards/role.guard').then(m => m.roleGuard)
+    ],
+    data: { roles: ['admin','sales_manager','sales'] }
+  },
+  { 
     path: 'sales-person-management', 
     loadComponent: () => import('./pages/sales-person-management/sales-person-management.component').then(m => m.SalesPersonManagementComponent),
     canActivate: [

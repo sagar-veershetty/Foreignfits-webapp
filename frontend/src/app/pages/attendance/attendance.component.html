@@ -1,0 +1,223 @@
+<div class="max-w-6xl mx-auto px-4 pb-10" *ngIf="appState$ | async as appState">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">Manager Attendance</h2>
+      <p class="text-sm text-gray-600">Manage employee check-ins, check-outs, and leave.</p>
+    </div>
+    <button (click)="loadAttendance()" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+      Refresh
+    </button>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl p-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div>
+        <label class="text-xs text-gray-500">Filter Mode</label>
+        <select [(ngModel)]="filterMode" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <option value="date">Date</option>
+          <option value="week">Week</option>
+          <option value="month">Month</option>
+          <option value="range">Range</option>
+        </select>
+      </div>
+      <div *ngIf="filterMode === 'date' || filterMode === 'week' || filterMode === 'month'">
+        <label class="text-xs text-gray-500">Date</label>
+        <input type="date" [(ngModel)]="selectedDate" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div *ngIf="filterMode === 'range'">
+        <label class="text-xs text-gray-500">From</label>
+        <input type="date" [(ngModel)]="fromDate" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div *ngIf="filterMode === 'range'">
+        <label class="text-xs text-gray-500">To</label>
+        <input type="date" [(ngModel)]="toDate" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">Branch</label>
+        <select [(ngModel)]="locationFilter" (change)="applyFilters()" [disabled]="!hasCrossLocationAccess()" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <option *ngIf="hasCrossLocationAccess()" value="all">All</option>
+          <option *ngFor="let location of appState.locations" [value]="location.id">{{ location.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">Employee</label>
+        <select [(ngModel)]="employeeFilter" (change)="applyFilters()" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <option value="all">All</option>
+          <option *ngFor="let employee of employees" [value]="employee.id">{{ employee.name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500">Status</label>
+        <select [(ngModel)]="statusFilter" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+          <option value="ALL">All</option>
+          <option *ngFor="let status of getStatusOptions()" [value]="status">{{ status.replace('_',' ') }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-4 flex flex-wrap gap-3">
+      <button (click)="loadAttendance()" class="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+        Apply Filters
+      </button>
+      <button (click)="loadMonthlySummary()" class="px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200">
+        Refresh Summary
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">
+    {{ errorMessage }}
+  </div>
+  <div *ngIf="successMessage" class="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded p-3">
+    {{ successMessage }}
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+      <h3 class="text-lg font-semibold text-gray-900">Attendance List</h3>
+      <span class="text-xs text-gray-500">{{ attendanceRecords.length }} records</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="text-left px-4 py-3">Employee</th>
+            <th class="text-left px-4 py-3">Date</th>
+            <th class="text-left px-4 py-3">Check In</th>
+            <th class="text-left px-4 py-3">Check Out</th>
+            <th class="text-left px-4 py-3">Hours</th>
+            <th class="text-left px-4 py-3">Status</th>
+            <th class="text-left px-4 py-3">Remarks</th>
+            <th class="text-left px-4 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <tr *ngIf="isLoading">
+            <td colspan="8" class="px-4 py-6 text-center text-gray-500">Loading...</td>
+          </tr>
+          <tr *ngIf="!isLoading && attendanceRecords.length === 0">
+            <td colspan="8" class="px-4 py-6 text-center text-gray-500">No attendance records found.</td>
+          </tr>
+          <tr *ngFor="let record of attendanceRecords; trackBy: trackRecord" class="hover:bg-gray-50">
+            <td class="px-4 py-3">
+              <div class="font-medium text-gray-900">{{ record.employeeName }}</div>
+              <div class="text-xs text-gray-500">{{ record.locationName || '—' }}</div>
+            </td>
+            <td class="px-4 py-3">{{ record.attendanceDate | date: 'mediumDate' }}</td>
+            <td class="px-4 py-3">{{ formatTime(record.checkInTime) }}</td>
+            <td class="px-4 py-3">{{ formatTime(record.checkOutTime) }}</td>
+            <td class="px-4 py-3">{{ formatHours(record.workedHours) }}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-1 rounded-full text-xs font-semibold" [ngClass]="statusBadgeClass(record.status)">
+                {{ record.status.replace('_',' ') }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-600">{{ record.remarks || '—' }}</td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-2">
+                <button *ngIf="canShowCheckIn(record)" (click)="checkIn(record)"
+      [disabled]="!canActOn(record)"
+      class="px-2 py-1 rounded bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  Check In
+                </button>
+                <button *ngIf="canShowCheckOut(record)" (click)="checkOut(record)"
+      [disabled]="!canActOn(record)"
+      class="px-2 py-1 rounded bg-green-600 text-white text-xs font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  Check Out
+                </button>
+                <button *ngIf="canShowLeave(record)" (click)="markLeave(record)"
+      [disabled]="!canActOn(record)"
+      class="px-2 py-1 rounded bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                  Leave
+                </button>
+                <button (click)="openEdit(record)" [disabled]="!record.id"
+                        class="px-2 py-1 rounded bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 disabled:opacity-60">
+                  Edit
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-8 bg-white border border-gray-200 rounded-xl p-4">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      <h3 class="text-lg font-semibold text-gray-900">Monthly Summary</h3>
+      <div class="flex items-center gap-2">
+        <input type="month" [(ngModel)]="summaryMonth" class="border border-gray-300 rounded-md px-3 py-2 text-sm" />
+        <button (click)="refreshSummary()" class="px-3 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+          Apply
+        </button>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-gray-600">
+          <tr>
+            <th class="text-left px-4 py-3">Employee</th>
+            <th class="text-left px-4 py-3">Full Days</th>
+            <th class="text-left px-4 py-3">Half Days</th>
+            <th class="text-left px-4 py-3">Leave</th>
+            <th class="text-left px-4 py-3">Missing</th>
+            <th class="text-left px-4 py-3">Absent</th>
+            <th class="text-left px-4 py-3">Payable Days</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          <tr *ngIf="monthlySummary.length === 0">
+            <td colspan="7" class="px-4 py-4 text-center text-gray-500">No summary data available.</td>
+          </tr>
+          <tr *ngFor="let summary of monthlySummary">
+            <td class="px-4 py-3">
+              <div class="font-medium text-gray-900">{{ summary.employeeName }}</div>
+              <div class="text-xs text-gray-500">{{ summary.locationName || '—' }}</div>
+            </td>
+            <td class="px-4 py-3">{{ summary.fullDays }}</td>
+            <td class="px-4 py-3">{{ summary.halfDays }}</td>
+            <td class="px-4 py-3">{{ summary.leaveDays }}</td>
+            <td class="px-4 py-3">{{ summary.missingCheckouts }}</td>
+            <td class="px-4 py-3">{{ summary.absentDays }}</td>
+            <td class="px-4 py-3 font-semibold">{{ summary.payableDays }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div *ngIf="editingRecord" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Edit Attendance</h3>
+        <button (click)="closeEdit()" class="text-gray-500 hover:text-gray-700">×</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-500">Check In</label>
+          <input type="datetime-local" [(ngModel)]="editCheckIn" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Check Out</label>
+          <input type="datetime-local" [(ngModel)]="editCheckOut" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Status</label>
+          <select [(ngModel)]="editStatus" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+            <option value="">Auto</option>
+            <option *ngFor="let status of getStatusOptions()" [value]="status">{{ status.replace('_',' ') }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500">Remarks</label>
+          <textarea [(ngModel)]="editRemarks" rows="2" class="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></textarea>
+        </div>
+      </div>
+      <div class="mt-5 flex justify-end gap-2">
+        <button (click)="closeEdit()" class="px-4 py-2 rounded-md bg-gray-100 text-gray-700 text-sm font-semibold">Cancel</button>
+        <button (click)="saveEdit()" class="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-semibold">Save</button>
+      </div>
+    </div>
+  </div>
+</div>

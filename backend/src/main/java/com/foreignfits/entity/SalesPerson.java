@@ -37,6 +37,9 @@ public class SalesPerson {
     
     @Column(name = "is_active")
     private Boolean isActive = true;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted = false;
     
     @Column(name = "incentive_rate")
     private Double incentiveRate; // Commission percentage

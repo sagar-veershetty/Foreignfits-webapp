@@ -373,6 +373,44 @@ export interface ExpenseSummary {
   endDate: Date;
 }
 
+// Attendance Management Models
+export type AttendanceStatus =
+  | 'FULL_DAY'
+  | 'HALF_DAY'
+  | 'ABSENT'
+  | 'LEAVE'
+  | 'MISSING_CHECKOUT';
+
+export interface AttendanceRecord {
+  id?: string | null;
+  employeeId: string;
+  employeeName: string;
+  locationId?: string | null;
+  locationName?: string | null;
+  attendanceDate: Date;
+  checkInTime?: Date | null;
+  checkOutTime?: Date | null;
+  workedHours?: number | null;
+  status: AttendanceStatus;
+  remarks?: string | null;
+  markedByName?: string | null;
+}
+
+export interface AttendanceMonthlySummary {
+  employeeId: string;
+  employeeName: string;
+  locationId?: string | null;
+  locationName?: string | null;
+  year: number;
+  month: number;
+  fullDays: number;
+  halfDays: number;
+  absentDays: number;
+  leaveDays: number;
+  missingCheckouts: number;
+  payableDays: number;
+}
+
 // Logistics/Shipping Management Models
 export type ShipmentStatus = 
   | 'CREATED'                  // Shipment created by China agent

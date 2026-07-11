@@ -336,6 +336,14 @@ export class AuthService {
     return this.hasPermission('redeem:loyalty_points');
   }
 
+  canViewAttendance(): boolean {
+    return this.hasPermission('view:attendance');
+  }
+
+  canManageAttendance(): boolean {
+    return this.hasPermission('manage:attendance');
+  }
+
   isTokenValid(): boolean {
     const token = this.getToken();
     const user = localStorage.getItem('foreignfits_user');

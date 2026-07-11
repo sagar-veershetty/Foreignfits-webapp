@@ -95,6 +95,12 @@ export class NavbarComponent {
       route: '/approvals',
       iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
     },
+    { 
+      id: 'attendance', 
+      label: 'Attendance', 
+      route: '/attendance',
+      iconPath: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
   ];
 
   constructor(
@@ -166,6 +172,11 @@ export class NavbarComponent {
     // Expenses - available to Admin, Sales Manager, and Sales users
     if (user.role === 'admin' || user.role === 'sales_manager' || user.role === 'sales') {
       tabs.push(this.tabs.find(t => t.id === 'expenses')!);
+    }
+
+    // Attendance - available to Admin and Sales Manager
+    if (this.authService.canViewAttendance()) {
+      tabs.push(this.tabs.find(t => t.id === 'attendance')!);
     }
     
     // Shipments - available to Admin only (shipping agents handled above)

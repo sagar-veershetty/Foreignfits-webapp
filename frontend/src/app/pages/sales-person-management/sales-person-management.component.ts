@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SalesPersonService } from '../../core/services/sales-person.service';
+import { AuthService } from '../../core/services/auth.service';
 import { SalesPerson } from '../../core/models';
 
 @Component({
@@ -19,6 +20,8 @@ export class SalesPersonManagementComponent implements OnInit {
   showEditModal = false;
   showDeleteConfirm = false;
   searchTerm = '';
+  currentLocationId: number | null = null;
+  canManageAllLocations = false;
   
   // Form data
   formData: Partial<SalesPerson> = {
@@ -37,9 +40,15 @@ export class SalesPersonManagementComponent implements OnInit {
   successMessage = '';
   errorMessage = '';
 
-  constructor(private salesPersonService: SalesPersonService) {}
+  constructor(
+    private salesPersonService: SalesPersonService,
+    private authService: AuthService
+  ) {}
 
   ngOnInit(): void {
+    const currentUser = this.authService.getCurrentUser();
+    this.currentLocationId = currentUser?.locationId != null ? Number(currentUser.locationId) : null;
+    this.canManageAllLocations = this.authService.hasCrossLocationAccess();
     this.loadSalesPersons();
   }
 
@@ -48,7 +57,13 @@ export class SalesPersonManagementComponent implements OnInit {
    */
   loadSalesPersons(): void {
     this.isLoading = true;
-    this.salesPersonService.getAllSalesPersons().subscribe({
+    const request$ = this.canManageAllLocations
+      ? this.salesPersonService.getAllSalesPersons()
+      : (this.currentLocationId
+        ? this.salesPersonService.getSalesPersonsByLocation(this.currentLocationId)
+        : this.salesPersonService.getAllSalesPersons());
+
+    request$.subscribe({
       next: (persons) => {
         this.salesPersons = persons;
         this.filteredSalesPersons = persons;
@@ -89,7 +104,8 @@ export class SalesPersonManagementComponent implements OnInit {
       email: '',
       isActive: true,
       incentiveRate: 0,
-      notes: ''
+      notes: '',
+      locationId: this.canManageAllLocations ? undefined : this.currentLocationId ?? undefined
     };
     this.showAddModal = true;
     this.clearMessages();
@@ -121,7 +137,8 @@ export class SalesPersonManagementComponent implements OnInit {
       email: person.email,
       isActive: person.isActive,
       incentiveRate: person.incentiveRate,
-      notes: person.notes
+      notes: person.notes,
+      locationId: this.canManageAllLocations ? person.locationId : this.currentLocationId ?? person.locationId
     };
     this.showEditModal = true;
     this.clearMessages();
@@ -191,6 +208,10 @@ export class SalesPersonManagementComponent implements OnInit {
     this.isLoading = true;
     this.clearMessages();
 
+    if (!this.canManageAllLocations && this.currentLocationId) {
+      this.formData.locationId = this.currentLocationId;
+    }
+
     this.salesPersonService.createSalesPerson(this.formData as SalesPerson).subscribe({
       next: (created) => {
         this.successMessage = `Sales person "${created.name}" created successfully!`;
@@ -225,6 +246,12 @@ export class SalesPersonManagementComponent implements OnInit {
 
     this.isLoading = true;
     this.clearMessages();
+
+    if (!this.canManageAllLocations && this.currentLocationId) {
+      this.formData.locationId = this.currentLocationId;
+    } else if (this.canManageAllLocations && this.formData.locationId == null) {
+      this.formData.locationId = this.editingPerson.locationId;
+    }
 
     this.salesPersonService.updateSalesPerson(this.editingPerson.id, this.formData as SalesPerson).subscribe({
       next: (updated) => {

@@ -51,6 +51,10 @@ public enum Permission {
     MANAGE_LOYALTY("manage:loyalty"),
     EARN_LOYALTY_POINTS("earn:loyalty_points"),
     REDEEM_LOYALTY_POINTS("redeem:loyalty_points"),
+
+    // Attendance Management
+    VIEW_ATTENDANCE("view:attendance"),
+    MANAGE_ATTENDANCE("manage:attendance"),
     
     // System Settings
     MANAGE_SETTINGS("manage:settings");

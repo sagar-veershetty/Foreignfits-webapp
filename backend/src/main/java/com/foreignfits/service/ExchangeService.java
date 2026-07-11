@@ -34,6 +34,7 @@ public class ExchangeService {
     private final BarcodeHistoryService barcodeHistoryService;
     private final BarcodeRepository barcodeRepository;
     private final SalePaymentRepository salePaymentRepository;
+    private final SalesPersonService salesPersonService;
 
     @Transactional
     public ExchangeDto createExchange(ExchangeRequest request, Long userId) {
@@ -48,6 +49,10 @@ public class ExchangeService {
         // Get user
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (request.getSalesPersonName() != null && !request.getSalesPersonName().isBlank()) {
+            salesPersonService.ensureSalesPersonExists(request.getSalesPersonName(), location.getId());
+        }
 
     // Calculate totals (GST included in prices)
     BigDecimal returnedSubtotal = calculateReturnedItemsTotal(request.getReturnedItems(), originalSale, location);

@@ -99,7 +99,10 @@ public class RolePermissionMapper {
             "add:payment",
             "update:payment",
             "view:payment",
-            "view:shipment_reports"
+            "view:shipment_reports",
+            // Attendance Management
+            Permission.VIEW_ATTENDANCE.getPermission(),
+            Permission.MANAGE_ATTENDANCE.getPermission()
         );
     }
     
@@ -176,6 +179,10 @@ public class RolePermissionMapper {
             "delete:expense",
             "approve:expense",
             "view:expense_reports",
+
+            // Attendance (view only)
+            Permission.VIEW_ATTENDANCE.getPermission(),
+            Permission.MANAGE_ATTENDANCE.getPermission(),
             
             // Locations (view only)
             Permission.VIEW_LOCATIONS.getPermission()
@@ -221,7 +228,10 @@ public class RolePermissionMapper {
             "edit:expense",
             "delete:expense",
             "approve:expense",
-            "view:expense_reports"
+            "view:expense_reports",
+            // Attendance Management
+            Permission.VIEW_ATTENDANCE.getPermission(),
+            Permission.MANAGE_ATTENDANCE.getPermission()
         );
     }
 

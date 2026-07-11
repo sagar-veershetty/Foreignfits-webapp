@@ -42,6 +42,13 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT COALESCE(MAX(s.id), 0) FROM Sale s")
     Long findMaxId();
 
+    @Query("select distinct s.salesPersonName, s.location.id " +
+        "from Sale s " +
+        "where s.salesPersonName is not null " +
+        "and trim(s.salesPersonName) <> '' " +
+        "and (:locationId is null or s.location.id = :locationId)")
+    List<Object[]> findDistinctSalesPersonNamesWithLocation(@Param("locationId") Long locationId);
+
     @Modifying
     @Query(value = "ALTER TABLE sales ALTER COLUMN id RESTART WITH ?1", nativeQuery = true)
     void resetIdentity(Long nextId);
