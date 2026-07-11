@@ -3,6 +3,7 @@ package com.foreignfits.controller;
 import com.foreignfits.dto.UserDto;
 import com.foreignfits.entity.User;
 import com.foreignfits.repository.UserRepository;
+import com.foreignfits.service.AppSettingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,8 @@ import java.util.stream.Collectors;
 public class AdminController {
     
     private final UserRepository userRepository;
-    
+    private final AppSettingService appSettingService;
+
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
@@ -82,6 +84,27 @@ public class AdminController {
         }
     }
     
+    // ── Discount feature toggle ─────────────────────────────────────────────
+
+    @GetMapping("/settings/discount-enabled")
+    public ResponseEntity<Map<String, Object>> getDiscountEnabled() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("discountEnabled", appSettingService.isDiscountEnabled());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/settings/discount-enabled")
+    @PreAuthorize("hasAuthority('approve:users')")
+    public ResponseEntity<Map<String, Object>> setDiscountEnabled(@RequestBody Map<String, Boolean> body) {
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        appSettingService.setDiscountEnabled(enabled);
+        log.info("Instant discount feature set to: {}", enabled);
+        Map<String, Object> response = new HashMap<>();
+        response.put("discountEnabled", enabled);
+        response.put("message", "Instant discount feature " + (enabled ? "enabled" : "disabled") + " successfully");
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/all-users")
     public ResponseEntity<List<UserDto>> getAllUsers() {
         log.info("Fetching all users");

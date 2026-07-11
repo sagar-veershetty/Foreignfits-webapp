@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppService } from '../../core/services/app.service';
@@ -24,6 +24,39 @@ import { Router } from '@angular/router';
         <p class="text-xs text-gray-500 mt-2">Controls the polling used to keep dashboard stats fresh.</p>
       </div>
 
+      <!-- Discount Feature Toggle — Admin Only -->
+      <div *ngIf="isAdmin" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+        <h2 class="text-sm font-medium text-gray-700 mb-1">Instant Discount Feature</h2>
+        <p class="text-xs text-gray-500 mb-3">
+          When enabled, customers automatically receive 10–15% off on purchases ≥ ₹5,000.
+          Disabling this stops discounts from being applied at the time of sale.
+          Coupon codes are not affected by this setting.
+        </p>
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-gray-600">Status:</span>
+          <span *ngIf="discountEnabled" class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">Enabled</span>
+          <span *ngIf="!discountEnabled" class="px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 rounded-full">Disabled</span>
+          <button
+            *ngIf="discountEnabled"
+            (click)="toggleDiscount(false)"
+            [disabled]="discountLoading"
+            class="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-sm disabled:opacity-50">
+            {{ discountLoading ? 'Saving…' : 'Disable Discounts' }}
+          </button>
+          <button
+            *ngIf="!discountEnabled"
+            (click)="toggleDiscount(true)"
+            [disabled]="discountLoading"
+            class="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-sm disabled:opacity-50">
+            {{ discountLoading ? 'Saving…' : 'Enable Discounts' }}
+          </button>
+        </div>
+        <p *ngIf="discountMessage" class="text-xs mt-2"
+           [ngClass]="discountEnabled ? 'text-green-600' : 'text-red-600'">
+          {{ discountMessage }}
+        </p>
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
         <h2 class="text-sm font-medium text-gray-700 mb-2">About</h2>
         <p class="text-sm text-gray-600">Foreign Fits Dashboard UI — configurable refresh and navigation.</p>
@@ -42,10 +75,40 @@ import { Router } from '@angular/router';
     </div>
   `
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnInit {
   intervalSec = 10;
+  discountEnabled = true;
+  discountLoading = false;
+  discountMessage = '';
 
   constructor(private appService: AppService, private authService: AuthService, private router: Router) {}
+
+  ngOnInit(): void {
+    this.appService.getDiscountEnabled().subscribe({
+      next: enabled => this.discountEnabled = enabled,
+      error: () => this.discountEnabled = true
+    });
+  }
+
+  get isAdmin(): boolean {
+    return this.authService.getCurrentUser()?.role === 'admin';
+  }
+
+  toggleDiscount(enabled: boolean): void {
+    this.discountLoading = true;
+    this.discountMessage = '';
+    this.appService.setDiscountEnabled(enabled).subscribe({
+      next: () => {
+        this.discountEnabled = enabled;
+        this.discountMessage = `Instant discounts ${enabled ? 'enabled' : 'disabled'} successfully.`;
+        this.discountLoading = false;
+      },
+      error: () => {
+        this.discountMessage = 'Failed to update discount setting. Please try again.';
+        this.discountLoading = false;
+      }
+    });
+  }
 
   applyInterval() {
     const ms = Math.max(5, this.intervalSec) * 1000;
@@ -71,3 +134,4 @@ export class SettingsComponent {
     this.router.navigate(['/login']);
   }
 }
+

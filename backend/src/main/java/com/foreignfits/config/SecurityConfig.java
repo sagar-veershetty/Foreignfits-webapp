@@ -62,6 +62,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/admin/update-subcategories").permitAll()  // One-time data migration
+                .requestMatchers(HttpMethod.GET, "/admin/settings/discount-enabled").permitAll()  // Public read for discount flag
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

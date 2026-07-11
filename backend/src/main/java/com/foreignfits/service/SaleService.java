@@ -52,6 +52,7 @@ public class SaleService {
     private final com.foreignfits.repository.ExchangeItemRepository exchangeItemRepository;
     private final CouponService couponService;
     private final SalesPersonService salesPersonService;
+    private final AppSettingService appSettingService;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // Flat 5% GST (included in price)
     private static final Long GANGA_LOCATION_ID = 3L;
@@ -352,17 +353,19 @@ public class SaleService {
         BigDecimal instantDiscountPercent = BigDecimal.ZERO;
         BigDecimal instantDiscountAmount = BigDecimal.ZERO;
         
+        boolean instantDiscountFeatureEnabled = appSettingService.isDiscountEnabled();
+
         // Check subtotal against thresholds
-        if (!isGangaWholesale && subtotal.compareTo(new BigDecimal("10000")) >= 0) {
+        if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(new BigDecimal("10000")) >= 0) {
             instantDiscountPercent = new BigDecimal("15.00");
-        } else if (!isGangaWholesale && subtotal.compareTo(new BigDecimal("7500")) >= 0) {
+        } else if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(new BigDecimal("7500")) >= 0) {
             instantDiscountPercent = new BigDecimal("12.00");
-        } else if (!isGangaWholesale && subtotal.compareTo(new BigDecimal("5000")) >= 0) {
+        } else if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(new BigDecimal("5000")) >= 0) {
             instantDiscountPercent = new BigDecimal("10.00");
         }
         
         // Calculate instant discount amount if applicable
-        if (!isGangaWholesale && instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0) {
+        if (!isGangaWholesale && instantDiscountFeatureEnabled && instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0) {
             instantDiscountAmount = subtotal.multiply(instantDiscountPercent)
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
             

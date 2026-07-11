@@ -40,14 +40,14 @@ echo "Region: $AWS_REGION"
 echo ""
 
 # Sync built files to S3
-aws s3 sync dist/foreign-fits-angular/browser/ s3://$S3_BUCKET/ \
+aws s3 sync dist/foreign-fits-angular/ s3://$S3_BUCKET/ \
     --region $AWS_REGION \
     --delete \
     --cache-control "public, max-age=31536000, immutable" \
     --exclude "index.html"
 
 # Upload index.html separately with no-cache
-aws s3 cp dist/foreign-fits-angular/browser/index.html s3://$S3_BUCKET/index.html \
+aws s3 cp dist/foreign-fits-angular/index.html s3://$S3_BUCKET/index.html \
     --region $AWS_REGION \
     --cache-control "no-cache, no-store, must-revalidate" \
     --metadata-directive REPLACE

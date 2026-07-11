@@ -173,5 +173,10 @@ export const routes: Routes = [
     path: 'customer', 
     loadComponent: () => import('./pages/customer/customer-app.component').then(m => m.CustomerAppComponent)
   },
+  {
+    path: 'settings',
+    loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent),
+    canActivate: [() => import('./core/guards/auth.guard').then(m => m.authGuard)]
+  },
   { path: '**', redirectTo: '/dashboard' }
 ];

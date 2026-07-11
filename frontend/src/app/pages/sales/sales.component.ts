@@ -99,6 +99,9 @@ export class SalesComponent implements OnInit {
   isUpdatingPrice = false;
   pendingBarcodeInfo: any = null; // Store barcode info while price is being edited
 
+  // Instant discount feature flag (loaded from server)
+  instantDiscountEnabled = true;
+
   constructor(
     private appService: AppService,
     private authService: AuthService,
@@ -117,6 +120,12 @@ export class SalesComponent implements OnInit {
       }
     });
     
+    // Load discount feature flag
+    this.appService.getDiscountEnabled().subscribe({
+      next: enabled => this.instantDiscountEnabled = enabled,
+      error: () => this.instantDiscountEnabled = true
+    });
+
     // Load active sales persons for dropdown
     this.loadActiveSalesPersons();
   }
@@ -620,6 +629,10 @@ export class SalesComponent implements OnInit {
    */
   getInstantDiscount(appState: AppState): { percent: number, amount: number } {
     if (this.isGangaStore()) {
+      return { percent: 0, amount: 0 };
+    }
+
+    if (!this.instantDiscountEnabled) {
       return { percent: 0, amount: 0 };
     }
 

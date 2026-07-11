@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Production Deployment Script - Instant Discount Feature
-# This script safely deploys the new instant discount feature to production
+# Production Deployment Script - Foreign Fits
+# Builds backend + frontend and deploys to AWS (EB + S3)
 # Author: Deployment Team
 # Date: $(date +%Y-%m-%d)
 
@@ -18,9 +18,12 @@ BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
 APP_NAME="inventory-management"
 BACKEND_DIR="backend"
 FRONTEND_DIR="frontend"
+S3_BUCKET="foreign-fits-web"
+AWS_REGION="ap-south-1"
+DISTRIBUTION_ID="YOUR_CLOUDFRONT_DIST_ID"  # Replace if you have CloudFront
 
 echo -e "${GREEN}=== Foreign Fits - Production Deployment ===${NC}"
-echo "Deploying Instant Discount Feature"
+echo "Deploying: Discount Toggle Feature + all recent changes"
 echo "Date: $(date)"
 echo ""
 
@@ -63,7 +66,7 @@ echo ""
 # Step 4: Build frontend
 echo -e "${YELLOW}Step 4: Building frontend...${NC}"
 cd "$FRONTEND_DIR"
-npm run build > /dev/null 2>&1
+npm run build -- --configuration production > /dev/null 2>&1
 if [ $? -eq 0 ]; then
     echo "✓ Frontend build successful"
 else
@@ -169,33 +172,69 @@ echo ""
 
 # Step 12: Verify database schema
 echo -e "${YELLOW}Step 12: Checking database schema...${NC}"
-echo "New columns should be added automatically by Hibernate:"
-echo "  - instant_discount_percent"
-echo "  - instant_discount_amount"
-echo "✓ Schema update handled by Hibernate (ddl-auto: update)"
+echo "New table/columns added automatically by Hibernate (ddl-auto: update):"
+echo "  - app_settings table (discount feature toggle)"
+echo "  - instant_discount_percent column on sales"
+echo "  - instant_discount_amount column on sales"
+echo "✓ Schema update handled by Hibernate"
 echo ""
 
-# Step 13: Summary
+# Step 13: Deploy frontend to S3
+echo -e "${YELLOW}Step 13: Uploading frontend to S3...${NC}"
+if command -v aws &> /dev/null; then
+    # Upload all assets with long-term caching (hashed filenames)
+    aws s3 sync "$FRONTEND_DIR/dist/foreign-fits-angular/" "s3://$S3_BUCKET/" \
+        --region "$AWS_REGION" \
+        --delete \
+        --cache-control "public, max-age=31536000, immutable" \
+        --exclude "index.html"
+
+    # Upload index.html with no-cache so browsers always get the latest shell
+    aws s3 cp "$FRONTEND_DIR/dist/foreign-fits-angular/index.html" "s3://$S3_BUCKET/index.html" \
+        --region "$AWS_REGION" \
+        --cache-control "no-cache, no-store, must-revalidate" \
+        --metadata-directive REPLACE
+
+    echo "✓ Frontend uploaded to S3: s3://$S3_BUCKET"
+
+    # Invalidate CloudFront cache if configured
+    if [ "$DISTRIBUTION_ID" != "YOUR_CLOUDFRONT_DIST_ID" ]; then
+        echo -e "${YELLOW}  Invalidating CloudFront cache...${NC}"
+        aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*" > /dev/null 2>&1 && echo "✓ CloudFront cache invalidated" || echo "⚠ CloudFront invalidation failed (non-fatal)"
+    fi
+else
+    echo -e "${YELLOW}⚠ AWS CLI not found — skipping S3 upload.${NC}"
+    echo "  Run manually: cd $FRONTEND_DIR && bash ../deploy-to-aws.sh"
+fi
+echo ""
+
+# Step 14: Summary
 echo -e "${GREEN}=== Deployment Completed Successfully! ===${NC}"
 echo ""
 echo "Deployment Details:"
 echo "  Backup Location: $BACKUP_DIR"
-echo "  Backend PID: $APP_PID"
-echo "  Backend Logs: $BACKEND_DIR/application.log"
+echo "  Backend PID:     $APP_PID"
+echo "  Backend Logs:    $BACKEND_DIR/application.log"
+echo "  Frontend:        http://$S3_BUCKET.s3-website.$AWS_REGION.amazonaws.com"
+echo ""
+echo "What's new in this release:"
+echo "  ✔ Instant discount toggle — enable/disable from Admin > Settings"
+echo "  ✔ app_settings table auto-created by Hibernate on first boot"
+echo "  ✔ Coupon feature unchanged"
 echo ""
 echo "Next Steps:"
-echo "  1. Verify frontend deployment (copy dist/ to web server)"
-echo "  2. Test instant discount feature:"
-echo "     - Create sale worth ₹5,000+ (should get 10% discount)"
-echo "     - Create sale worth ₹7,500+ (should get 12% discount)"
-echo "     - Create sale worth ₹10,000+ (should get 15% discount)"
-echo "  3. Check sales history displays discount information"
-echo "  4. Monitor logs for any errors"
+echo "  1. Open Admin Dashboard > Settings > Instant Discount Feature"
+echo "  2. Toggle discount ON/OFF and confirm it applies on the sales page"
+echo "  3. Test a sale >= Rs.5,000 with discount enabled (should show 10% off)"
+echo "  4. Disable discount and confirm no discount on same sale"
+echo "  5. Confirm coupon codes still work independently"
 echo ""
 echo "To view logs:"
 echo "  tail -f $BACKEND_DIR/application.log"
 echo ""
-echo "To rollback:"
+echo "To rollback backend:"
 echo "  kill \$(cat $BACKEND_DIR/app.pid)"
 echo "  cp $BACKUP_DIR/$APP_NAME.jar.backup $BACKEND_DIR/target/$APP_NAME-0.0.1-SNAPSHOT.jar"
 echo "  cd $BACKEND_DIR && nohup java -jar target/$APP_NAME-0.0.1-SNAPSHOT.jar > application.log 2>&1 &"

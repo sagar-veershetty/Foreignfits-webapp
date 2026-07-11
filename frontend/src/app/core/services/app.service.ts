@@ -1257,6 +1257,16 @@ export class AppService {
       updatedAt: new Date(apiInv.updatedAt),
     };
   }
-}
 
+  // ── Discount feature flag ────────────────────────────────────────────────
+
+  getDiscountEnabled(): Observable<boolean> {
+    return this.http.get<{ discountEnabled: boolean }>(`${this.API_BASE_URL}/admin/settings/discount-enabled`)
+      .pipe(map(res => res.discountEnabled));
+  }
+
+  setDiscountEnabled(enabled: boolean): Observable<any> {
+    return this.http.post(`${this.API_BASE_URL}/admin/settings/discount-enabled`, { enabled });
+  }
+}
 
