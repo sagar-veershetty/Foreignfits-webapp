@@ -6,7 +6,7 @@ import { take, filter } from 'rxjs/operators';
 import { Router, NavigationEnd } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Sale, SalesPerson } from '../../core/models';
+import { Sale, SaleItem, SalesPerson } from '../../core/models';
 import { PrintReceiptComponent } from '../sales/print-receipt.component';
 import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
 import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
@@ -28,8 +28,8 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   // Expose Math for template
   Math = Math;
 
-  // Filters
-  filterMode: 'all' | 'today' | 'week' | 'month' | 'range' = 'all';
+  // Filters — default to 'today' so only today's sales are fetched on page load
+  filterMode: 'all' | 'today' | 'week' | 'month' | 'range' = 'today';
   fromDate?: string; // yyyy-MM-dd
   toDate?: string;   // yyyy-MM-dd
   locationFilter: string = 'all'; // Location filter for ADMIN
@@ -182,10 +182,33 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       this.refreshSubscription.unsubscribe();
     }
     this.isLoadingSales = true;
-    this.refreshSubscription = this.appService.refreshSales().subscribe({
-      next: () => console.log('[SalesHistory] Sales refreshed successfully'),
-      error: (err) => console.error('[SalesHistory] Error refreshing sales:', err),
-      complete: () => {
+
+    // Pick how many days to fetch based on the current filter
+    let days = 1; // today
+    if (this.filterMode === 'week') days = 7;
+    else if (this.filterMode === 'month') days = 31;
+    else if (this.filterMode === 'range') days = 90;
+    else if (this.filterMode === 'all') {
+      this.refreshSubscription = this.appService.refreshAllSales().subscribe({
+        next: () => {
+          console.log('[SalesHistory] All sales loaded');
+          this.isLoadingSales = false;
+        },
+        error: (err) => {
+          console.error('[SalesHistory] Error loading all sales:', err);
+          this.isLoadingSales = false;
+        }
+      });
+      return;
+    }
+
+    this.refreshSubscription = this.appService.refreshSales(days).subscribe({
+      next: () => {
+        console.log(`[SalesHistory] Sales refreshed (${days} days)`);
+        this.isLoadingSales = false;
+      },
+      error: (err) => {
+        console.error('[SalesHistory] Error refreshing sales:', err);
         this.isLoadingSales = false;
       }
     });
@@ -397,8 +420,33 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
     return 'Total';
   }
 
+  /**
+   * Returns per-barcode rows for an item so each barcode shows its own price.
+   * Falls back to the item average price if barcodePrices map is absent.
+   */
+  getBarcodeRows(item: SaleItem): Array<{ barcode: string; price: number }> {
+    if (!item.barcodes || item.barcodes.length === 0) {
+      return [{ barcode: '', price: item.price }];
+    }
+    return item.barcodes.map(b => ({
+      barcode: b,
+      price: item.barcodePrices?.[b] ?? item.price
+    }));
+  }
+
+  /**
+   * Returns true if an item has barcodes with different prices (needs expanded rows).
+   */
+  hasVariedPrices(item: SaleItem): boolean {
+    if (!item.barcodes || item.barcodes.length <= 1 || !item.barcodePrices) return false;
+    const prices = item.barcodes.map(b => item.barcodePrices![b] ?? item.price);
+    return new Set(prices).size > 1;
+  }
+
   setFilter(mode: 'all' | 'today' | 'week' | 'month' | 'range'): void {
     this.filterMode = mode;
+    // Re-fetch from backend with the appropriate window
+    this.refreshSalesData();
   }
 
   // Return filtered sales based on the selected filter

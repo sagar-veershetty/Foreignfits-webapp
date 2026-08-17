@@ -151,7 +151,7 @@ export class AppService {
             ...this._appStateSubject.value,
             products: fallbackProducts
           });
-          return new Observable<Product[]>(observer => observer.next(fallbackProducts));
+          return of(fallbackProducts);
         })
       );
   }
@@ -176,7 +176,8 @@ export class AppService {
   }
 
   private loadSales(): Observable<Sale[]> {
-    return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales`)
+    // Load last 30 days by default — much faster than loading all sales
+    return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales/recent?days=30`)
       .pipe(
         tap(apiSales => {
           const sales = apiSales.map(s => this.convertApiSaleToSale(s));
@@ -185,19 +186,38 @@ export class AppService {
             sales
           });
         }),
-        catchError(error => {
-          // Keep existing sales list if API fails
-          return new Observable<Sale[]>(observer => observer.next([]));
-        })
+        catchError(() => of([] as Sale[]))
       );
   }
 
   /**
-   * Force refresh sales data (useful for sales history page)
+   * Force refresh sales data (useful for sales history page).
    */
-  refreshSales(): Observable<Sale[]> {
-    console.log('[AppService] Refreshing sales data...');
-    return this.loadSales();
+  refreshSales(days: number = 30): Observable<Sale[]> {
+    console.log(`[AppService] Refreshing sales data (last ${days} days)...`);
+    return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales/recent?days=${days}`)
+      .pipe(
+        tap(apiSales => {
+          const sales = apiSales.map(s => this.convertApiSaleToSale(s));
+          this.updateAppState({ ...this._appStateSubject.value, sales });
+        }),
+        catchError(() => of([] as Sale[]))
+      );
+  }
+
+  /**
+   * Load ALL sales (admin only, used when user explicitly selects 'All time' filter).
+   */
+  refreshAllSales(): Observable<Sale[]> {
+    console.log('[AppService] Loading ALL sales...');
+    return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales`)
+      .pipe(
+        tap(apiSales => {
+          const sales = apiSales.map(s => this.convertApiSaleToSale(s));
+          this.updateAppState({ ...this._appStateSubject.value, sales });
+        }),
+        catchError(() => of([] as Sale[]))
+      );
   }
 
   private loadStockMovements(): Observable<StockMovement[]> {
@@ -220,7 +240,7 @@ export class AppService {
             ...this._appStateSubject.value,
             stockMovements: []
           });
-          return new Observable<StockMovement[]>(observer => observer.next([]));
+          return of([] as StockMovement[]);
         })
       );
   }
@@ -334,7 +354,7 @@ export class AppService {
                   ...this._appStateSubject.value,
                   locations: []
                 });
-                return new Observable<Location[]>(observer => observer.next([]));
+                return of([] as Location[]);
               })
             );
         })

@@ -58,7 +58,30 @@ public class SaleService {
     private static final Long GANGA_LOCATION_ID = 3L;
     
     public List<SaleDto> getAllSales() {
-        return saleRepository.findAll().stream()
+        return saleRepository.findAllFetched().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns sales within the last N days using a single JOIN FETCH query.
+     * This is the primary endpoint used by the sales-history page.
+     */
+    public List<SaleDto> getRecentSales(int days) {
+        LocalDateTime from = LocalDateTime.now().minusDays(days).toLocalDate().atStartOfDay();
+        LocalDateTime to = LocalDateTime.now();
+        return saleRepository.findSalesBetweenDatesFetched(from, to).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns sales within the last N days for a specific location.
+     */
+    public List<SaleDto> getRecentSalesByLocation(int days, Long locationId) {
+        LocalDateTime from = LocalDateTime.now().minusDays(days).toLocalDate().atStartOfDay();
+        LocalDateTime to = LocalDateTime.now();
+        return saleRepository.findByLocationBetweenDatesFetched(locationId, from, to).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -690,13 +713,15 @@ public class SaleService {
     }
     
     public List<SaleDto> getSalesBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
-        return saleRepository.findSalesBetweenDates(startDate, endDate).stream()
+        return saleRepository.findSalesBetweenDatesFetched(startDate, endDate).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
     
     public List<SaleDto> getTodaysSales() {
-        return saleRepository.findTodaysSales().stream()
+        LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfToday = startOfToday.plusDays(1);
+        return saleRepository.findSalesBetweenDatesFetched(startOfToday, endOfToday).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -707,30 +732,32 @@ public class SaleService {
     }
     
     // Location-based filtering methods for SALES users
-    // TODO: These methods need Sale entity to track saleLocationId
-    // Products no longer have location, so we can't filter by product.location
     public List<SaleDto> getSalesByLocation(Long locationId) {
-        // TEMPORARY: Return all sales (needs proper implementation with Sale.locationId)
-        System.err.println("WARNING: getSalesByLocation not properly implemented - returning all sales");
-        return getAllSales();
+        // Default to last 30 days for location-filtered sales
+        LocalDateTime from = LocalDateTime.now().minusDays(30).toLocalDate().atStartOfDay();
+        LocalDateTime to = LocalDateTime.now();
+        return saleRepository.findByLocationBetweenDatesFetched(locationId, from, to).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
     
     public List<SaleDto> getTodaysSalesByLocation(Long locationId) {
-        // TEMPORARY: Return today's sales (needs proper implementation with Sale.locationId)
-        System.err.println("WARNING: getTodaysSalesByLocation not properly implemented - returning all today's sales");
-        return getTodaysSales();
+        LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfToday = startOfToday.plusDays(1);
+        return saleRepository.findByLocationBetweenDatesFetched(locationId, startOfToday, endOfToday).stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
-    
+
     public BigDecimal getTodaysRevenueByLocation(Long locationId) {
-        // TEMPORARY: Return today's revenue (needs proper implementation with Sale.locationId)
-        System.err.println("WARNING: getTodaysRevenueByLocation not properly implemented - returning all revenue");
-        return getTodaysRevenue();
+        LocalDateTime startOfToday = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime endOfToday = startOfToday.plusDays(1);
+        BigDecimal revenue = saleRepository.getTotalRevenueBetweenDates(startOfToday, endOfToday);
+        return revenue != null ? revenue : BigDecimal.ZERO;
     }
     
     public List<SaleDto> getSalesBetweenDatesByLocation(LocalDateTime startDate, LocalDateTime endDate, Long locationId) {
-        // TEMPORARY: Return all sales in date range (needs proper implementation with Sale.locationId)
-        System.err.println("WARNING: getSalesBetweenDatesByLocation not properly implemented - returning all sales in range");
-        return saleRepository.findSalesBetweenDates(startDate, endDate).stream()
+        return saleRepository.findByLocationBetweenDatesFetched(locationId, startDate, endDate).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }

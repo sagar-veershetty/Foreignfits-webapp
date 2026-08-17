@@ -17,6 +17,46 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findBySoldById(Long soldById);
     
     List<Sale> findByPaymentMethod(Sale.PaymentMethod paymentMethod);
+
+    // ── Eager-fetch variants to eliminate N+1 queries ─────────────────────
+
+    @Query("SELECT DISTINCT s FROM Sale s " +
+           "LEFT JOIN FETCH s.items i " +
+           "LEFT JOIN FETCH i.product " +
+           "LEFT JOIN FETCH i.barcodes " +
+           "LEFT JOIN FETCH s.payments " +
+           "LEFT JOIN FETCH s.soldBy " +
+           "LEFT JOIN FETCH s.location " +
+           "WHERE s.createdAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY s.createdAt DESC")
+    List<Sale> findSalesBetweenDatesFetched(@Param("startDate") LocalDateTime startDate,
+                                             @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT DISTINCT s FROM Sale s " +
+           "LEFT JOIN FETCH s.items i " +
+           "LEFT JOIN FETCH i.product " +
+           "LEFT JOIN FETCH i.barcodes " +
+           "LEFT JOIN FETCH s.payments " +
+           "LEFT JOIN FETCH s.soldBy " +
+           "LEFT JOIN FETCH s.location " +
+           "WHERE s.location.id = :locationId " +
+           "AND s.createdAt BETWEEN :startDate AND :endDate " +
+           "ORDER BY s.createdAt DESC")
+    List<Sale> findByLocationBetweenDatesFetched(@Param("locationId") Long locationId,
+                                                  @Param("startDate") LocalDateTime startDate,
+                                                  @Param("endDate") LocalDateTime endDate);
+
+    @Query("SELECT DISTINCT s FROM Sale s " +
+           "LEFT JOIN FETCH s.items i " +
+           "LEFT JOIN FETCH i.product " +
+           "LEFT JOIN FETCH i.barcodes " +
+           "LEFT JOIN FETCH s.payments " +
+           "LEFT JOIN FETCH s.soldBy " +
+           "LEFT JOIN FETCH s.location " +
+           "ORDER BY s.createdAt DESC")
+    List<Sale> findAllFetched();
+
+    // ── Existing queries kept as-is ────────────────────────────────────────
     
     @Query("SELECT s FROM Sale s WHERE s.createdAt BETWEEN :startDate AND :endDate")
     List<Sale> findSalesBetweenDates(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);

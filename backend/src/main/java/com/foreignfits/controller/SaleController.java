@@ -49,6 +49,28 @@ public class SaleController {
         
         return ResponseEntity.ok(sales);
     }
+
+    /**
+     * Fast endpoint: returns sales for the last N days (default 30).
+     * Uses JOIN FETCH so no N+1 queries. Used by the sales-history page.
+     */
+    @GetMapping("/recent")
+    @PreAuthorize("hasAuthority('view:sales')")
+    public ResponseEntity<List<SaleDto>> getRecentSales(
+            @RequestParam(defaultValue = "30") int days,
+            Authentication authentication) {
+        String email = authentication.getName();
+        UserDto currentUser = userService.getUserByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<SaleDto> sales;
+        if (currentUser.getRole() == User.UserRole.SALES && currentUser.getLocationId() != null) {
+            sales = saleService.getRecentSalesByLocation(days, currentUser.getLocationId());
+        } else {
+            sales = saleService.getRecentSales(days);
+        }
+        return ResponseEntity.ok(sales);
+    }
     
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('view:sales')")
