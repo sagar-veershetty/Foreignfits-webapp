@@ -372,19 +372,13 @@ public class SaleService {
             System.out.println("=== AFTER DISCOUNT: Total = ₹" + total);
         }
         
-        // Calculate instant discount based on subtotal (before coupon)
+        // Calculate instant discount based on configured flat percentage (before coupon)
         BigDecimal instantDiscountPercent = BigDecimal.ZERO;
         BigDecimal instantDiscountAmount = BigDecimal.ZERO;
         
         boolean instantDiscountFeatureEnabled = appSettingService.isDiscountEnabled();
-
-        // Check subtotal against thresholds
-        if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(new BigDecimal("10000")) >= 0) {
-            instantDiscountPercent = new BigDecimal("15.00");
-        } else if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(new BigDecimal("7500")) >= 0) {
-            instantDiscountPercent = new BigDecimal("12.00");
-        } else if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(new BigDecimal("5000")) >= 0) {
-            instantDiscountPercent = new BigDecimal("10.00");
+        if (!isGangaWholesale && instantDiscountFeatureEnabled && subtotal.compareTo(BigDecimal.ZERO) > 0) {
+            instantDiscountPercent = appSettingService.getDiscountPercent();
         }
         
         // Calculate instant discount amount if applicable

@@ -17,6 +17,46 @@ export class PrintReceiptComponent {
   router = inject(Router);
   Math = Math; // Expose Math for template
 
+  hasInstantDiscount(): boolean {
+    return !!this.receipt?.instantDiscount && Number(this.receipt?.instantDiscount?.amount || 0) > 0;
+  }
+
+  getInstantDiscountPercent(): number {
+    return Number(this.receipt?.instantDiscount?.percent || 0);
+  }
+
+  getItemDiscountPerUnit(item: any): number {
+    if (!this.hasInstantDiscount()) return 0;
+    const percent = this.getInstantDiscountPercent();
+    const unitPrice = Number(item?.price || 0);
+    return Number(((unitPrice * percent) / 100).toFixed(2));
+  }
+
+  getItemNetAmount(item: any): number {
+    const qty = Number(item?.qty || 0);
+    const unitPrice = Number(item?.price || 0);
+    const discountPerUnit = this.getItemDiscountPerUnit(item);
+    return Number((qty * (unitPrice - discountPerUnit)).toFixed(2));
+  }
+
+  getTotalItemsCount(): number {
+    if (!Array.isArray(this.receipt?.items)) return 0;
+    return this.receipt.items.reduce((sum: number, item: any) => sum + Number(item?.qty || 0), 0);
+  }
+
+  getTotalSavings(): number {
+    const instant = Number(this.receipt?.instantDiscount?.amount || 0);
+    const coupon = Number(this.receipt?.appliedCoupon?.discount || 0);
+    return Number((instant + coupon).toFixed(2));
+  }
+
+  getItemGridTemplateColumns(): string {
+    // Keep columns tight for 80mm print and avoid empty discount column gap
+    return this.hasInstantDiscount()
+      ? '30px 1fr 56px 48px 66px'
+      : '30px 1fr 56px 66px';
+  }
+
   print() {
     // Optimize for thermal printer (80mm width)
     const printWindow = window.open('', '_blank', 'width=302,height=600');
@@ -71,7 +111,7 @@ export class PrintReceiptComponent {
                 margin: 0; 
                 padding: 0;
                 width: 80mm;
-                font-family: 'Courier New', Courier, monospace;
+                font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
               }
               .receipt-paper { 
                 box-shadow: none !important; 

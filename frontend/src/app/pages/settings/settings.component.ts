@@ -28,10 +28,30 @@ import { Router } from '@angular/router';
       <div *ngIf="isAdmin" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
         <h2 class="text-sm font-medium text-gray-700 mb-1">Instant Discount Feature</h2>
         <p class="text-xs text-gray-500 mb-3">
-          When enabled, customers automatically receive 10–15% off on purchases ≥ ₹5,000.
-          Disabling this stops discounts from being applied at the time of sale.
+          Configure a flat instant discount percentage for billing.
+          When enabled, the same discount percentage is applied to eligible sales.
           Coupon codes are not affected by this setting.
         </p>
+        <div class="flex flex-wrap items-end gap-3 mb-3">
+          <div>
+            <label class="text-xs text-gray-600 block mb-1" for="discountPercent">Flat Discount %</label>
+            <input
+              id="discountPercent"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              [(ngModel)]="discountPercent"
+              [disabled]="discountLoading"
+              class="w-28 px-2 py-1 border border-gray-300 rounded text-sm" />
+          </div>
+          <button
+            (click)="saveDiscountConfig()"
+            [disabled]="discountLoading"
+            class="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm disabled:opacity-50">
+            {{ discountLoading ? 'Saving…' : 'Save Percentage' }}
+          </button>
+        </div>
         <div class="flex items-center gap-4">
           <span class="text-sm text-gray-600">Status:</span>
           <span *ngIf="discountEnabled" class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">Enabled</span>
@@ -78,15 +98,22 @@ import { Router } from '@angular/router';
 export class SettingsComponent implements OnInit {
   intervalSec = 10;
   discountEnabled = true;
+  discountPercent = 10;
   discountLoading = false;
   discountMessage = '';
 
   constructor(private appService: AppService, private authService: AuthService, private router: Router) {}
 
   ngOnInit(): void {
-    this.appService.getDiscountEnabled().subscribe({
-      next: enabled => this.discountEnabled = enabled,
-      error: () => this.discountEnabled = true
+    this.appService.getDiscountConfig().subscribe({
+      next: config => {
+        this.discountEnabled = config.enabled;
+        this.discountPercent = config.percentage;
+      },
+      error: () => {
+        this.discountEnabled = true;
+        this.discountPercent = 10;
+      }
     });
   }
 
@@ -95,16 +122,26 @@ export class SettingsComponent implements OnInit {
   }
 
   toggleDiscount(enabled: boolean): void {
+    this.saveDiscountConfig(enabled);
+  }
+
+  saveDiscountConfig(enabled: boolean = this.discountEnabled): void {
+    if (this.discountPercent < 0 || this.discountPercent > 100) {
+      this.discountMessage = 'Discount percentage must be between 0 and 100.';
+      return;
+    }
+
     this.discountLoading = true;
     this.discountMessage = '';
-    this.appService.setDiscountEnabled(enabled).subscribe({
-      next: () => {
-        this.discountEnabled = enabled;
-        this.discountMessage = `Instant discounts ${enabled ? 'enabled' : 'disabled'} successfully.`;
+    this.appService.setDiscountConfig(enabled, Number(this.discountPercent)).subscribe({
+      next: (res) => {
+        this.discountEnabled = !!res.enabled;
+        this.discountPercent = Number(res.percentage ?? this.discountPercent);
+        this.discountMessage = `Instant discount ${this.discountEnabled ? 'enabled' : 'disabled'} at ${this.discountPercent}% successfully.`;
         this.discountLoading = false;
       },
-      error: () => {
-        this.discountMessage = 'Failed to update discount setting. Please try again.';
+      error: (error) => {
+        this.discountMessage = error?.error?.error || 'Failed to update discount setting. Please try again.';
         this.discountLoading = false;
       }
     });

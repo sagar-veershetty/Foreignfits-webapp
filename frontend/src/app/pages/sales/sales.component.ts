@@ -101,6 +101,7 @@ export class SalesComponent implements OnInit {
 
   // Instant discount feature flag (loaded from server)
   instantDiscountEnabled = true;
+  instantDiscountPercent = 10;
 
   constructor(
     private appService: AppService,
@@ -120,10 +121,16 @@ export class SalesComponent implements OnInit {
       }
     });
     
-    // Load discount feature flag
-    this.appService.getDiscountEnabled().subscribe({
-      next: enabled => this.instantDiscountEnabled = enabled,
-      error: () => this.instantDiscountEnabled = true
+    // Load discount config
+    this.appService.getDiscountConfig().subscribe({
+      next: config => {
+        this.instantDiscountEnabled = config.enabled;
+        this.instantDiscountPercent = config.percentage;
+      },
+      error: () => {
+        this.instantDiscountEnabled = true;
+        this.instantDiscountPercent = 10;
+      }
     });
 
     // Load active sales persons for dropdown
@@ -629,7 +636,7 @@ export class SalesComponent implements OnInit {
   }
 
   /**
-   * Calculate instant discount based on subtotal thresholds
+   * Calculate instant discount as flat configured percentage.
    */
   getInstantDiscount(appState: AppState): { percent: number, amount: number } {
     if (this.isGangaStore()) {
@@ -641,13 +648,11 @@ export class SalesComponent implements OnInit {
     }
 
     const subtotal = this.getSubtotal(appState);
-    
-    if (subtotal >= 10000) {
-      return { percent: 15, amount: subtotal * 0.15 };
-    } else if (subtotal >= 7500) {
-      return { percent: 12, amount: subtotal * 0.12 };
-    } else if (subtotal >= 5000) {
-      return { percent: 10, amount: subtotal * 0.10 };
+    const percent = Number(this.instantDiscountPercent || 0);
+
+    if (subtotal > 0 && percent > 0) {
+      const amount = Number(((subtotal * percent) / 100).toFixed(2));
+      return { percent, amount };
     }
     
     return { percent: 0, amount: 0 };
@@ -802,7 +807,7 @@ export class SalesComponent implements OnInit {
           locationName: locationName,
           locationAddress: locationAddress,
           locationPhone: locationPhone,
-          instantDiscount: this.getInstantDiscount(appState).amount > 0 ? {
+          instantDiscount: this.instantDiscountEnabled && this.getInstantDiscount(appState).amount > 0 ? {
             percent: this.getInstantDiscount(appState).percent,
             amount: this.getInstantDiscount(appState).amount
           } : undefined,

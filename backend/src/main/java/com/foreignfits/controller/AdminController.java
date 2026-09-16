@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,6 +104,41 @@ public class AdminController {
         response.put("discountEnabled", enabled);
         response.put("message", "Instant discount feature " + (enabled ? "enabled" : "disabled") + " successfully");
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/settings/discount-config")
+    @PreAuthorize("hasAnyAuthority('approve:users','view:sales')")
+    public ResponseEntity<Map<String, Object>> getDiscountConfig() {
+        AppSettingService.DiscountConfig config = appSettingService.getDiscountConfig();
+        Map<String, Object> response = new HashMap<>();
+        response.put("enabled", config.isEnabled());
+        response.put("percentage", config.getPercentage());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/settings/discount-config")
+    @PreAuthorize("hasAuthority('approve:users')")
+    public ResponseEntity<Map<String, Object>> setDiscountConfig(@RequestBody Map<String, Object> body) {
+        try {
+            boolean enabled = body.get("enabled") == null || Boolean.TRUE.equals(body.get("enabled"));
+            BigDecimal percentage = new BigDecimal(String.valueOf(body.getOrDefault("percentage", "10")));
+
+            appSettingService.setDiscountEnabled(enabled);
+            appSettingService.setDiscountPercent(percentage);
+
+            AppSettingService.DiscountConfig config = appSettingService.getDiscountConfig();
+            log.info("Instant discount config updated: enabled={}, percentage={}", config.isEnabled(), config.getPercentage());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("enabled", config.isEnabled());
+            response.put("percentage", config.getPercentage());
+            response.put("message", "Instant discount settings updated successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception ex) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("error", ex.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 
     @GetMapping("/all-users")

@@ -1365,9 +1365,25 @@ export class AppService {
 
   // ── Discount feature flag ────────────────────────────────────────────────
 
+  getDiscountConfig(): Observable<{ enabled: boolean; percentage: number }> {
+    return this.http.get<{ enabled: boolean; percentage: number }>(`${this.API_BASE_URL}/admin/settings/discount-config`)
+      .pipe(
+        map(res => ({
+          enabled: !!res.enabled,
+          percentage: Number(res.percentage ?? 10)
+        }))
+      );
+  }
+
+  setDiscountConfig(enabled: boolean, percentage: number): Observable<any> {
+    return this.http.post(`${this.API_BASE_URL}/admin/settings/discount-config`, {
+      enabled,
+      percentage
+    });
+  }
+
   getDiscountEnabled(): Observable<boolean> {
-    return this.http.get<{ discountEnabled: boolean }>(`${this.API_BASE_URL}/admin/settings/discount-enabled`)
-      .pipe(map(res => res.discountEnabled));
+    return this.getDiscountConfig().pipe(map(res => res.enabled));
   }
 
   setDiscountEnabled(enabled: boolean): Observable<any> {
