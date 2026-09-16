@@ -18,13 +18,13 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     
     List<Sale> findByPaymentMethod(Sale.PaymentMethod paymentMethod);
 
-    // ── Eager-fetch variants to eliminate N+1 queries ─────────────────────
+    // ── Eager-fetch variants (single-bag JOIN FETCH to avoid MultipleBagFetchException) ──
+    // Only s.items (one bag) + @ManyToOne relations are JOIN FETCHed here.
+    // s.payments and i.barcodes are lazy-loaded within @Transactional in SaleService.
 
     @Query("SELECT DISTINCT s FROM Sale s " +
            "LEFT JOIN FETCH s.items i " +
            "LEFT JOIN FETCH i.product " +
-           "LEFT JOIN FETCH i.barcodes " +
-           "LEFT JOIN FETCH s.payments " +
            "LEFT JOIN FETCH s.soldBy " +
            "LEFT JOIN FETCH s.location " +
            "WHERE s.createdAt BETWEEN :startDate AND :endDate " +
@@ -32,11 +32,19 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findSalesBetweenDatesFetched(@Param("startDate") LocalDateTime startDate,
                                              @Param("endDate") LocalDateTime endDate);
 
+
     @Query("SELECT DISTINCT s FROM Sale s " +
            "LEFT JOIN FETCH s.items i " +
            "LEFT JOIN FETCH i.product " +
-           "LEFT JOIN FETCH i.barcodes " +
-           "LEFT JOIN FETCH s.payments " +
+           "LEFT JOIN FETCH s.soldBy " +
+           "LEFT JOIN FETCH s.location " +
+           "WHERE s.location.id = :locationId " +
+           "ORDER BY s.createdAt DESC")
+    List<Sale> findByLocationFetched(@Param("locationId") Long locationId);
+
+    @Query("SELECT DISTINCT s FROM Sale s " +
+           "LEFT JOIN FETCH s.items i " +
+           "LEFT JOIN FETCH i.product " +
            "LEFT JOIN FETCH s.soldBy " +
            "LEFT JOIN FETCH s.location " +
            "WHERE s.location.id = :locationId " +
@@ -49,8 +57,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT DISTINCT s FROM Sale s " +
            "LEFT JOIN FETCH s.items i " +
            "LEFT JOIN FETCH i.product " +
-           "LEFT JOIN FETCH i.barcodes " +
-           "LEFT JOIN FETCH s.payments " +
            "LEFT JOIN FETCH s.soldBy " +
            "LEFT JOIN FETCH s.location " +
            "ORDER BY s.createdAt DESC")

@@ -152,6 +152,7 @@
         </div>
 
         <app-barcode-input
+          #saleBarcodeInput
           [value]="barcodeInput"
           (valueChange)="onBarcodeInputChange($event)"
           (scan)="onBarcodeScan($event)"

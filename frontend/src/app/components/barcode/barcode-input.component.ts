@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { BarcodeFormat } from '@zxing/library';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import { ZXingScannerModule } from '@zxing/ngx-scanner';
         <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke-width="1.6"/><path stroke-linecap="round" stroke-width="1.6" d="M20 20l-3.5-3.5"/></svg>
       </div>
       <input
+        #barcodeInputEl
         type="text"
         [placeholder]="placeholder || 'Search or scan barcode...'"
         [(ngModel)]="valueInternal"
@@ -76,11 +77,13 @@ import { ZXingScannerModule } from '@zxing/ngx-scanner';
     </div>
   `
 })
-export class BarcodeInputComponent implements OnChanges {
+export class BarcodeInputComponent implements OnChanges, AfterViewInit {
   @Input() value = '';
   @Input() placeholder = '';
   @Output() valueChange = new EventEmitter<string>();
   @Output() scan = new EventEmitter<string>();
+
+  @ViewChild('barcodeInputEl') barcodeInputEl?: ElementRef<HTMLInputElement>;
 
   valueInternal = '';
   showScanner = false;
@@ -119,10 +122,30 @@ export class BarcodeInputComponent implements OnChanges {
     this.valueInternal = this.value || '';
   }
 
+  ngAfterViewInit() {
+    // Auto-focus the input as soon as the component renders so cashiers
+    // can start scanning immediately without clicking into the field.
+    this.focusInput();
+  }
+
+  /**
+   * Programmatically focus the barcode input. Called automatically after
+   * every scan/enter so the field is always ready for the next scan without
+   * requiring the user to click into it again.
+   */
+  focusInput() {
+    setTimeout(() => {
+      this.barcodeInputEl?.nativeElement?.focus();
+    }, 0);
+  }
+
   ngOnChanges(changes: SimpleChanges) {
     // When parent component clears the value, clear internal value too
     if (changes['value'] && changes['value'].currentValue !== changes['value'].previousValue) {
       this.valueInternal = this.value || '';
+      // Whenever the parent resets the value (e.g. after processing a scan),
+      // re-focus the input so the next scan can be typed/scanned immediately.
+      this.focusInput();
     }
   }
 
@@ -132,6 +155,9 @@ export class BarcodeInputComponent implements OnChanges {
 
   handleEnter() {
     this.emitScan();
+    // Keep focus on the input after pressing Enter so barcode scanners
+    // (which emulate keyboard input + Enter) don't lose focus between scans.
+    this.focusInput();
   }
 
   openScanner() {
@@ -169,6 +195,7 @@ export class BarcodeInputComponent implements OnChanges {
     this.showScanner = false;
     this.torchEnabled = false;
     this.cameraError = '';
+    this.focusInput();
   }
 
   onCamerasFound(cameras: MediaDeviceInfo[]) {

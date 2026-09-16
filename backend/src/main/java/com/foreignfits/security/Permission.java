@@ -12,6 +12,7 @@ public enum Permission {
     APPROVE_PRODUCT("approve:product"), // Approve/reject pending products
     MANAGE_INVENTORY("manage:inventory"),
     VIEW_INVENTORY("view:inventory"), // View location-based inventory
+    DELETE_INVENTORY("delete:inventory"), // Admin-only: remove a product's inventory from a store/warehouse
     
     // Sales Management
     VIEW_SALES("view:sales"),

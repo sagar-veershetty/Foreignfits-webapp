@@ -678,13 +678,37 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   printSale(): void {
     if (!this.selectedSale) return;
 
-    // Convert sale to receipt data
-    const receiptItems: ReceiptItem[] = this.selectedSale.items.map(item => ({
-      name: item.product.name,
-      details: `${item.product.size} – ${item.product.color}`,
-      qty: item.quantity,
-      price: item.price
-    }));
+    // Convert sale items to receipt items.
+    // If an item has barcodes with different individual prices, expand into one
+    // ReceiptItem per barcode so the receipt shows the real per-barcode price
+    // instead of the averaged item.price.
+    const receiptItems: ReceiptItem[] = [];
+
+    for (const item of this.selectedSale.items) {
+      const details = `${item.product.size} – ${item.product.color}`;
+
+      if (this.hasVariedPrices(item)) {
+        // Expand: one receipt line per barcode with its individual price
+        for (const row of this.getBarcodeRows(item)) {
+          receiptItems.push({
+            name: item.product.name,
+            details,
+            qty: 1,
+            price: row.price,
+            barcode: row.barcode
+          });
+        }
+      } else {
+        // All barcodes same price — single line as before
+        receiptItems.push({
+          name: item.product.name,
+          details,
+          qty: item.quantity,
+          price: item.price,
+          barcode: item.barcodes?.[0]
+        });
+      }
+    }
 
     this.receiptData = {
       number: this.selectedSale.id || 'N/A',

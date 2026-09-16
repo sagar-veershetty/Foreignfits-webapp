@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, throwError, forkJoin, of, interval, Subscription } from 'rxjs';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { catchError, tap, map } from 'rxjs/operators';
+import { catchError, tap, map, timeout, retry } from 'rxjs/operators';
 import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment, BarcodeHistory } from '../models';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
@@ -23,13 +23,14 @@ export interface AppState {
 })
 export class AppService {
   private readonly API_BASE_URL = environment.apiUrl;
+  private readonly CART_STORAGE_KEY = 'ff_current_sale_cart';
   private autoRefreshSub?: Subscription;
   private isLoadingData = false; // Prevent concurrent loads
   
   private _appStateSubject = new BehaviorSubject<AppState>({
     products: [],
     sales: [],
-    currentSale: [],
+    currentSale: this.loadPersistedCart(),
     stockMovements: [],
     locations: [],
     isLoading: false,
@@ -181,12 +182,19 @@ export class AppService {
       .pipe(
         tap(apiSales => {
           const sales = apiSales.map(s => this.convertApiSaleToSale(s));
-          this.updateAppState({
-            ...this._appStateSubject.value,
-            sales
-          });
+          this.updateAppState({ ...this._appStateSubject.value, sales });
         }),
-        catchError(() => of([] as Sale[]))
+        catchError(err => {
+          // Fallback to /sales if /sales/recent not available on backend
+          console.warn('[AppService] /sales/recent not available, falling back to /sales');
+          return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales`).pipe(
+            tap(apiSales => {
+              const sales = apiSales.map(s => this.convertApiSaleToSale(s));
+              this.updateAppState({ ...this._appStateSubject.value, sales });
+            }),
+            catchError(() => of([] as Sale[]))
+          );
+        })
       );
   }
 
@@ -201,7 +209,17 @@ export class AppService {
           const sales = apiSales.map(s => this.convertApiSaleToSale(s));
           this.updateAppState({ ...this._appStateSubject.value, sales });
         }),
-        catchError(() => of([] as Sale[]))
+        catchError(err => {
+          // Fallback: /sales/recent not available on this backend version — use /sales
+          console.warn('[AppService] /sales/recent failed, falling back to /sales:', err?.status);
+          return this.http.get<Sale[]>(`${this.API_BASE_URL}/sales`).pipe(
+            tap(apiSales => {
+              const sales = apiSales.map(s => this.convertApiSaleToSale(s));
+              this.updateAppState({ ...this._appStateSubject.value, sales });
+            }),
+            catchError(() => of([] as Sale[]))
+          );
+        })
       );
   }
 
@@ -527,6 +545,8 @@ export class AppService {
   lookupBarcode(barcodeNumber: string): Observable<any> {
     return this.http.get<any>(`${this.API_BASE_URL}/barcodes/lookup/${barcodeNumber}`)
       .pipe(
+        timeout(8000),
+        retry(1),
         catchError(error => {
           return throwError(() => error);
         })
@@ -810,7 +830,56 @@ export class AppService {
   }
 
   private updateAppState(newState: AppState): void {
+    const prevState = this._appStateSubject.value;
     this._appStateSubject.next(newState);
+    // Persist the in-progress cart so a page refresh (or a slow/failed scan)
+    // never forces the cashier to re-scan everything from scratch.
+    if (newState.currentSale !== prevState.currentSale) {
+      this.persistCart(newState.currentSale);
+    }
+  }
+
+  /**
+   * Load any previously in-progress cart from localStorage.
+   * This survives page refreshes so a hung barcode scan doesn't force
+   * the user to lose all previously scanned items.
+   */
+  private loadPersistedCart(): SaleItem[] {
+    try {
+      const raw = localStorage.getItem(this.CART_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Persist the current in-progress cart to localStorage.
+   */
+  private persistCart(items: SaleItem[]): void {
+    try {
+      if (!items || items.length === 0) {
+        localStorage.removeItem(this.CART_STORAGE_KEY);
+      } else {
+        localStorage.setItem(this.CART_STORAGE_KEY, JSON.stringify(items));
+      }
+    } catch {
+      // Ignore storage errors (e.g., private browsing / quota exceeded)
+    }
+  }
+
+  /**
+   * Explicitly clear the persisted cart (called after a sale completes
+   * or is intentionally cancelled).
+   */
+  clearPersistedCart(): void {
+    try {
+      localStorage.removeItem(this.CART_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   }
 
   private convertApiProductToProduct(apiProduct: any): Product {
@@ -1218,6 +1287,22 @@ export class AppService {
    */
   getInventoryByLocationAndSku(locationId: number, sku: string): Observable<any> {
     return this.http.get<any>(`${this.API_BASE_URL}/inventory/location/${locationId}/product/${sku}`)
+      .pipe(
+        timeout(8000),
+        retry(1),
+        catchError(error => {
+          return throwError(() => error);
+        })
+      );
+  }
+
+  /**
+   * Delete a product's inventory from a specific location (store or warehouse).
+   * Admin-only. Removes the LocationInventory record for that product/location
+   * and any non-SOLD barcodes there. SOLD barcodes are preserved for sales history.
+   */
+  deleteInventoryFromLocation(locationId: number, productSku: string): Observable<any> {
+    return this.http.delete<any>(`${this.API_BASE_URL}/inventory/location/${locationId}/product/${encodeURIComponent(productSku)}`)
       .pipe(
         catchError(error => {
           return throwError(() => error);

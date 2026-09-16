@@ -2,11 +2,16 @@ package com.foreignfits.service;
 
 import com.foreignfits.dto.LocationInventoryDto;
 import com.foreignfits.dto.ProductDto;
+import com.foreignfits.entity.Barcode;
+import com.foreignfits.entity.BarcodeHistory;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.LocationInventory;
 import com.foreignfits.entity.Product;
 import com.foreignfits.entity.StockMovement;
+import com.foreignfits.repository.BarcodeHistoryRepository;
+import com.foreignfits.repository.BarcodeRepository;
 import com.foreignfits.repository.LocationInventoryRepository;
+import com.foreignfits.repository.TransferBarcodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +31,9 @@ import java.util.stream.Collectors;
 public class LocationInventoryService {
     
     private final LocationInventoryRepository inventoryRepository;
+    private final BarcodeRepository barcodeRepository;
+    private final BarcodeHistoryRepository barcodeHistoryRepository;
+    private final TransferBarcodeRepository transferBarcodeRepository;
     
     /**
      * Get inventory for a specific product at a specific location
@@ -240,6 +248,68 @@ public class LocationInventoryService {
         if (wholesaleMinQuantity != null) inventory.setWholesaleMinQuantity(wholesaleMinQuantity);
         
         return convertToDto(inventoryRepository.save(inventory));
+    }
+    
+    /**
+     * Delete a product's inventory from a specific location (store/warehouse).
+     * Admin-only destructive operation.
+     *
+     * - Removes all non-SOLD barcodes for this product at this location (ACTIVE, DAMAGED, LOST, etc.)
+     *   so no orphaned physical-unit records remain for stock that is being removed.
+     * - SOLD barcodes are preserved as-is since they are referenced by historical sales
+     *   (sale_item_barcodes) and must not be deleted to keep sales history intact.
+     * - Deletes the LocationInventory record itself so the product no longer appears
+     *   in that location's inventory listing.
+     */
+    public void deleteInventoryFromLocation(Long locationId, String productSku) {
+        LocationInventory inventory = inventoryRepository.findByLocationIdAndProductSku(locationId, productSku)
+                .orElseThrow(() -> new RuntimeException(
+                        "Inventory not found for product " + productSku + " at location " + locationId));
+
+        Product product = inventory.getProduct();
+        Location location = inventory.getLocation();
+
+        if (product != null && location != null) {
+            List<Barcode> barcodesAtLocation = barcodeRepository.findByProductAndCurrentLocation(product, location);
+
+            List<Barcode> deletable = barcodesAtLocation.stream()
+                    .filter(b -> !"SOLD".equalsIgnoreCase(b.getStatus()))
+                    .collect(Collectors.toList());
+
+            long soldCount = barcodesAtLocation.size() - deletable.size();
+            if (soldCount > 0) {
+                log.info("Preserving {} SOLD barcode(s) for product {} at location {} (kept for sales history)",
+                        soldCount, productSku, locationId);
+            }
+
+            if (!deletable.isEmpty()) {
+                List<Long> deletableIds = deletable.stream().map(Barcode::getId).collect(Collectors.toList());
+
+                // Barcode history rows reference barcodes via a FK (barcode_id).
+                // Detach that reference (keeping the barcodeNumber text for audit purposes)
+                // so we don't violate the foreign key constraint when deleting the barcodes.
+                for (Barcode b : deletable) {
+                    List<BarcodeHistory> historyEntries = barcodeHistoryRepository.findByBarcodeIdOrderByCreatedAtDesc(b.getId());
+                    if (!historyEntries.isEmpty()) {
+                        historyEntries.forEach(h -> h.setBarcode(null));
+                        barcodeHistoryRepository.saveAll(historyEntries);
+                    }
+                }
+
+                // Remove join-table rows that reference these barcodes so the FK
+                // constraints don't block deletion.
+                barcodeRepository.deleteMovementBarcodeLinks(deletableIds);
+                barcodeRepository.deleteSaleItemBarcodeLinks(deletableIds);
+                transferBarcodeRepository.deleteByBarcode_IdIn(deletableIds);
+
+                barcodeRepository.deleteAll(deletable);
+                log.info("Deleted {} barcode(s) for product {} at location {}",
+                        deletable.size(), productSku, locationId);
+            }
+        }
+
+        inventoryRepository.delete(inventory);
+        log.info("Deleted inventory record for product {} at location {}", productSku, locationId);
     }
     
     /**

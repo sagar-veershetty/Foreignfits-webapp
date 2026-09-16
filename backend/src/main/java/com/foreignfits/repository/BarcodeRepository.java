@@ -4,6 +4,7 @@ import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -74,4 +75,21 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long> {
      */
     @Query("SELECT COUNT(b) FROM Barcode b WHERE b.product = :product AND b.currentLocation = :location AND b.status = 'ACTIVE'")
     Long countActiveByProductAndCurrentLocation(@Param("product") Product product, @Param("location") Location location);
+
+    /**
+     * Remove join-table rows in movement_barcodes referencing the given barcode ids.
+     * Required before deleting Barcode rows, since this many-to-many join table
+     * has a FK to barcodes with no cascading delete.
+     */
+    @Modifying
+    @Query(value = "DELETE FROM movement_barcodes WHERE barcode_id IN (:barcodeIds)", nativeQuery = true)
+    void deleteMovementBarcodeLinks(@Param("barcodeIds") List<Long> barcodeIds);
+
+    /**
+     * Remove join-table rows in sale_item_barcodes referencing the given barcode ids.
+     * Defensive cleanup for barcodes that are not currently SOLD but may have a stale link.
+     */
+    @Modifying
+    @Query(value = "DELETE FROM sale_item_barcodes WHERE barcode_id IN (:barcodeIds)", nativeQuery = true)
+    void deleteSaleItemBarcodeLinks(@Param("barcodeIds") List<Long> barcodeIds);
 }

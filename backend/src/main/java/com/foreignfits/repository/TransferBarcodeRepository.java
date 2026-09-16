@@ -2,6 +2,7 @@ package com.foreignfits.repository;
 
 import com.foreignfits.entity.TransferBarcode;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,6 +14,11 @@ import java.util.Optional;
 public interface TransferBarcodeRepository extends JpaRepository<TransferBarcode, Long> {
     
     List<TransferBarcode> findByTransferId(Long transferId);
+    
+    List<TransferBarcode> findByBarcode_IdIn(List<Long> barcodeIds);
+    
+    @Modifying
+    void deleteByBarcode_IdIn(List<Long> barcodeIds);
     
     @Query("SELECT tb FROM TransferBarcode tb WHERE tb.barcodeNumber = :barcodeNumber " +
            "AND tb.transfer.status NOT IN ('COMPLETED', 'CANCELLED')")

@@ -224,4 +224,26 @@ public class LocationInventoryController {
                 id, cost, salePrice, wholesalePrice, wholesaleMinQuantity);
         return ResponseEntity.ok(updated);
     }
+
+    /**
+     * Delete a product's inventory from a specific location (store or warehouse).
+     * Admin-only. Removes the LocationInventory record and any non-SOLD barcodes
+     * for that product at that location. SOLD barcodes are preserved for sales history.
+     */
+    @DeleteMapping("/location/{locationId}/product/{productSku}")
+    @PreAuthorize("hasAuthority('delete:inventory')")
+    public ResponseEntity<?> deleteInventoryFromLocation(
+            @PathVariable Long locationId,
+            @PathVariable String productSku) {
+        try {
+            inventoryService.deleteInventoryFromLocation(locationId, productSku);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Product removed from location inventory successfully",
+                    "locationId", locationId,
+                    "productSku", productSku
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

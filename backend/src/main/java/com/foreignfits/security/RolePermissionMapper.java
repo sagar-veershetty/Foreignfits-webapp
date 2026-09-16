@@ -39,6 +39,7 @@ public class RolePermissionMapper {
             Permission.APPROVE_PRODUCT.getPermission(), // Admin can approve products
             Permission.MANAGE_INVENTORY.getPermission(),
             Permission.VIEW_INVENTORY.getPermission(), // Admin can view inventory
+            Permission.DELETE_INVENTORY.getPermission(), // Admin-only: remove product from a location
             
             // Sales (view only, cannot create)
             Permission.VIEW_SALES.getPermission(),

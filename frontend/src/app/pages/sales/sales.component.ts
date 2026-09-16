@@ -247,7 +247,11 @@ export class SalesComponent implements OnInit {
       // which is called after user confirms price or updates it
 
     } catch (error: any) {
-      alert(error?.error?.message || 'Failed to process barcode. Please try again.');
+      if (error?.name === 'TimeoutError') {
+        alert(`Scanning "${barcodeNumber}" timed out. Please check your connection and try scanning again.`);
+      } else {
+        alert(error?.error?.message || 'Failed to process barcode. Please try again.');
+      }
       this.barcodeInput = '';
     } finally {
       this.isProcessingBarcode = false;

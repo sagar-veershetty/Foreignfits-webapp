@@ -328,3 +328,6 @@ Caused by: org.h2.mvstore.MVStoreException: The file is locked: /Users/sagaraura
 	at org.h2.mvstore.SingleFileStore.open(SingleFileStore.java:81)
 	at org.h2.mvstore.MVStore.<init>(MVStore.java:286)
 	... 148 more
+2026-09-15 20:53:25.803554+05:30 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "CONSTRAINTS" not found; SQL statement:
+SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.CONSTRAINTS WHERE TABLE_NAME = 'ATTENDANCE' AND CONSTRAINT_TYPE = 'REFERENTIAL' [42102-232]

@@ -449,6 +449,43 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  /**
+   * Admin-only: permanently remove a product's inventory from a specific
+   * store/warehouse. Deletes the LocationInventory record and any non-SOLD
+   * barcodes for that product at that location. SOLD barcodes are preserved
+   * for sales history.
+   */
+  canDeleteInventory(): boolean {
+    return this.authService.hasCrossLocationAccess();
+  }
+
+  deleteInventoryItem(item: LocationInventoryItem): void {
+    if (!this.canDeleteInventory()) return;
+
+    const confirmed = confirm(
+      `Remove "${item.productName}" (SKU: ${item.productSku}) from ${item.locationName}?\n\n` +
+      `This will permanently delete ${item.quantity} unit(s) of unsold stock at this location. ` +
+      `This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    this.isLoading.set(true);
+    this.appService.deleteInventoryFromLocation(parseInt(item.locationId), item.productSku).subscribe({
+      next: () => {
+        const locationId = this.selectedLocationId();
+        if (locationId === 'all') {
+          this.loadAllInventory();
+        } else if (locationId) {
+          this.loadLocationInventory(parseInt(locationId));
+        }
+      },
+      error: (error) => {
+        alert('Failed to delete inventory: ' + (error.error?.error || error.error?.message || error.message));
+        this.isLoading.set(false);
+      }
+    });
+  }
+
   getStockStatusClass(item: LocationInventoryItem): string {
     if (!item.minStock) return 'bg-gray-100 text-gray-800';
     const percent = (item.quantity / item.minStock) * 100;

@@ -733,12 +733,10 @@ public class SaleService {
     
     // Location-based filtering methods for SALES users
     public List<SaleDto> getSalesByLocation(Long locationId) {
-        // Default to last 30 days for location-filtered sales
-        LocalDateTime from = LocalDateTime.now().minusDays(30).toLocalDate().atStartOfDay();
-        LocalDateTime to = LocalDateTime.now();
-        return saleRepository.findByLocationBetweenDatesFetched(locationId, from, to).stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+    // Fetch all sales for the location (no date restriction)
+    return saleRepository.findByLocationFetched(locationId).stream()
+        .map(this::convertToDto)
+        .collect(Collectors.toList());
     }
     
     public List<SaleDto> getTodaysSalesByLocation(Long locationId) {
