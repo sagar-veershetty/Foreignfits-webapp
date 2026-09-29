@@ -68,6 +68,9 @@ public class LocationInventoryController {
                 item.put("productName", inv.getProductName());
                 item.put("salePrice", inv.getSalePrice());
                 item.put("category", product != null ? product.getCategory() : "general");
+                item.put("productType", product != null ? product.getProductType() : null);
+                item.put("productCode", product != null ? product.getProductCode() : null);
+                item.put("subcategory", product != null ? product.getSubcategory() : null);
                 item.put("size", product != null ? product.getSize() : "");
                 item.put("color", product != null ? product.getColor() : "");
                 item.put("available", inv.getQuantity() > 0);

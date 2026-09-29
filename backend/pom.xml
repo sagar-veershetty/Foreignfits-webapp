@@ -15,7 +15,19 @@
     <description>Global Fashion Inventory Management System</description>
     <properties>
         <java.version>17</java.version>
+        <aws-sdk-v2.version>2.29.30</aws-sdk-v2.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk-v2.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <!-- Spring Boot Starters -->
         <dependency>
@@ -43,6 +55,12 @@
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+        </dependency>
+
+        <!-- AWS S3 (product image storage) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
         </dependency>
         
         <!-- PostgreSQL for Production -->

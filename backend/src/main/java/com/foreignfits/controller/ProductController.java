@@ -1,8 +1,10 @@
 package com.foreignfits.controller;
 
+import com.foreignfits.dto.LocationInventoryDto;
 import com.foreignfits.dto.ProductDto;
 import com.foreignfits.dto.UserDto;
 import com.foreignfits.dto.request.CreateProductRequest;
+import com.foreignfits.dto.request.RestockProductRequest;
 import com.foreignfits.entity.Product;
 import com.foreignfits.entity.User;
 import com.foreignfits.service.ProductService;
@@ -112,6 +114,23 @@ public class ProductController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Add additional quantity to an existing product's inventory at a location
+     * (e.g. re-registering stock found during a physical recount) and generate
+     * fresh barcodes for the newly added units.
+     */
+    @PostMapping("/restock")
+    @PreAuthorize("hasAuthority('add:product')")
+    public ResponseEntity<?> restockProduct(@Valid @RequestBody RestockProductRequest request, Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            LocationInventoryDto updatedInventory = productService.restockProduct(request, email);
+            return ResponseEntity.ok(updatedInventory);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage() != null ? e.getMessage() : "Failed to restock product"));
         }
     }
 }

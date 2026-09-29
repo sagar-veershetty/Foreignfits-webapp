@@ -17,6 +17,10 @@ public interface LocationInventoryRepository extends JpaRepository<LocationInven
     
     // Get all inventory at a location
     List<LocationInventory> findByLocationId(Long locationId);
+
+    boolean existsByLocationId(Long locationId);
+
+    boolean existsByLocationIdAndQuantityGreaterThan(Long locationId, Integer quantity);
     
     // Get all locations where a product exists
     List<LocationInventory> findByProductSku(String productSku);

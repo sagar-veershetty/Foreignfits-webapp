@@ -6,6 +6,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Product, Location } from '../../core/models';
+import {
+  DEPARTMENTS,
+  DEPARTMENT_PRODUCT_TYPES,
+  mapDepartmentToCategory,
+  mapDepartmentToSubcategory,
+  deriveDepartmentFromCodeOrSubcategory
+} from '../../core/constants/product-master';
 
 @Component({
   selector: 'app-add-product',
@@ -27,111 +34,37 @@ import { Product, Location } from '../../core/models';
               <input type="text" required [(ngModel)]="formData.name" name="name" placeholder="Enter product name"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             </div>
-            <!-- Category -->
+            <!-- Category (Department) -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-              <select required [(ngModel)]="formData.category" name="category"
+              <select required [(ngModel)]="formData.department" name="department" (ngModelChange)="onDepartmentChange()"
                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="shirts">Shirts</option>
-                <option value="pants">Pants</option>
-                <option value="dresses">Dresses</option>
-                <option value="jackets">Jackets</option>
-                <option value="shoes">Shoes</option>
-                <option value="accessories">Accessories</option>
+                <option value="">-- Select Category --</option>
+                <option *ngFor="let dept of departments" [value]="dept.value">{{ dept.label }}</option>
               </select>
             </div>
-            <!-- Subcategory -->
+            <!-- Product (replaces Subcategory + Product Type) -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Subcategory</label>
-              <select [(ngModel)]="formData.subcategory" name="subcategory"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="">-- Select Subcategory --</option>
-                <option value="mens">Men's</option>
-                <option value="womens">Women's</option>
-                <option value="kids">Kids</option>
-                <option value="boys">Boys</option>
-                <option value="girls">Girls</option>
-                <option value="infant">Infant</option>
-                <option value="toddler">Toddler</option>
-                <option value="unisex">Unisex</option>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Product *</label>
+              <select required [(ngModel)]="formData.productType" name="productType" [disabled]="!formData.department"
+                      (ngModelChange)="formData.productCode = ''"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50">
+                <option value="">-- Select Product --</option>
+                <option *ngFor="let pt of getProductTypesForDepartment()" [value]="pt.label">{{ pt.label }}</option>
               </select>
-              <p class="text-xs text-gray-500 mt-1">Target demographic (e.g., Men's, Women's, Kids)</p>
-            </div>
-            <!-- Product Type -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Product Type</label>
-              <input type="text" [(ngModel)]="formData.productType" name="productType" 
-                     placeholder="e.g., Denim Jeans, Polo Shirt"
-                     list="productTypesList"
-                     maxlength="100"
-                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-              <datalist id="productTypesList">
-                <!-- Shirts category -->
-                <option *ngIf="formData.category === 'shirts'" value="T-Shirt">
-                <option *ngIf="formData.category === 'shirts'" value="Polo Shirt">
-                <option *ngIf="formData.category === 'shirts'" value="Dress Shirt">
-                <option *ngIf="formData.category === 'shirts'" value="Casual Shirt">
-                <option *ngIf="formData.category === 'shirts'" value="Flannel Shirt">
-                <option *ngIf="formData.category === 'shirts'" value="Oxford Shirt">
-                
-                <!-- Pants category -->
-                <option *ngIf="formData.category === 'pants'" value="Jeans">
-                <option *ngIf="formData.category === 'pants'" value="Denim Jeans">
-                <option *ngIf="formData.category === 'pants'" value="Chinos">
-                <option *ngIf="formData.category === 'pants'" value="Cargo Pants">
-                <option *ngIf="formData.category === 'pants'" value="Dress Pants">
-                <option *ngIf="formData.category === 'pants'" value="Joggers">
-                <option *ngIf="formData.category === 'pants'" value="Leggings">
-                <option *ngIf="formData.category === 'pants'" value="Trousers">
-                
-                <!-- Jackets category -->
-                <option *ngIf="formData.category === 'jackets'" value="Denim Jacket">
-                <option *ngIf="formData.category === 'jackets'" value="Leather Jacket">
-                <option *ngIf="formData.category === 'jackets'" value="Bomber Jacket">
-                <option *ngIf="formData.category === 'jackets'" value="Windbreaker">
-                <option *ngIf="formData.category === 'jackets'" value="Parka">
-                <option *ngIf="formData.category === 'jackets'" value="Blazer">
-                <option *ngIf="formData.category === 'jackets'" value="Hoodie">
-                <option *ngIf="formData.category === 'jackets'" value="Sweater">
-                
-                <!-- Dresses category -->
-                <option *ngIf="formData.category === 'dresses'" value="Casual Dress">
-                <option *ngIf="formData.category === 'dresses'" value="Party Dress">
-                <option *ngIf="formData.category === 'dresses'" value="Maxi Dress">
-                <option *ngIf="formData.category === 'dresses'" value="Midi Dress">
-                <option *ngIf="formData.category === 'dresses'" value="Mini Dress">
-                <option *ngIf="formData.category === 'dresses'" value="Skirt">
-                <option *ngIf="formData.category === 'dresses'" value="Gown">
-                
-                <!-- Shoes category -->
-                <option *ngIf="formData.category === 'shoes'" value="Sneakers">
-                <option *ngIf="formData.category === 'shoes'" value="Boots">
-                <option *ngIf="formData.category === 'shoes'" value="Sandals">
-                <option *ngIf="formData.category === 'shoes'" value="Loafers">
-                <option *ngIf="formData.category === 'shoes'" value="Heels">
-                <option *ngIf="formData.category === 'shoes'" value="Flats">
-                
-                <!-- Accessories category -->
-                <option *ngIf="formData.category === 'accessories'" value="Belt">
-                <option *ngIf="formData.category === 'accessories'" value="Hat">
-                <option *ngIf="formData.category === 'accessories'" value="Scarf">
-                <option *ngIf="formData.category === 'accessories'" value="Bag">
-                <option *ngIf="formData.category === 'accessories'" value="Watch">
-                <option *ngIf="formData.category === 'accessories'" value="Sunglasses">
-              </datalist>
-              <p class="text-xs text-gray-500 mt-1">Specific type within the category (e.g., for Pants: "Denim Jeans", "Chinos")</p>
+              <p class="text-xs text-gray-500 mt-1">Choose the specific product for the selected category</p>
             </div>
             <!-- Product Code -->
             <div>
               <div class="flex items-center justify-between mb-2">
                 <label class="block text-sm font-medium text-gray-700">Product Code</label>
-                <button type="button" (click)="suggestProductCode()" [disabled]="!formData.productType || !formData.subcategory"
+                <button type="button" (click)="suggestProductCode()" [disabled]="!formData.productType || !formData.department"
                         class="text-xs text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed">
                   Suggest Code
                 </button>
               </div>
               <input type="text" [(ngModel)]="formData.productCode" name="productCode" 
-                     placeholder="e.g., JN-KD-001 (Jeans-Kids-001)"
+      placeholder="e.g., FF-MEN-JKT-001"
                      list="productCodesList"
                      maxlength="50"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
@@ -139,14 +72,19 @@ import { Product, Location } from '../../core/models';
                 <option *ngFor="let code of existingProductCodes" [value]="code">
               </datalist>
               <p class="text-xs text-gray-500 mt-1">
-                Groups similar products across multiple bags. Format: TYPE-SUB-SEQ (e.g., JN-KD-001)
+                Format: FF-[DEPT]-[TYPE]-[001]. Underwear uses FF-UWR-[MEN/WOM/KID]-[TYPE]-[001].
               </p>
             </div>
             <!-- Size -->
-            <div>
+            <div *ngIf="!multiSizeMode">
               <label class="block text-sm font-medium text-gray-700 mb-2">Size *</label>
               <input type="text" required [(ngModel)]="formData.size" name="size" placeholder="e.g., M, 32, One Size"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <label *ngIf="!isEditMode" class="flex items-center gap-2 text-xs text-blue-600 mt-2 cursor-pointer">
+                <input type="checkbox" [(ngModel)]="multiSizeMode" name="multiSizeMode" [ngModelOptions]="{standalone: true}"
+                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>This product comes in multiple sizes with different quantities (e.g. jeans in 110/120/130)</span>
+              </label>
             </div>
             <!-- Color -->
             <div>
@@ -179,7 +117,7 @@ import { Product, Location } from '../../core/models';
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             </div>
             <!-- Initial Stock -->
-            <div>
+            <div *ngIf="!multiSizeMode">
               <label class="block text-sm font-medium text-gray-700 mb-2">Initial Stock *</label>
               <input type="number" required min="0" [(ngModel)]="formData.stock" name="stock" placeholder="0"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
@@ -199,6 +137,80 @@ import { Product, Location } from '../../core/models';
               <label class="block text-sm font-medium text-gray-700 mb-2">Minimum Stock Level *</label>
               <input type="number" required min="0" [(ngModel)]="formData.minStock" name="minStock" placeholder="0"
                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
+          </div>
+
+          <!-- Multi-Size Variants Table -->
+          <div *ngIf="multiSizeMode" class="border border-blue-200 bg-blue-50 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="text-sm font-semibold text-blue-900">Sizes &amp; Quantities</h3>
+                <p class="text-xs text-blue-700 mt-0.5">Each size will be created as its own SKU with its own barcodes at the quantity you enter. All sizes share the same Product Code, Category, and Color above. Prices default to the values above, but you can override per size (e.g. bigger sizes cost more) using "Custom Price" below.</p>
+              </div>
+              <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer whitespace-nowrap">
+                <input type="checkbox" [(ngModel)]="applyPriceToBarcode" name="applyPriceToBarcodeMulti" [ngModelOptions]="{standalone: true}"
+                       class="rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                <span>Apply sale price to barcodes</span>
+              </label>
+            </div>
+
+            <div class="space-y-2">
+              <div *ngFor="let row of sizeVariants; let i = index" class="bg-white border border-blue-100 rounded-lg p-2">
+                <div class="flex items-center gap-2">
+                  <div class="flex-1">
+                    <input type="text" [(ngModel)]="row.size" [name]="'variantSize' + i" [ngModelOptions]="{standalone: true}"
+                           placeholder="Size (e.g., 110, M, XL)"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" />
+                  </div>
+                  <div class="w-28">
+                    <input type="number" min="0" [(ngModel)]="row.quantity" [name]="'variantQty' + i" [ngModelOptions]="{standalone: true}"
+                           placeholder="Quantity"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white" />
+                  </div>
+                  <button type="button" (click)="row.showCustomPrice = !row.showCustomPrice"
+                          class="text-xs whitespace-nowrap px-2 py-2 rounded-lg"
+                          [ngClass]="row.showCustomPrice ? 'bg-amber-100 text-amber-800' : 'text-blue-700 hover:bg-blue-100'">
+                    {{ row.showCustomPrice ? 'Using Custom Price' : 'Custom Price' }}
+                  </button>
+                  <button type="button" (click)="removeSizeVariantRow(i)" [disabled]="sizeVariants.length === 1"
+                          class="p-2 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed" title="Remove size">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+                <div *ngIf="row.showCustomPrice" class="mt-2 pl-1 grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="block text-[11px] text-gray-500 mb-0.5">Sale Price for this size</label>
+                    <input type="number" step="0.01" min="0" [(ngModel)]="row.salePrice" [name]="'variantSale' + i" [ngModelOptions]="{standalone: true}"
+                           [placeholder]="'Default: ' + (formData.price || 0)"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] text-gray-500 mb-0.5">Cost Price for this size</label>
+                    <input type="number" step="0.01" min="0" [(ngModel)]="row.costPrice" [name]="'variantCost' + i" [ngModelOptions]="{standalone: true}"
+                           [placeholder]="'Default: ' + (formData.cost || 0)"
+                           class="w-full px-2 py-1.5 border border-gray-300 rounded text-sm bg-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" (click)="addSizeVariantRow()"
+                    class="mt-3 text-xs font-medium text-blue-700 hover:text-blue-900 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+              </svg>
+              Add Another Size
+            </button>
+
+            <div class="mt-3 pt-3 border-t border-blue-200 flex items-center justify-between text-xs text-blue-800">
+              <span>Total pieces across all sizes:</span>
+              <span class="font-semibold">{{ getTotalVariantQuantity() }}</span>
+            </div>
+
+            <div *ngIf="variantProgress.total > 0" class="mt-3 bg-white border border-blue-200 rounded-lg p-2 text-xs text-blue-700">
+              Creating size {{ variantProgress.current }} of {{ variantProgress.total }}...
             </div>
           </div>
 
@@ -231,7 +243,7 @@ import { Product, Location } from '../../core/models';
           </div>
 
           <!-- SKU -->
-          <div>
+          <div *ngIf="!multiSizeMode">
             <div class="flex items-center justify-between mb-2">
               <label class="block text-sm font-medium text-gray-700">SKU *</label>
               <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
@@ -241,7 +253,7 @@ import { Product, Location } from '../../core/models';
               </label>
             </div>
             <div class="flex gap-2">
-              <input type="text" required [(ngModel)]="formData.sku" name="sku" (blur)="validateSku()" 
+              <input type="text" [required]="!multiSizeMode" [(ngModel)]="formData.sku" name="sku" (blur)="validateSku()" 
                      [readonly]="!isManualSku"
                      placeholder="Click 'Generate SKU' or enable manual entry"
                      [class.bg-gray-50]="!isManualSku"
@@ -262,12 +274,15 @@ import { Product, Location } from '../../core/models';
               <span class="ml-2" *ngIf="formData.stock > 0">• {{ formData.stock }} barcodes will be generated</span>
             </p>
           </div>
+          <div *ngIf="multiSizeMode" class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+            SKU will be auto-generated for each size (Name + Category + Size + Color + Random).
+          </div>
 
-          <!-- Bag Number -->
+          <!-- Rack No -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Bag Number</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Rack No</label>
             <input type="text" [(ngModel)]="formData.bagNumber" name="bagNumber" 
-                   placeholder="e.g., BAG-001, A-12, Rack-3-Shelf-2"
+                   placeholder="e.g., RACK-001, A-12, Rack-3-Shelf-2"
                    maxlength="50"
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
             <p class="text-xs text-gray-500 mt-1">Physical location identifier to help warehouse staff locate this product quickly</p>
@@ -308,7 +323,7 @@ import { Product, Location } from '../../core/models';
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>{{ isSubmitting ? 'Processing...' : (isEditMode ? 'Update Product' : 'Add Product') }}</span>
+              <span>{{ isSubmitting ? 'Processing...' : (isEditMode ? 'Update Product' : (multiSizeMode ? 'Add All Sizes' : 'Add Product')) }}</span>
             </button>
             <button type="button" (click)="resetForm()" [disabled]="isSubmitting" class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed">Reset</button>
           </div>
@@ -318,10 +333,17 @@ import { Product, Location } from '../../core/models';
   `
 })
 export class AddProductComponent implements OnInit {
+  // Category (department) options shown in the Category dropdown (shared master data)
+  departments: { value: string; label: string }[] = DEPARTMENTS;
+
+  // Product options per department, sourced from Foreign_Fits_Product_Code_Master (shared master data)
+  private readonly departmentProductTypes: Record<string, { label: string; code: string }[]> = DEPARTMENT_PRODUCT_TYPES;
+
   appState$: Observable<AppState>;
   
   formData = {
     name: 'Classic Denim Jacket',
+    department: '',
     category: 'jackets' as Product['category'],
     subcategory: '' as Product['subcategory'],
     productType: '',
@@ -351,6 +373,12 @@ export class AddProductComponent implements OnInit {
   editingProductId: string | null = null;
   isSubmitting = false; // Loading state for form submission
   existingProductCodes: string[] = []; // List of existing product codes for autocomplete
+
+  // Multi-size mode: create the same product in several sizes at once,
+  // each with its own SKU, quantity, and barcodes (e.g. jeans in sizes 110/120/130).
+  multiSizeMode = false;
+  sizeVariants: { size: string; quantity: number; showCustomPrice?: boolean; salePrice?: number | null; costPrice?: number | null }[] = [{ size: '', quantity: 0 }];
+  variantProgress = { current: 0, total: 0 };
 
   constructor(
     private appService: AppService, 
@@ -417,6 +445,7 @@ export class AddProductComponent implements OnInit {
           // For edit mode, use default values if null
           this.formData = {
             name: prod.name,
+            department: this.deriveDepartmentFromProduct(prod),
             category: prod.category,
             subcategory: prod.subcategory || '' as Product['subcategory'],
             productType: prod.productType || '',
@@ -478,6 +507,13 @@ export class AddProductComponent implements OnInit {
       alert('Please select a location for the product');
       return;
     }
+
+    // Multi-size mode: create one Product+SKU per size row
+    if (this.multiSizeMode && !this.isEditMode) {
+      this.submitMultipleSizes(selectedLocation);
+      return;
+    }
+
     if (this.isEditMode && this.editingProductId) {
       const product = {
         ...this.formData,
@@ -571,6 +607,7 @@ export class AddProductComponent implements OnInit {
   resetForm(): void {
     this.formData = {
       name: '',
+      department: '',
       category: 'shirts',
       subcategory: '' as Product['subcategory'],
       productType: '',
@@ -591,51 +628,75 @@ export class AddProductComponent implements OnInit {
     };
     this.skuError = null;
     this.isCheckingSku = false;
+    this.multiSizeMode = false;
+    this.sizeVariants = [{ size: '', quantity: 0 }];
+    this.variantProgress = { current: 0, total: 0 };
   }
 
-  // Suggest product code based on product type and subcategory
+  // Returns the list of Product options for the currently selected Category (department)
+  getProductTypesForDepartment(): { label: string; code: string }[] {
+    return this.departmentProductTypes[this.formData.department] || [];
+  }
+
+  // Called when the Category (department) dropdown changes
+  onDepartmentChange(): void {
+    this.formData.productType = '';
+    this.formData.productCode = '';
+    this.formData.category = this.mapDepartmentToCategory(this.formData.department) as Product['category'];
+    this.formData.subcategory = this.mapDepartmentToSubcategory(this.formData.department) as Product['subcategory'];
+  }
+
+  private mapDepartmentToCategory(department: string): string {
+    return mapDepartmentToCategory(department);
+  }
+
+  private mapDepartmentToSubcategory(department: string): string {
+    return mapDepartmentToSubcategory(department);
+  }
+
+  // Best-effort reverse mapping used when loading a product for editing
+  private deriveDepartmentFromProduct(prod: Product): string {
+    return deriveDepartmentFromCodeOrSubcategory(prod.productCode, prod.subcategory);
+  }
+
+  // Suggest product code based on selected Category (department) and Product
   suggestProductCode(): void {
-    const productType = this.formData.productType?.trim();
-    const subcategory = this.formData.subcategory;
-    
-    if (!productType || !subcategory) {
+    const department = this.formData.department;
+    const productTypeLabel = this.formData.productType?.trim();
+
+    if (!department || !productTypeLabel) {
       return;
     }
-    
-    // Generate type code (first 2-3 letters of product type)
-    const typeCode = productType
-      .replace(/[^a-zA-Z]/g, '')
-      .substring(0, 2)
-      .toUpperCase();
-    
-    // Generate subcategory code
-    const subMap: Record<string, string> = {
-      'mens': 'MN',
-      'womens': 'WM',
-      'kids': 'KD',
-      'boys': 'BY',
-      'girls': 'GL',
-      'infant': 'IF',
-      'toddler': 'TD',
-      'unisex': 'UN'
-    };
-    const subCode = subMap[subcategory] || 'XX';
-    
-    // Find next sequence number for this type-sub combination
-    const prefix = `${typeCode}-${subCode}-`;
+
+    const options = this.departmentProductTypes[department] || [];
+    const match = options.find(o => o.label === productTypeLabel);
+    const typeCode = match?.code ||
+      productTypeLabel.replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase().padEnd(3, 'X');
+
+    let prefix: string;
+    if (department.startsWith('uwr-')) {
+      const seg = department === 'uwr-men' ? 'MEN' : department === 'uwr-women' ? 'WOM' : 'KID';
+      prefix = `FF-UWR-${seg}-${typeCode}-`;
+    } else {
+      const deptCodeMap: Record<string, string> = {
+        men: 'MEN', women: 'WOM', kids: 'KID', newborn: 'BAB',
+        footwear: 'FWT', accessories: 'ACC', toys: 'TOY'
+      };
+      const deptCode = deptCodeMap[department] || 'GEN';
+      prefix = `FF-${deptCode}-${typeCode}-`;
+    }
+
     const existingSequences = this.existingProductCodes
-      .filter(code => code.startsWith(prefix))
       .map(code => {
-        const match = code.match(/-(\d+)$/);
+        const match = code.match(/-(\d{3,5})$/);
         return match ? parseInt(match[1], 10) : 0;
-      });
-    
-    const nextSeq = existingSequences.length > 0 
-      ? Math.max(...existingSequences) + 1 
-      : 1;
-    
-    this.formData.productCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+      })
+      .filter(seq => seq > 0);
+
+    const nextSeq = existingSequences.length > 0 ? Math.max(...existingSequences) + 1 : 1;
+    this.formData.productCode = `${prefix}${String(nextSeq).padStart(5, '0')}`;
   }
+
 
   goToDashboard(): void {
     this.router.navigate(['/dashboard']);
@@ -657,6 +718,15 @@ export class AddProductComponent implements OnInit {
       return;
     }
 
+    // Combine: NAME(2)-CATEGORY(3)-SIZE-COLOR(3)-RANDOM(4)
+    this.formData.sku = this.buildSku(name, category, size, color);
+    
+    // Validate the generated SKU
+    this.validateSku();
+  }
+
+  // Shared SKU builder used both for single-size and multi-size (variant) creation
+  private buildSku(name: string, category: string, size: string, color: string): string {
     // Extract alphanumeric characters only
     const extractAlphaNum = (str: string) => str.replace(/[^A-Z0-9]/gi, '').toUpperCase();
 
@@ -675,11 +745,108 @@ export class AddProductComponent implements OnInit {
     // Random: 4 digits
     const randomPart = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // Combine: NAME(2)-CATEGORY(3)-SIZE-COLOR(3)-RANDOM(4)
-    this.formData.sku = `${namePart}${categoryPart}${sizePart}${colorPart}${randomPart}`;
-    
-    // Validate the generated SKU
-    this.validateSku();
+    return `${namePart}${categoryPart}${sizePart}${colorPart}${randomPart}`;
+  }
+
+  // ===== Multi-size variant helpers =====
+
+  addSizeVariantRow(): void {
+    this.sizeVariants.push({ size: '', quantity: 0 });
+  }
+
+  removeSizeVariantRow(index: number): void {
+    if (this.sizeVariants.length > 1) {
+      this.sizeVariants.splice(index, 1);
+    }
+  }
+
+  getTotalVariantQuantity(): number {
+    return this.sizeVariants.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+  }
+
+  // Create one Product (own SKU + barcodes) per size row, sequentially,
+  // so each size can be tracked, sold, and reported on individually while
+  // sharing the same Product Code / Category / Color / Prices.
+  private submitMultipleSizes(selectedLocation: Location): void {
+    const validRows = this.sizeVariants.filter(r => r.size?.trim() && Number(r.quantity) > 0);
+
+    if (validRows.length === 0) {
+      alert('Please add at least one size with a quantity greater than 0.');
+      return;
+    }
+
+    const locationId = parseInt(selectedLocation.id);
+
+    this.isSubmitting = true;
+    this.variantProgress = { current: 0, total: validRows.length };
+
+    const createNext = (index: number): void => {
+      if (index >= validRows.length) {
+        this.isSubmitting = false;
+        this.router.navigate(['/dashboard']);
+        return;
+      }
+
+      const row = validRows[index];
+      const size = row.size.trim();
+      const candidateSku = this.buildSku(this.formData.name, this.formData.category, size, this.formData.color);
+
+      // Use per-size custom price if provided, otherwise fall back to the base price above
+      const pricing = {
+        cost: (row.showCustomPrice && row.costPrice != null && row.costPrice > 0) ? row.costPrice : this.formData.cost,
+        salePrice: (row.showCustomPrice && row.salePrice != null && row.salePrice > 0) ? row.salePrice : this.formData.price,
+        wholesalePrice: this.formData.wholesalePrice,
+        wholesaleMinQuantity: this.formData.wholesaleMinQuantity,
+      };
+
+      this.appService.productExistsBySku(candidateSku).subscribe({
+        next: (exists) => {
+          // Extremely unlikely collision (random 4-digit suffix) - regenerate once if so
+          const finalSku = exists
+            ? this.buildSku(this.formData.name, this.formData.category, size, this.formData.color)
+            : candidateSku;
+
+          const product = {
+            name: this.formData.name,
+            category: this.formData.category,
+            subcategory: this.formData.subcategory || undefined,
+            productType: this.formData.productType || undefined,
+            productCode: this.formData.productCode || undefined,
+            size: size,
+            color: this.formData.color,
+            sku: finalSku,
+            bagNumber: this.formData.bagNumber,
+            description: this.formData.description,
+            imageUrls: this.formData.imageUrls,
+            price: null,
+            cost: null,
+            wholesalePrice: null,
+            wholesaleMinQuantity: null,
+            stock: Number(row.quantity),
+            minStock: this.formData.minStock,
+            locationId: null,
+            location: null,
+          };
+
+          this.appService.createProduct(product, locationId, pricing, this.applyPriceToBarcode).subscribe({
+            next: () => {
+              this.variantProgress.current = index + 1;
+              createNext(index + 1);
+            },
+            error: () => {
+              this.isSubmitting = false;
+              alert(`Failed to create size "${size}". Created ${index} of ${validRows.length} sizes so far. Please check Inventory, then add any remaining sizes.`);
+            }
+          });
+        },
+        error: () => {
+          this.isSubmitting = false;
+          alert(`Could not validate SKU for size "${size}". Please try again.`);
+        }
+      });
+    };
+
+    createNext(0);
   }
 
   // Check if we have enough data to generate SKU
@@ -719,15 +886,61 @@ export class AddProductComponent implements OnInit {
     toAdd.forEach(file => {
       if (!file.type.startsWith('image/')) return;
       if (file.size > 5 * 1024 * 1024) return; // 5MB
-      const reader = new FileReader();
-      reader.onload = () => {
-        const url = String(reader.result || '');
+      this.compressImage(file).then(url => {
         this.formData.imageUrls.push(url);
-      };
-      reader.readAsDataURL(file);
+      }).catch(() => {
+        // Fallback: if compression fails for any reason, still try to read the original file
+        const reader = new FileReader();
+        reader.onload = () => {
+          const url = String(reader.result || '');
+          this.formData.imageUrls.push(url);
+        };
+        reader.readAsDataURL(file);
+      });
     });
     // reset input
     input.value = '';
+  }
+
+  /**
+   * Resize/compress an image file to a reasonable max dimension and JPEG quality
+   * before converting to a base64 data URL. This keeps the multi-size Add Product
+   * payload (which re-sends the same images for every size) well under the
+   * server's request size limit, instead of sending multi-megabyte originals.
+   */
+  private compressImage(file: File, maxDimension = 1200, quality = 0.75): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error);
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Failed to load image for compression'));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxDimension || height > maxDimension) {
+            if (width >= height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Canvas context unavailable'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = String(reader.result || '');
+      };
+      reader.readAsDataURL(file);
+    });
   }
 
   removeImage(index: number): void {

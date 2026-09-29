@@ -332,6 +332,9 @@ public class LocationInventoryService {
             productDto.setId(inventory.getProduct().getId());
             productDto.setName(inventory.getProduct().getName());
             productDto.setCategory(inventory.getProduct().getCategory());
+            productDto.setSubcategory(inventory.getProduct().getSubcategory() != null ? inventory.getProduct().getSubcategory().name() : null);
+            productDto.setProductType(inventory.getProduct().getProductType());
+            productDto.setProductCode(inventory.getProduct().getProductCode());
             productDto.setSize(inventory.getProduct().getSize());
             productDto.setColor(inventory.getProduct().getColor());
             productDto.setSku(inventory.getProduct().getSku());

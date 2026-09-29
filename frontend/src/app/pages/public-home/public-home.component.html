@@ -16,7 +16,7 @@
 
       <!-- Desktop Navigation -->
       <div class="hidden md:flex items-center space-x-8">
-        <a (click)="scrollToSection('categories')" class="nav-link cursor-pointer">Shop</a>
+        <a routerLink="/customer" class="nav-link cursor-pointer">Shop</a>
         <a (click)="scrollToSection('new-arrivals')" class="nav-link cursor-pointer">New Arrivals</a>
         <a (click)="scrollToSection('about')" class="nav-link cursor-pointer">About</a>
         <a (click)="scrollToSection('features')" class="nav-link cursor-pointer">Why Us</a>
@@ -54,7 +54,7 @@
           <p class="text-xl md:text-2xl text-gray-200 mb-8">
             {{ slide.subtitle }}
           </p>
-          <button class="btn-hero">
+          <button class="btn-hero" routerLink="/customer">
             {{ slide.cta }}
             <svg class="ml-2 h-5 w-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
@@ -143,7 +143,7 @@
     </div>
 
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6" [@staggerAnimation]>
-      <div *ngFor="let category of categories" class="category-card group">
+      <div *ngFor="let category of categories" class="category-card group cursor-pointer" routerLink="/customer">
         <div class="relative overflow-hidden rounded-2xl aspect-square">
           <img [src]="category.image" [alt]="category.name" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
           <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>

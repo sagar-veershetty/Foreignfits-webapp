@@ -98,7 +98,7 @@ interface ProductGroup {
           <div class="text-xs text-gray-500 mt-1">Unique product codes</div>
         </div>
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div class="text-sm text-gray-600">Total Bags</div>
+          <div class="text-sm text-gray-600">Total Racks</div>
           <div class="text-3xl font-bold text-blue-600">{{ getTotalBags() }}</div>
           <div class="text-xs text-gray-500 mt-1">Across all groups</div>
         </div>
@@ -133,7 +133,7 @@ interface ProductGroup {
                   Category
                 </th>
                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Bags
+                  Racks
                 </th>
                 <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total Units
@@ -188,14 +188,14 @@ interface ProductGroup {
                 <tr *ngIf="expandedGroups.has(group.productCode)" class="bg-gray-50">
                   <td colspan="8" class="px-6 py-4">
                     <div class="space-y-2">
-                      <h4 class="font-semibold text-gray-900 mb-3">Individual Bags ({{ group.totalBags }})</h4>
+                      <h4 class="font-semibold text-gray-900 mb-3">Individual Racks ({{ group.totalBags }})</h4>
                       <div class="grid grid-cols-1 gap-2">
                         <div *ngFor="let product of group.products" 
                              class="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                           <div class="flex-1">
                             <div class="font-medium text-gray-900">{{ product.name }}</div>
                             <div class="text-xs text-gray-500 mt-1">
-                              SKU: {{ product.sku }} | Bag: {{ product.bagNumber || 'N/A' }} | 
+                              SKU: {{ product.sku }} | Rack No: {{ product.bagNumber || 'N/A' }} | 
                               Size: {{ product.size }} | Color: {{ product.color }}
                             </div>
                           </div>

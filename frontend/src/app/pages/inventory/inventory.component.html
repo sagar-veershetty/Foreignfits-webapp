@@ -79,45 +79,35 @@
             type="text"
             [(ngModel)]="searchTerm"
             (ngModelChange)="searchTerm.set($event)"
-            placeholder="Search by name or SKU..."
+            placeholder="Search by name, SKU, or Product Code..."
             class="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
         </div>
 
         <!-- Filter dropdowns row -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <!-- Subcategory Filter (Available in both views) -->
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Filter by Subcategory</label>
-            <select 
-              [(ngModel)]="subcategoryFilter"
-              (ngModelChange)="subcategoryFilter.set($event)"
-              class="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-              <option value="all">All Subcategories</option>
-              <option *ngFor="let sub of subcategories" [value]="sub">{{ sub }}</option>
-            </select>
-          </div>
-          
-          <!-- Category Filter -->
+          <!-- Category (Department) Filter - mirrors Add Product's Category dropdown -->
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Filter by Category</label>
             <select 
-              [(ngModel)]="categoryFilter"
-              (ngModelChange)="categoryFilter.set($event)"
+              [(ngModel)]="departmentFilter"
+              (ngModelChange)="departmentFilter.set($event); onDepartmentFilterChange()"
               class="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
               <option value="all">All Categories</option>
-              <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+              <option *ngFor="let dept of departments" [value]="dept.value">{{ dept.label }}</option>
             </select>
           </div>
           
-          <!-- Product Type Search -->
+          <!-- Product Filter - options depend on selected Category, mirrors Add Product's Product dropdown -->
           <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Search Product Type</label>
-            <input 
-              type="text"
-              [(ngModel)]="productTypeFilter"
-              (ngModelChange)="productTypeFilter.set($event)"
-              placeholder="e.g., Jeans, T-Shirt"
-              class="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+            <label class="block text-xs font-medium text-gray-700 mb-1">Filter by Product</label>
+            <select 
+              [(ngModel)]="productFilter"
+              (ngModelChange)="productFilter.set($event)"
+              [disabled]="departmentFilter() === 'all'"
+              class="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400">
+              <option value="all">All Products</option>
+              <option *ngFor="let pt of getProductOptionsForDepartmentFilter()" [value]="pt.label">{{ pt.label }}</option>
+            </select>
           </div>
 
           <!-- Low Stock Toggle -->
@@ -194,119 +184,170 @@
       </div>
     </div>
 
-    <!-- Inventory Grid (Card View) -->
-    <div *ngIf="!isLoadingData && inventoryList.length > 0 && viewMode() === 'cards'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-      <div *ngFor="let item of inventoryList" 
+    <!-- Inventory Grid (Card View) - grouped by Product Code so all sizes of the -->
+    <!-- same product show as one parent card with expandable size rows -->
+    <div *ngIf="!isLoadingData && inventoryList.length > 0 && viewMode() === 'cards'" class="space-y-3">
+      <div *ngFor="let group of productCodeGroups()"
            class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-        <!-- Product Image -->
-        <div class="w-full h-40 sm:h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
-          <img 
-            *ngIf="item.product?.imageUrls && (item.product?.imageUrls?.length || 0) > 0" 
-            [src]="item.product?.imageUrls?.[0]" 
-            [alt]="item.productName"
-            class="w-full h-full object-cover"
-            (error)="$any($event.target).src='/logo.jpeg'">
-          <div *ngIf="!item.product?.imageUrls || (item.product?.imageUrls?.length || 0) === 0" 
-               class="flex flex-col items-center justify-center text-gray-400">
-            <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <span class="text-sm">No Image</span>
+        <div class="flex flex-col sm:flex-row">
+          <!-- Product Image -->
+          <div class="w-full sm:w-40 md:w-48 h-40 sm:h-auto flex-shrink-0">
+            <app-image-carousel
+              [images]="group.imageUrls"
+              [alt]="group.productName"
+              heightClass="h-40 sm:h-full"
+              (imageClick)="openLightbox($event, group.productName)"
+            ></app-image-carousel>
+          </div>
+
+          <!-- Parent Summary (clickable to expand/collapse sizes) -->
+          <div class="flex-1 p-3 sm:p-4 cursor-pointer" (click)="toggleProductCodeGroup(group.key)">
+            <div class="flex justify-between items-start gap-2">
+              <div class="flex-1 min-w-0">
+                <h3 class="font-semibold text-gray-900 text-base sm:text-lg truncate">{{ group.productName }}</h3>
+                <p class="text-xs sm:text-sm font-medium text-indigo-700 truncate">
+                  Product Code: {{ group.productCode }}
+                </p>
+                <p class="text-xs sm:text-sm text-purple-600 font-medium truncate" *ngIf="group.bagNumber">
+                  <span class="inline-flex items-center gap-1">
+                    <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    Rack No: {{ group.bagNumber }}
+                  </span>
+                </p>
+                <div class="flex items-center gap-2 mt-1.5">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    {{ group.locationName }}
+                  </span>
+                </div>
+                <p class="text-[10px] sm:text-xs text-gray-500 mt-1 truncate">
+                  {{ group.productType || group.category }}
+                </p>
+              </div>
+              <!-- Expand/Collapse Icon -->
+              <svg
+                class="w-6 h-6 text-gray-400 transition-transform flex-shrink-0"
+                [class.rotate-180]="isProductCodeGroupExpanded(group.key)"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </div>
+
+            <!-- Size Badges -->
+            <div class="flex flex-wrap gap-1 mt-2">
+              <span *ngFor="let size of group.sizes" class="px-2 py-0.5 text-[10px] rounded bg-gray-100 text-gray-700 font-medium">
+                {{ size }}
+              </span>
+            </div>
+
+            <!-- Summary Row -->
+            <div class="flex items-center gap-3 sm:gap-4 mt-2 text-xs sm:text-sm">
+              <span class="text-gray-600">
+                <strong>{{ group.items.length }}</strong> size{{ group.items.length === 1 ? '' : 's' }}
+              </span>
+              <span class="text-green-600 font-semibold">
+                {{ group.totalStock }} total units
+              </span>
+              <span class="text-gray-700 font-medium" *ngIf="group.minPrice === group.maxPrice">
+                ₹{{ group.minPrice.toFixed(2) }}
+              </span>
+              <span class="text-gray-700 font-medium" *ngIf="group.minPrice !== group.maxPrice">
+                ₹{{ group.minPrice.toFixed(2) }} - ₹{{ group.maxPrice.toFixed(2) }}
+              </span>
+            </div>
           </div>
         </div>
-        
-        <!-- Product Header -->
-        <div class="p-3 sm:p-4">
-          <div class="flex justify-between items-start mb-2 sm:mb-3">
-            <div class="flex-1 min-w-0">
-              <h3 class="font-semibold text-gray-900 text-base sm:text-lg truncate">{{ item.productName }}</h3>
-              <p class="text-xs sm:text-sm text-gray-600 truncate">SKU: {{ item.productSku }}</p>
-              <!-- Bag Number -->
-              <p class="text-xs sm:text-sm text-purple-600 font-medium truncate" *ngIf="item.product?.bagNumber">
-                <span class="inline-flex items-center gap-1">
-                  <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                  </svg>
-                  Bag: {{ item.product?.bagNumber }}
-                </span>
-              </p>
-              <!-- Location Badge -->
-              <div class="flex items-center gap-2 mt-1.5">
-                <span [ngClass]="getLocationBadgeClass(item)" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                  {{ item.locationName }}
+
+        <!-- Expanded: one row per size with full details/actions -->
+        <div *ngIf="isProductCodeGroupExpanded(group.key)" class="border-t border-gray-200 bg-gray-50 p-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div *ngFor="let item of group.items"
+                 class="bg-white p-3 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+              <!-- Size / Color / Status -->
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="text-sm font-bold text-gray-900">Size: {{ item.product?.size || 'N/A' }}</p>
+                  <p class="text-xs text-gray-500">{{ item.product?.color }}</p>
+                  <p class="text-[10px] text-gray-400 truncate">SKU: {{ item.productSku }}</p>
+                </div>
+                <span [ngClass]="getStockStatusClass(item)" class="px-2 py-1 rounded text-[10px] font-medium flex-shrink-0">
+                  {{ getStockStatusText(item) }}
                 </span>
               </div>
-              <p class="text-[10px] sm:text-xs text-gray-500 mt-1 truncate" *ngIf="item.product">
-                {{ item.product.category }} | {{ item.product.size }} | {{ item.product.color }}
-              </p>
-            </div>
-            <span [ngClass]="getStockStatusClass(item)" class="px-2 py-1 rounded text-[10px] sm:text-xs font-medium flex-shrink-0 ml-2">
-              {{ getStockStatusText(item) }}
-            </span>
-          </div>
 
-          <!-- Stock Info -->
-          <div class="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-3 p-2 sm:p-3 bg-gray-50 rounded">
-            <div>
-              <p class="text-[10px] sm:text-xs text-gray-600">Current Stock</p>
-              <p class="text-base sm:text-lg font-bold text-gray-900">{{ item.quantity }}</p>
-            </div>
-            <div>
-              <p class="text-[10px] sm:text-xs text-gray-600">Min Stock</p>
-              <p class="text-base sm:text-lg font-semibold text-gray-700">{{ item.minStock }}</p>
-            </div>
-          </div>
+              <!-- Stock Info -->
+              <div class="grid grid-cols-2 gap-2 mb-2 p-2 bg-gray-50 rounded">
+                <div>
+                  <p class="text-[10px] text-gray-600">Current Stock</p>
+                  <p class="text-base font-bold text-gray-900">{{ item.quantity }}</p>
+                </div>
+                <div>
+                  <p class="text-[10px] text-gray-600">Min Stock</p>
+                  <p class="text-base font-semibold text-gray-700">{{ item.minStock }}</p>
+                </div>
+              </div>
 
-          <!-- Pricing Info -->
-          <div class="grid grid-cols-2 gap-2 sm:gap-3 mb-2 sm:mb-3">
-            <div>
-              <p class="text-[10px] sm:text-xs text-gray-600">Sale Price</p>
-              <p class="text-xs sm:text-sm font-semibold text-green-600">₹{{ item.salePrice.toFixed(2) }}</p>
-            </div>
-            <div *ngIf="statsData.canSeeCost">
-              <p class="text-[10px] sm:text-xs text-gray-600">Cost</p>
-              <p class="text-xs sm:text-sm font-semibold text-gray-700">₹{{ item.cost.toFixed(2) }}</p>
-            </div>
-            <div *ngIf="item.wholesalePrice" [class.col-span-2]="statsData.canSeeCost" [class.col-span-1]="!statsData.canSeeCost">
-              <p class="text-[10px] sm:text-xs text-gray-600">Wholesale</p>
-              <p class="text-xs sm:text-sm font-semibold text-blue-600">
-                ₹{{ item.wholesalePrice.toFixed(2) }} (Min: {{ item.wholesaleMinQuantity }})
-              </p>
-            </div>
-          </div>
+              <!-- Pricing Info -->
+              <div class="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <p class="text-[10px] text-gray-600">Sale Price</p>
+                  <p class="text-xs font-semibold text-green-600">₹{{ item.salePrice.toFixed(2) }}</p>
+                </div>
+                <div *ngIf="statsData.canSeeCost">
+                  <p class="text-[10px] text-gray-600">Cost</p>
+                  <p class="text-xs font-semibold text-gray-700">₹{{ item.cost.toFixed(2) }}</p>
+                </div>
+                <div *ngIf="item.wholesalePrice" [class.col-span-2]="statsData.canSeeCost" [class.col-span-1]="!statsData.canSeeCost">
+                  <p class="text-[10px] text-gray-600">Wholesale</p>
+                  <p class="text-xs font-semibold text-blue-600">
+                    ₹{{ item.wholesalePrice.toFixed(2) }} (Min: {{ item.wholesaleMinQuantity }})
+                  </p>
+                </div>
+              </div>
 
-          <!-- Actions -->
-          <div class="flex gap-2 mt-3 sm:mt-4">
-            <button 
-              (click)="openEditModal(item)"
-              class="flex-1 px-3 py-2.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 active:bg-indigo-200 text-xs sm:text-sm font-medium transition-colors touch-manipulation">
-              <span class="hidden sm:inline">Edit Pricing</span>
-              <span class="inline sm:hidden">Edit</span>
-            </button>
-            <button 
-              *ngIf="item.product && canPrintIndividualBarcode()"
-              (click)="printBarcode(item)"
-              title="Print barcode sticker with current price"
-              class="px-3 py-2.5 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 active:bg-green-200 text-xs sm:text-sm font-medium flex items-center justify-center gap-1 transition-colors touch-manipulation min-w-[44px]">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-              </svg>
-              <span class="hidden sm:inline">Print</span>
-            </button>
-            <button 
-              *ngIf="canDeleteInventory()"
-              (click)="deleteInventoryItem(item)"
-              title="Remove this product's inventory from this location"
-              class="px-3 py-2.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 active:bg-red-200 text-xs sm:text-sm font-medium flex items-center justify-center gap-1 transition-colors touch-manipulation min-w-[44px]">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-              </svg>
-              <span class="hidden sm:inline">Delete</span>
-            </button>
+              <!-- Actions -->
+              <div class="flex gap-2 mt-2">
+                <button
+                  (click)="openEditModal(item)"
+                  class="flex-1 px-2 py-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 active:bg-indigo-200 text-xs font-medium transition-colors touch-manipulation">
+                  Edit
+                </button>
+                <button
+                  *ngIf="item.product && canPrintIndividualBarcode()"
+                  (click)="printBarcode(item)"
+                  title="Print barcode sticker with current price"
+                  class="px-2 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 active:bg-green-200 text-xs font-medium flex items-center justify-center gap-1 transition-colors touch-manipulation min-w-[40px]">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                  </svg>
+                </button>
+                <button
+                  *ngIf="item.product && canRestockInventory()"
+                  (click)="openRestockModal(item)"
+                  title="Add more quantity to this product and print fresh barcodes"
+                  class="px-2 py-2 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 active:bg-amber-200 text-xs font-medium flex items-center justify-center gap-1 transition-colors touch-manipulation min-w-[40px]">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                </button>
+                <button
+                  *ngIf="canDeleteInventory()"
+                  (click)="deleteInventoryItem(item)"
+                  title="Remove this product's inventory from this location"
+                  class="px-2 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 active:bg-red-200 text-xs font-medium flex items-center justify-center gap-1 transition-colors touch-manipulation min-w-[40px]">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -338,10 +379,6 @@
                 </span>
                 <!-- Product Type -->
                 <h3 class="text-lg font-bold text-gray-900">{{ group.productType }}</h3>
-                <!-- Category -->
-                <span class="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-800 capitalize">
-                  {{ group.category }}
-                </span>
               </div>
               <div class="flex items-center gap-4 mt-2 text-sm text-gray-600">
                 <span class="flex items-center gap-1">
@@ -378,7 +415,7 @@
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <div *ngFor="let item of group.items" 
                      class="bg-white p-3 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-                  <!-- Bag Number & Location -->
+                  <!-- Rack No & Location -->
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-xs font-bold text-purple-600 flex items-center gap-1">
                       <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -394,6 +431,9 @@
                   <!-- Product Name -->
                   <h5 class="font-medium text-gray-900 text-sm truncate mb-1">{{ item.productName }}</h5>
                   <p class="text-[10px] text-gray-500 truncate">SKU: {{ item.productSku }}</p>
+                  <p class="text-[10px] font-medium text-indigo-700 truncate">
+                    Code: {{ item.product?.productCode || 'N/A' }}
+                  </p>
                   
                   <!-- Details -->
                   <div class="mt-2 text-xs text-gray-600 space-y-1">
@@ -431,6 +471,15 @@
                       </svg>
                     </button>
                     <button 
+                      *ngIf="item.product && canRestockInventory()"
+                      (click)="openRestockModal(item)"
+                      title="Add more quantity and print fresh barcodes"
+                      class="px-2 py-1.5 bg-amber-50 text-amber-700 rounded text-xs font-medium hover:bg-amber-100">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                      </svg>
+                    </button>
+                    <button 
                       *ngIf="canDeleteInventory()"
                       (click)="deleteInventoryItem(item)"
                       title="Remove from this location"
@@ -456,6 +505,9 @@
     <div class="p-4 sm:p-6 border-b border-gray-200">
       <h2 class="text-lg sm:text-2xl font-bold text-gray-900">Edit Inventory - {{ currentEditingItem?.productName }}</h2>
       <p class="text-xs sm:text-sm text-gray-600 mt-1">SKU: {{ currentEditingItem?.productSku }}</p>
+      <p class="text-xs sm:text-sm font-medium text-indigo-700 mt-1">
+        Product Code: {{ currentEditingItem?.product?.productCode || 'N/A' }}
+      </p>
     </div>
 
     <div class="p-4 sm:p-6">
@@ -573,4 +625,159 @@
     </div>
   </div>
 </div>
+
+<!-- Restock Modal -->
+<div *ngIf="restockModalOpen()" 
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     (click)="closeRestockModal()">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+       (click)="$event.stopPropagation()">
+    <div class="p-4 sm:p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-900">Restock Product</h2>
+        <button (click)="closeRestockModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+        <p class="text-sm font-semibold text-gray-900">{{ restockingItem()?.productName }}</p>
+        <p class="text-xs text-gray-600">SKU: {{ restockingItem()?.product?.sku || 'N/A' }} &middot; Product Code: {{ restockingItem()?.product?.productCode || 'N/A' }}</p>
+        <p class="text-xs text-gray-600 mt-1">Current Stock at this location: <span class="font-semibold text-gray-900">{{ restockingItem()?.quantity }}</span></p>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Additional Quantity Found <span *ngIf="restockingItem()?.product?.size">(Size: {{ restockingItem()?.product?.size }})</span>
+        </label>
+        <input 
+          type="number" 
+          min="0"
+          [ngModel]="restockForm().quantity"
+          (ngModelChange)="updateRestockQuantity($event)"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm"
+          placeholder="e.g. 200">
+        <p class="text-xs text-gray-500 mt-1">This many new barcodes will be generated for the added units.</p>
+      </div>
+
+      <!-- Other sizes of this same product, if any, at this same location -->
+      <div *ngIf="restockSiblings().length > 0" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <p class="text-xs font-semibold text-blue-900 mb-2">Also restock other sizes of this product:</p>
+        <div class="space-y-2">
+          <div *ngFor="let row of restockSiblings(); let i = index" class="flex items-center gap-2">
+            <span class="text-xs text-blue-800 flex-1 truncate">{{ row.item.product?.size || row.item.productName }}</span>
+            <input 
+              type="number" 
+              min="0"
+              [ngModel]="row.quantity"
+              (ngModelChange)="updateSiblingRestockQuantity(i, $event)"
+              class="w-24 px-2 py-1.5 border border-blue-300 rounded text-sm text-center bg-white"
+              placeholder="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- New sizes not previously registered at this location (e.g. a size found -->
+      <!-- during store recount that this product never had before) -->
+      <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold text-green-900">Add a new size found in store:</p>
+          <button type="button" (click)="addRestockNewSizeRow()"
+                  class="text-xs font-medium text-green-700 hover:text-green-900 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Add Size Row
+          </button>
+        </div>
+        <p *ngIf="restockNewSizes().length === 0" class="text-xs text-green-700">
+          If this product has a size that isn't listed above (e.g. found only in store), add it here — a new SKU and barcodes will be created for it.
+        </p>
+        <div class="space-y-2">
+          <div *ngFor="let row of restockNewSizes(); let i = index" class="flex items-center gap-2">
+            <input 
+              type="text"
+              [ngModel]="row.size"
+              (ngModelChange)="updateRestockNewSizeField(i, 'size', $event)"
+              placeholder="Size (e.g., XXL, 38)"
+              class="flex-1 px-2 py-1.5 border border-green-300 rounded text-sm bg-white">
+            <input 
+              type="number" 
+              min="0"
+              [ngModel]="row.quantity"
+              (ngModelChange)="updateRestockNewSizeField(i, 'quantity', $event)"
+              placeholder="Quantity"
+              class="w-24 px-2 py-1.5 border border-green-300 rounded text-sm text-center bg-white">
+            <button type="button" (click)="removeRestockNewSizeRow(i)"
+                    class="p-1.5 text-gray-400 hover:text-red-600" title="Remove">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-4 flex items-start gap-2">
+        <input 
+          type="checkbox" 
+          id="applyPriceToBarcode"
+          [ngModel]="restockForm().applyPriceToBarcode"
+          (ngModelChange)="updateRestockApplyPrice($event)"
+          class="mt-1 w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500">
+        <label for="applyPriceToBarcode" class="text-sm text-gray-700">
+          Apply this location's current cost/sale price to the new barcodes
+        </label>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Reason / Notes (optional)</label>
+        <textarea 
+          rows="2"
+          [ngModel]="restockForm().reason"
+          (ngModelChange)="updateRestockReason($event)"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm"
+          placeholder="e.g. Physical recount at store, reissuing barcodes"></textarea>
+      </div>
+
+      <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <p class="text-xs text-amber-800">
+            The quantity will be added to this location's inventory and fresh barcodes will be generated so they can be printed and moved through the transfer workflow.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
+        <button 
+          type="button"
+          (click)="closeRestockModal()"
+          class="px-4 sm:px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 active:bg-gray-100 text-sm font-medium transition-colors touch-manipulation">
+          Cancel
+        </button>
+        <button 
+          type="button"
+          [disabled]="isRestocking() || (!restockForm().quantity && !hasAnyRestockQuantity())"
+          (click)="saveRestock()"
+          class="px-4 sm:px-6 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 active:bg-amber-800 disabled:bg-gray-400 text-sm font-medium transition-colors touch-manipulation">
+          {{ isRestocking() ? 'Restocking...' : 'Restock & Generate Barcodes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Image Lightbox -->
+<app-image-lightbox
+  *ngIf="lightboxOpen()"
+  [images]="lightboxImages()"
+  [startIndex]="lightboxStartIndex()"
+  [alt]="lightboxAlt()"
+  (closed)="closeLightbox()"
+></app-image-lightbox>
 

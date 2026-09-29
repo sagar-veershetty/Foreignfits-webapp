@@ -2,6 +2,9 @@ server:
   port: ${PORT:8080}
   servlet:
     context-path: /api
+  tomcat:
+    max-http-form-post-size: 50MB
+    max-swallow-size: 50MB
 
 spring:
   application:
@@ -52,6 +55,17 @@ spring:
 jwt:
   secret: foreignFitsSecretKeyForJWTTokenGeneration2024
   expiration: 86400000
+
+# AWS S3 - Product image storage
+app:
+  aws:
+    s3:
+      enabled: ${S3_IMAGES_ENABLED:false}
+      bucket: ${S3_IMAGES_BUCKET:foreign-fits-product-images}
+      region: ${S3_IMAGES_REGION:ap-south-1}
+      # Optional: set to a CloudFront domain (e.g. https://cdn.example.com) to serve images
+      # through a CDN instead of directly from S3. Leave blank to use the S3 URL.
+      public-base-url: ${S3_IMAGES_PUBLIC_BASE_URL:}
 
 # Logging
 logging:

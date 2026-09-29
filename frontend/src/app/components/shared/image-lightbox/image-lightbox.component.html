@@ -1,0 +1,77 @@
+<div
+  class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 sm:p-8"
+  (click)="close()"
+>
+  <!-- Close button -->
+  <button
+    type="button"
+    (click)="close(); $event.stopPropagation()"
+    class="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 flex items-center justify-center z-10"
+    aria-label="Close"
+  >
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+
+  <!-- Image count -->
+  <span
+    *ngIf="hasMultiple"
+    class="absolute top-4 left-4 text-white/80 text-sm bg-white/10 px-3 py-1 rounded-full"
+  >
+    {{ activeIndex() + 1 }} / {{ images.length }}
+  </span>
+
+  <!-- Prev arrow -->
+  <button
+    *ngIf="hasMultiple"
+    type="button"
+    (click)="prev($event)"
+    class="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center"
+    aria-label="Previous image"
+  >
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+    </svg>
+  </button>
+
+  <!-- Image -->
+  <img
+    [src]="currentImage()"
+    [alt]="alt"
+    class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+    (click)="$event.stopPropagation()"
+  />
+
+  <!-- Next arrow -->
+  <button
+    *ngIf="hasMultiple"
+    type="button"
+    (click)="next($event)"
+    class="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center"
+    aria-label="Next image"
+  >
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+    </svg>
+  </button>
+
+  <!-- Thumbnail strip -->
+  <div
+    *ngIf="hasMultiple"
+    class="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 px-4 overflow-x-auto"
+    (click)="$event.stopPropagation()"
+  >
+    <button
+      type="button"
+      *ngFor="let img of images; let i = index"
+      (click)="goTo(i, $event)"
+      class="w-12 h-12 sm:w-14 sm:h-14 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all"
+      [class.border-white]="i === activeIndex()"
+      [class.border-transparent]="i !== activeIndex()"
+      [class.opacity-60]="i !== activeIndex()"
+    >
+      <img [src]="img" [alt]="alt" class="w-full h-full object-cover" />
+    </button>
+  </div>
+</div>

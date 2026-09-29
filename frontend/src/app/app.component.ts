@@ -45,11 +45,12 @@ export class AppComponent implements OnInit {
       const isHomePage = currentUrl === '/' || currentUrl === '';
       const isLoginPage = currentUrl === '/login' || currentUrl === '/signup' || currentUrl === '/agent-signup';
       const isUnauthorizedPage = currentUrl === '/unauthorized';
+      const isPublicPage = currentUrl.startsWith('/customer');
       const isValid = this.authService.isTokenValid();
 
-      // Home and unauthorized pages are accessible to everyone
-      if (isHomePage || isUnauthorizedPage) {
-        // Allow access to home and unauthorized page for everyone
+      // Home, unauthorized, and public customer pages are accessible to everyone
+      if (isHomePage || isUnauthorizedPage || isPublicPage) {
+        // Allow access to home, unauthorized, and public pages for everyone
         return;
       }
 
@@ -80,10 +81,11 @@ export class AppComponent implements OnInit {
         const isHomePage = currentUrl === '/' || currentUrl === '';
         const isLoginPage = currentUrl === '/login' || currentUrl === '/signup' || currentUrl === '/agent-signup';
         const isUnauthorizedPage = currentUrl === '/unauthorized';
+        const isPublicPage = currentUrl.startsWith('/customer');
         const isValid = this.authService.isTokenValid();
 
         // Home and unauthorized pages are accessible to everyone
-        if (isHomePage || isUnauthorizedPage) {
+        if (isHomePage || isUnauthorizedPage || isPublicPage) {
           return;
         }
 

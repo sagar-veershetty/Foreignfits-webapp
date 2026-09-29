@@ -1,8 +1,10 @@
 package com.foreignfits.service;
 
 import com.foreignfits.dto.LocationDto;
+import com.foreignfits.dto.LocationInventoryDto;
 import com.foreignfits.dto.ProductDto;
 import com.foreignfits.dto.request.CreateProductRequest;
+import com.foreignfits.dto.request.RestockProductRequest;
 import com.foreignfits.entity.Barcode;
 import com.foreignfits.entity.Location;
 import com.foreignfits.entity.LocationInventory;
@@ -38,6 +40,8 @@ public class ProductService {
     private final StockTransferRepository stockTransferRepository;
     private final UserRepository userRepository;
     private final BarcodeService barcodeService;
+    private final LocationInventoryService locationInventoryService;
+    private final ImageStorageService imageStorageService;
     
     public List<ProductDto> getAllProducts() {
         return productRepository.findAll().stream()
@@ -120,6 +124,9 @@ public class ProductService {
         Product product = new Product();
         product.setName(request.getName());
         product.setCategory(request.getCategory());
+        product.setSubcategory(parseSubcategory(request.getSubcategory()));
+        product.setProductType(request.getProductType());
+        product.setProductCode(request.getProductCode());
         product.setSize(request.getSize());
         product.setColor(request.getColor());
         // Pricing removed from Product - now in LocationInventory
@@ -131,7 +138,7 @@ public class ProductService {
         product.setIsManualSku(request.getIsManualSku() != null ? request.getIsManualSku() : false);
         product.setBagNumber(request.getBagNumber()); // Set bag number
         product.setDescription(request.getDescription());
-        product.setImageUrls(request.getImageUrls());
+        product.setImageUrls(imageStorageService.storeImages(request.getImageUrls(), request.getSku()));
         // Location removed from Product - it's organization-wide master data
         product.setCreatedBy(createdBy);
         product.setIsApproved(true); // Product itself is approved immediately
@@ -233,6 +240,99 @@ public class ProductService {
         return convertToDto(savedProduct);
     }
     
+    /**
+     * Add additional quantity to an EXISTING product's inventory at a location and
+     * generate fresh barcodes for the newly added units.
+     *
+     * Use case: Physical recount finds stock already sitting at a store/warehouse that
+     * isn't represented in the system yet. Instead of creating a duplicate product,
+     * the admin re-registers that quantity against the SAME product/SKU (e.g. at the
+     * Supplier location), gets new barcodes printed, and moves it through the normal
+     * transfer workflow to warehouse/store.
+     *
+     * Only ADMIN users can perform this action, and it applies immediately (no pending approval)
+     * since it's an explicit administrative stock correction, not a location-to-location transfer.
+     */
+    public LocationInventoryDto restockProduct(RestockProductRequest request, String createdBy) {
+        Product product = productRepository.findById(request.getProductId())
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + request.getProductId()));
+        
+        Location location = locationRepository.findById(request.getLocationId())
+                .orElseThrow(() -> new RuntimeException("Location not found with id: " + request.getLocationId()));
+        
+        LocationInventory inventory = locationInventoryRepository
+                .findByLocationIdAndProductSku(location.getId(), product.getSku())
+                .orElseThrow(() -> new RuntimeException(
+                        "Product is not yet set up at " + location.getName() +
+                        ". Please add pricing for this product at this location first."));
+        
+        int previousStock = inventory.getQuantity();
+        int addedQuantity = request.getQuantity();
+        int newStock = previousStock + addedQuantity;
+        
+        inventory.setQuantity(newStock);
+        inventory.setLastRestockDate(java.time.LocalDateTime.now());
+        locationInventoryRepository.save(inventory);
+        
+        // Get INITIAL location (ID=0) as the source of the restock (external/recounted stock)
+        Location initialLocation = locationRepository.findById(0L)
+                .orElseThrow(() -> new RuntimeException("INITIAL location not found"));
+        
+        User requestingUser = userRepository.findByEmail(createdBy)
+                .orElseThrow(() -> new RuntimeException("User not found: " + createdBy));
+        
+        // Record the movement as an auto-approved RESTOCK (admin-initiated correction)
+        StockTransfer transfer = new StockTransfer();
+        transfer.setProduct(product);
+        transfer.setFromLocation(initialLocation);
+        transfer.setToLocation(location);
+        transfer.setQuantity(addedQuantity);
+        transfer.setReason(request.getReason() != null ? request.getReason() : "Restock existing product (recount)");
+        transfer.setReference("RESTOCK-" + product.getId() + "-" + System.currentTimeMillis());
+        transfer.setStatus(StockTransfer.TransferStatus.COMPLETED);
+        transfer.setRequestedAt(java.time.LocalDateTime.now());
+        transfer.setRequestedBy(requestingUser);
+        transfer.setApprovedBy(requestingUser);
+        transfer.setApprovedAt(java.time.LocalDateTime.now());
+        transfer.setCompletedBy(requestingUser);
+        transfer.setCompletedAt(java.time.LocalDateTime.now());
+        StockTransfer savedTransfer = stockTransferRepository.save(transfer);
+        
+        StockMovement movement = new StockMovement();
+        movement.setProduct(product);
+        movement.setType(StockMovement.MovementType.RESTOCK);
+        movement.setQuantity(addedQuantity);
+        movement.setPreviousStock(previousStock);
+        movement.setNewStock(newStock);
+        movement.setReason(transfer.getReason());
+        movement.setReference(transfer.getReference());
+        movement.setTransfer(savedTransfer);
+        movement.setCreatedBy(createdBy);
+        movement.setStatus(StockMovement.MovementStatus.APPROVED);
+        movement.setApprovedBy(createdBy);
+        movement.setApprovedAt(java.time.LocalDateTime.now());
+        stockMovementRepository.save(movement);
+        
+        // Generate fresh barcodes for the newly added units
+        Boolean applyPrice = request.getApplyPriceToBarcode();
+        Double purchasePrice = (applyPrice != null && applyPrice && inventory.getCost() != null)
+                ? inventory.getCost().doubleValue() : null;
+        Double salePrice = (applyPrice != null && applyPrice && inventory.getSalePrice() != null)
+                ? inventory.getSalePrice().doubleValue() : null;
+        
+        List<Barcode> generatedBarcodes = barcodeService.generateBarcodes(
+                product,
+                location,
+                addedQuantity,
+                purchasePrice,
+                salePrice
+        );
+        System.out.println("Restocked " + addedQuantity + " units (" + generatedBarcodes.size() +
+                " new barcodes) for product " + product.getSku() + " at " + location.getName());
+        
+        return locationInventoryService.getInventory(location.getId(), product.getSku());
+    }
+    
     public ProductDto updateProduct(Long id, CreateProductRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
@@ -249,6 +349,9 @@ public class ProductService {
         
         product.setName(request.getName());
         product.setCategory(request.getCategory());
+        product.setSubcategory(parseSubcategory(request.getSubcategory()));
+        product.setProductType(request.getProductType());
+        product.setProductCode(request.getProductCode());
         product.setSize(request.getSize());
         product.setColor(request.getColor());
         // Pricing removed from Product - use LocationInventory
@@ -257,12 +360,26 @@ public class ProductService {
         product.setBagNumber(request.getBagNumber()); // Update bag number
         product.setDescription(request.getDescription());
         // barcode removed - use Barcode table
-        product.setImageUrls(request.getImageUrls());
+        product.setImageUrls(imageStorageService.storeImages(request.getImageUrls(), request.getSku()));
         
         Product savedProduct = productRepository.save(product);
         return convertToDto(savedProduct);
     }
     
+    /**
+     * Safely parses a subcategory string (e.g., "mens", "MENS") into the ProductSubcategory enum.
+     * Returns null if the value is blank or doesn't match a known enum constant.
+     */
+    private Product.ProductSubcategory parseSubcategory(String subcategory) {
+        if (subcategory == null || subcategory.isBlank()) {
+            return null;
+        }
+        try {
+            return Product.ProductSubcategory.valueOf(subcategory.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }    
     public void deleteProduct(Long id) {
         if (!productRepository.existsById(id)) {
             throw new RuntimeException("Product not found with id: " + id);

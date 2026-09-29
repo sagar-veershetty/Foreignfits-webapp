@@ -95,6 +95,34 @@ export class PrintBarcodeComponent implements OnInit {
           textOverflow: 'ellipsis',
           whiteSpace: 'normal',
         };
+      case 'productCode':
+        return {
+          fontSize: `calc(0.07 * ${dims.height}mm)`,
+          color: '#444444',
+          marginBottom: '1px',
+          paddingTop: '2px',
+          fontFamily: 'Menlo, Consolas, monospace',
+          letterSpacing: '0.03em',
+          textAlign: 'center',
+          lineHeight: 1.3,
+          maxWidth: '98%',
+          overflow: 'visible',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'normal',
+        };
+      case 'size':
+        return {
+          fontWeight: 700,
+          fontSize: `calc(0.07 * ${dims.height}mm)`,
+          color: '#1a2233',
+          marginBottom: '1px',
+          textAlign: 'center',
+          lineHeight: 1.2,
+          maxWidth: '98%',
+          overflow: 'visible',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'normal',
+        };
       case 'category':
         return {
           fontSize: `calc(0.05 * ${dims.height}mm)`, // Increased from 0.03
@@ -545,6 +573,31 @@ export class PrintBarcodeComponent implements OnInit {
       this.loadBarcodesForProduct(product);
     }
   }
+
+  // Select every size-variant of this product (matched by productCode if present,
+  // otherwise by name) so all sizes get added to the print list in one click.
+  // Useful when printing stickers for a batch that spans multiple sizes, e.g.
+  // "how many of L and how many of XL" - select all sizes here, then set the
+  // Print Quantity individually per size below in the selected products list.
+  selectAllSizesOf(product: any): void {
+    const siblings = this.products.filter((p: any) => {
+      if (product.productCode) {
+        return p.productCode === product.productCode;
+      }
+      return p.name === product.name;
+    });
+
+    for (const p of siblings) {
+      if (!this.selectedProductIds.has(p.id)) {
+        this.selectedProductIds.add(p.id);
+        this.selectedProducts = [...this.selectedProducts, p];
+      }
+      if (!this.productQuantities[p.id]) {
+        this.productQuantities[p.id] = 1;
+      }
+      this.loadBarcodesForProduct(p);
+    }
+  }
   selectedProducts: any[] = [];
   selectedProductIds: Set<string> = new Set();
   filteredProducts: any[] = [];
@@ -644,6 +697,8 @@ export class PrintBarcodeComponent implements OnInit {
           + '<div class="sticker-card-mock">'
           + '<div class="sticker-brand-header">FOREIGN FITS</div>'
           + '<div class="sticker-title-mock">' + this.escapeHtml(name) + '</div>'
+          + (product.productCode ? '<div class="sticker-product-code-mock">' + this.escapeHtml(product.productCode) + '</div>' : '')
+          + (size ? '<div class="sticker-size-mock">Size: ' + this.escapeHtml(size) + '</div>' : '')
           + priceHtml
           + '<div class="sticker-barcode-mock">'
           + '<div class="barcode-no-bg">' + svgMarkup + '</div>'
@@ -705,7 +760,7 @@ export class PrintBarcodeComponent implements OnInit {
             }
             .sticker-brand-header {
               font-weight: 800;
-              font-size: calc(0.06 * ${dims.height}mm);
+              font-size: calc(0.045 * ${dims.height}mm);
               letter-spacing: 0.12em;
               margin-bottom: 2px;
               color: #000000;
@@ -716,7 +771,7 @@ export class PrintBarcodeComponent implements OnInit {
             }
             .sticker-title-mock {
               font-weight: 700;
-              font-size: calc(0.075 * ${dims.height}mm);
+              font-size: calc(0.058 * ${dims.height}mm);
               margin-bottom: 1px;
               color: #000000;
               text-align: center;
@@ -728,8 +783,38 @@ export class PrintBarcodeComponent implements OnInit {
               overflow: hidden;
               text-overflow: ellipsis;
             }
+            .sticker-product-code-mock {
+              font-size: calc(0.05 * ${dims.height}mm);
+              color: #444444;
+              margin-bottom: 1px;
+              padding-top: 2px;
+              font-family: 'Menlo', 'Consolas', monospace;
+              letter-spacing: 0.03em;
+              text-align: center;
+              line-height: 1.3;
+              word-break: break-word;
+              overflow-wrap: break-word;
+              white-space: normal;
+              max-width: 98%;
+              overflow: visible;
+              text-overflow: ellipsis;
+            }
+            .sticker-size-mock {
+              font-size: calc(0.05 * ${dims.height}mm);
+              font-weight: 700;
+              color: #000000;
+              margin-bottom: 1px;
+              text-align: center;
+              line-height: 1.2;
+              word-break: break-word;
+              overflow-wrap: break-word;
+              white-space: normal;
+              max-width: 98%;
+              overflow: visible;
+              text-overflow: ellipsis;
+            }
             .sticker-meta-mock {
-              font-size: calc(0.08 * ${dims.height}mm);
+              font-size: calc(0.06 * ${dims.height}mm);
               color: #222;
               margin-bottom: 1px;
               font-weight: 400;
@@ -743,7 +828,7 @@ export class PrintBarcodeComponent implements OnInit {
               text-overflow: ellipsis;
             }
             .sticker-sku-mock {
-              font-size: calc(0.07 * ${dims.height}mm);
+              font-size: calc(0.05 * ${dims.height}mm);
               color: #757575;
               margin-bottom: 1px;
               font-family: 'Menlo', 'Consolas', monospace;
@@ -758,7 +843,7 @@ export class PrintBarcodeComponent implements OnInit {
               text-overflow: ellipsis;
             }
             .sticker-category-mock {
-              font-size: calc(0.06 * ${dims.height}mm);
+              font-size: calc(0.04 * ${dims.height}mm);
               color: #666;
               margin-bottom: 1px;
               text-align: center;
@@ -771,7 +856,7 @@ export class PrintBarcodeComponent implements OnInit {
               text-overflow: ellipsis;
             }
             .sticker-price-mock {
-              font-size: calc(0.07 * ${dims.height}mm);
+              font-size: calc(0.05 * ${dims.height}mm);
               font-weight: 700;
               color: #000000;
               margin-bottom: 2px;
@@ -787,7 +872,7 @@ export class PrintBarcodeComponent implements OnInit {
             .winter-sale-badge {
               background: transparent;
               color: #000000;
-              font-size: calc(0.075 * ${dims.height}mm);
+              font-size: calc(0.055 * ${dims.height}mm);
               font-weight: 900;
               padding: 1px 3px;
               border-radius: 0;
@@ -798,7 +883,7 @@ export class PrintBarcodeComponent implements OnInit {
               border: 1px dotted #000000;
             }
             .original-price {
-              font-size: calc(0.065 * ${dims.height}mm);
+              font-size: calc(0.045 * ${dims.height}mm);
               font-weight: 800;
               color: #000000;
               text-align: center;
@@ -806,10 +891,10 @@ export class PrintBarcodeComponent implements OnInit {
             }
             .original-price .price-label {
               font-weight: 500;
-              font-size: calc(0.055 * ${dims.height}mm);
+              font-size: calc(0.035 * ${dims.height}mm);
             }
             .discount-price {
-              font-size: calc(0.085 * ${dims.height}mm);
+              font-size: calc(0.065 * ${dims.height}mm);
               font-weight: 900;
               color: #000000;
               text-align: center;
@@ -817,7 +902,7 @@ export class PrintBarcodeComponent implements OnInit {
             }
             .discount-price .price-label {
               font-weight: 600;
-              font-size: calc(0.070 * ${dims.height}mm);
+              font-size: calc(0.050 * ${dims.height}mm);
             }
             .sticker-barcode-mock {
               width: 100%;
@@ -858,7 +943,7 @@ export class PrintBarcodeComponent implements OnInit {
               margin: 0 auto;
               text-align: center;
               font-family: 'Menlo', 'Consolas', monospace;
-              font-size: calc(0.055 * ${dims.height || 25}mm);
+              font-size: calc(0.04 * ${dims.height || 25}mm);
               color: #000000;
               margin-top: 2px;
               letter-spacing: 0.04em;

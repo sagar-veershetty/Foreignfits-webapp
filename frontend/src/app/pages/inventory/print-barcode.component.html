@@ -17,7 +17,12 @@
 	<div *ngFor="let product of filteredProducts" class="flex items-center gap-2 py-1">
 		<input type="checkbox" [checked]="isSelected(product)" (change)="toggleProduct(product)" />
 		<span class="font-medium">{{ product.name }}</span>
+		<span *ngIf="product.size" class="text-xs font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">{{ product.size }}</span>
 		<span class="text-xs text-gray-500">({{ product.sku }})</span>
+		<button type="button" (click)="selectAllSizesOf(product)" 
+		        class="ml-auto text-[11px] text-blue-600 hover:text-blue-800 underline whitespace-nowrap">
+		  Select all sizes
+		</button>
 	</div>
 	<div *ngIf="filteredProducts.length === 0" class="text-gray-400 text-sm">No products found.</div>
 </div>
@@ -67,6 +72,8 @@
             [attr.data-barcode-key]="barcodeRenderKey + '-' + barcode.id">
             <div class="sticker-brand-header" [ngStyle]="getFontStyle('brand')">FOREIGN FITS</div>
             <div class="sticker-title-mock" [ngStyle]="getFontStyle('title')">{{ product.name }}</div>
+            <div class="sticker-product-code-mock" *ngIf="product.productCode" [ngStyle]="getFontStyle('productCode')">{{ product.productCode }}</div>
+            <div class="sticker-size-mock" *ngIf="product.size" [ngStyle]="getFontStyle('size')">Size: {{ product.size }}</div>
             
             <!-- Winter Sale Price Display -->
             <div class="sticker-price-mock" *ngIf="barcode.originalPrice && barcode.originalPrice > (barcode.salePrice || 0)">

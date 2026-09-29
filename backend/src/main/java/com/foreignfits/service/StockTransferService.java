@@ -424,6 +424,9 @@ public class StockTransferService {
             productDto.setSku(product.getSku());
             // barcode removed - use Barcode table
             productDto.setCategory(product.getCategory());
+            productDto.setSubcategory(product.getSubcategory() != null ? product.getSubcategory().name() : null);
+            productDto.setProductType(product.getProductType());
+            productDto.setProductCode(product.getProductCode());
             productDto.setSize(product.getSize());
             productDto.setColor(product.getColor());
             // Pricing moved to LocationInventory

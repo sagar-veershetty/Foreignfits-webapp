@@ -28,4 +28,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     @Query("SELECT u FROM User u WHERE u.name LIKE %:searchTerm% OR u.email LIKE %:searchTerm%")
     List<User> findByNameContainingOrEmailContaining(@Param("searchTerm") String searchTerm);
+
+    boolean existsByLocationIdAndIsActiveTrue(Long locationId);
 }

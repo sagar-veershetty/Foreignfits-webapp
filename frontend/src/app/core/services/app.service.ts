@@ -319,25 +319,29 @@ export class AppService {
     return this.http.get<BarcodeHistory[]>(`${this.API_BASE_URL}/barcode-history/barcode/${barcodeNumber}`);
   }
 
+  private mapApiLocation(loc: any): Location {
+    return {
+      id: loc.id?.toString() || '',
+      name: loc.name || '',
+      type: loc.type?.toLowerCase() || 'store',
+      address: loc.address || '',
+      city: loc.city || '',
+      state: loc.state || '',
+      zipCode: loc.zipCode || '',
+      phone: loc.phone || '',
+      manager: loc.manager || '',
+      capacity: loc.capacity || 0,
+      isActive: loc.isActive !== false,
+      createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
+    };
+  }
+
   private loadLocations(): Observable<Location[]> {
     // Use /locations endpoint to get ALL locations (including SUPPLIER)
     return this.http.get<any[]>(`${this.API_BASE_URL}/locations`)
       .pipe(
         tap(apiLocations => {
-          const locations: Location[] = apiLocations.map(loc => ({
-            id: loc.id?.toString() || '',
-            name: loc.name || '',
-            type: loc.type?.toLowerCase() || 'store',
-            address: loc.address || '',
-            city: loc.city || '',
-            state: loc.state || '',
-            zipCode: loc.zipCode || '',
-            phone: loc.phone || '',
-            manager: loc.manager || '',
-            capacity: loc.capacity || 0,
-            isActive: loc.isActive !== false,
-            createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
-          }));
+          const locations: Location[] = apiLocations.map(loc => this.mapApiLocation(loc));
           this.updateAppState({
             ...this._appStateSubject.value,
             locations
@@ -348,20 +352,7 @@ export class AppService {
           return this.http.get<any[]>(`${this.API_BASE_URL}/locations/transfer-destinations`)
             .pipe(
               tap(apiLocations => {
-                const locations: Location[] = apiLocations.map(loc => ({
-                  id: loc.id?.toString() || '',
-                  name: loc.name || '',
-                  type: loc.type?.toLowerCase() || 'store',
-                  address: loc.address || '',
-                  city: loc.city || '',
-                  state: loc.state || '',
-                  zipCode: loc.zipCode || '',
-                  phone: loc.phone || '',
-                  manager: loc.manager || '',
-                  capacity: loc.capacity || 0,
-                  isActive: loc.isActive !== false,
-                  createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
-                }));
+                const locations: Location[] = apiLocations.map(loc => this.mapApiLocation(loc));
                 this.updateAppState({
                   ...this._appStateSubject.value,
                   locations
@@ -383,23 +374,42 @@ export class AppService {
   loadTransferDestinations(): Observable<Location[]> {
     return this.http.get<any[]>(`${this.API_BASE_URL}/locations/transfer-destinations`)
       .pipe(
-        map(apiLocations => apiLocations.map(loc => ({
-          id: loc.id?.toString() || '',
-          name: loc.name || '',
-          type: loc.type?.toLowerCase() || 'store',
-          address: loc.address || '',
-          city: loc.city || '',
-          state: loc.state || '',
-          zipCode: loc.zipCode || '',
-          phone: loc.phone || '',
-          manager: loc.manager || '',
-          capacity: loc.capacity || 0,
-          isActive: loc.isActive !== false,
-          createdAt: loc.createdAt ? new Date(loc.createdAt) : new Date(),
-        }))),
+        map(apiLocations => apiLocations.map(loc => this.mapApiLocation(loc))),
         catchError(error => {
           return of([]);
         })
+      );
+  }
+
+  getWarehouses(): Observable<Location[]> {
+    return this.http.get<any[]>(`${this.API_BASE_URL}/locations/warehouses`)
+      .pipe(
+        map(apiLocations => apiLocations.map(loc => this.mapApiLocation(loc))),
+        catchError(error => throwError(() => error))
+      );
+  }
+
+  addWarehouse(warehouse: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    phone?: string;
+    manager?: string;
+    capacity?: number | null;
+  }): Observable<Location> {
+    return this.http.post<any>(`${this.API_BASE_URL}/locations/warehouses`, warehouse)
+      .pipe(
+        map(saved => this.mapApiLocation(saved)),
+        catchError(error => throwError(() => error))
+      );
+  }
+
+  deleteWarehouse(warehouseId: number): Observable<any> {
+    return this.http.delete<any>(`${this.API_BASE_URL}/locations/warehouses/${warehouseId}`)
+      .pipe(
+        catchError(error => throwError(() => error))
       );
   }
 
@@ -439,6 +449,31 @@ export class AppService {
   }
 
   /**
+   * Add additional quantity to an EXISTING product's inventory at a location
+   * (e.g. re-registering stock found during a physical recount) and generate
+   * fresh barcodes for the newly added units.
+   */
+  restockProduct(
+    productId: string,
+    locationId: number,
+    quantity: number,
+    applyPriceToBarcode: boolean = true,
+    reason?: string
+  ): Observable<any> {
+    const request = {
+      productId: parseInt(productId),
+      locationId,
+      quantity,
+      applyPriceToBarcode,
+      reason: reason || undefined
+    };
+    return this.http.post<any>(`${this.API_BASE_URL}/products/restock`, request)
+      .pipe(
+        catchError(error => throwError(() => error))
+      );
+  }
+
+  /**
    * Update product master data (name, category, size, color, description, etc)
    * NOTE: Does NOT update pricing - use updateLocationInventoryPricing() instead
    */
@@ -449,6 +484,9 @@ export class AppService {
     const request = {
       name: product.name,
       category: product.category.toUpperCase(),
+      subcategory: product.subcategory ? product.subcategory.toUpperCase() : undefined,
+      productType: product.productType || undefined,
+      productCode: product.productCode || undefined,
       size: product.size,
       color: product.color,
       sku: product.sku,
@@ -887,6 +925,9 @@ export class AppService {
       id: apiProduct.id.toString(),
       name: apiProduct.name,
       category: apiProduct.category.toLowerCase(),
+      subcategory: apiProduct.subcategory ? apiProduct.subcategory.toLowerCase() : undefined,
+      productType: apiProduct.productType || undefined,
+      productCode: apiProduct.productCode || undefined,
       size: apiProduct.size,
       color: apiProduct.color,
       sku: apiProduct.sku,
@@ -1072,6 +1113,9 @@ export class AppService {
     return {
       name: product.name,
       category: product.category.toUpperCase(),
+      subcategory: product.subcategory ? product.subcategory.toUpperCase() : undefined,
+      productType: product.productType || undefined,
+      productCode: product.productCode || undefined,
       size: product.size,
       color: product.color,
       sku: product.sku,

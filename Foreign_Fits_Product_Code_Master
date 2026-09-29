@@ -1,0 +1,210 @@
+FOREIGN FITS
+Product Code Master & Inventory Rules
+Format: FF-[DEPT]-[TYPE]-[5 DIGIT NUMBER] Example: FF-MEN-JKT-00125. Underwear uses
+FF-UWR-[MEN/WOM/KID]-[TYPE]-[NUMBER].
+Use one global running number across all departments. A number identifies one design/style; do not reuse it. Codes below are the approved department and product-type abbreviations.
+Men | MEN
+ Product type Code Example product code
+ T-Shirt TSH FF-MEN-TSH-00001
+ Polo T-Shirt POL FF-MEN-POL-00001
+ Shirt SHT FF-MEN-SHT-00001
+ Casual Shirt CSH FF-MEN-CSH-00001
+ Formal Shirt FSH FF-MEN-FSH-00001
+ Jeans JNS FF-MEN-JNS-00001
+ Trouser TRS FF-MEN-TRS-00001
+ Formal Trouser FTR FF-MEN-FTR-00001
+ Cargo Pant CRG FF-MEN-CRG-00001
+ Jogger JGR FF-MEN-JGR-00001
+ Track Pant TRK FF-MEN-TRK-00001
+ Shorts SRT FF-MEN-SRT-00001
+ Jacket JKT FF-MEN-JKT-00001
+ Denim Jacket DJK FF-MEN-DJK-00001
+ Puffer Jacket PJK FF-MEN-PJK-00001
+ Hoodie HOD FF-MEN-HOD-00001
+ Sweatshirt SWS FF-MEN-SWS-00001
+ Sweater SWT FF-MEN-SWT-00001
+ Blazer BLZ FF-MEN-BLZ-00001
+ Co-ord Set CRS FF-MEN-CRS-00001
+ Kurta KRT FF-MEN-KRT-00001
+ Sports T-Shirt STS FF-MEN-STS-00001
+ Sports Set SPS FF-MEN-SPS-00001
+ Vest VST FF-MEN-VST-00001
+ FOREIGN FITS | Product Code Master 1
+
+Women | WOM
+ Product type Code Example product code
+ Top TOP FF-WOM-TOP-00001
+ T-Shirt TSH FF-WOM-TSH-00001
+ Shirt SHT FF-WOM-SHT-00001
+ One Piece Dress ONE FF-WOM-ONE-00001
+ Two Piece Set TWO FF-WOM-TWO-00001
+ Three Piece Set THR FF-WOM-THR-00001
+ Co-ord Set CRS FF-WOM-CRS-00001
+ Party Wear PTY FF-WOM-PTY-00001
+ Gown GWN FF-WOM-GWN-00001
+ Maxi Dress MAX FF-WOM-MAX-00001
+ Mini Dress MNI FF-WOM-MNI-00001
+ Midi Dress MID FF-WOM-MID-00001
+ Jumpsuit JMP FF-WOM-JMP-00001
+ Palazzo PLZ FF-WOM-PLZ-00001
+ Jeans JNS FF-WOM-JNS-00001
+ Trouser TRS FF-WOM-TRS-00001
+ Cargo CRG FF-WOM-CRG-00001
+ Legging LEG FF-WOM-LEG-00001
+ Skirt SKT FF-WOM-SKT-00001
+ Shorts SRT FF-WOM-SRT-00001
+ Jacket JKT FF-WOM-JKT-00001
+ Denim Jacket DJK FF-WOM-DJK-00001
+ Sweater SWT FF-WOM-SWT-00001
+ Hoodie HOD FF-WOM-HOD-00001
+ Sweatshirt SWS FF-WOM-SWS-00001
+ Shrug SHR FF-WOM-SHR-00001
+ Cardigan CDG FF-WOM-CDG-00001
+ Nightwear NGW FF-WOM-NGW-00001
+ Maternity Wear MAT FF-WOM-MAT-00001
+ Kids | KID
+FOREIGN FITS | Product Code Master 2
+
+ Product type Code Example product code
+ T-Shirt TSH FF-KID-TSH-00001
+ Shirt SHT FF-KID-SHT-00001
+ Top TOP FF-KID-TOP-00001
+ Jeans JNS FF-KID-JNS-00001
+ Trouser TRS FF-KID-TRS-00001
+ Jogger JGR FF-KID-JGR-00001
+ Track Pant TRK FF-KID-TRK-00001
+ Shorts SRT FF-KID-SRT-00001
+ Dress DRS FF-KID-DRS-00001
+ Frock FRK FF-KID-FRK-00001
+ Party Wear PTY FF-KID-PTY-00001
+ Two Piece Set TWO FF-KID-TWO-00001
+ Three Piece Set THR FF-KID-THR-00001
+ Co-ord Set CRS FF-KID-CRS-00001
+ Jacket JKT FF-KID-JKT-00001
+ Dual Wear Jacket DWJ FF-KID-DWJ-00001
+ Denim Jacket DJK FF-KID-DJK-00001
+ Puffer Jacket PJK FF-KID-PJK-00001
+ Hoodie HOD FF-KID-HOD-00001
+ Sweater SWT FF-KID-SWT-00001
+ Sweatshirt SWS FF-KID-SWS-00001
+ Nightwear NGW FF-KID-NGW-00001
+ Ethnic Wear ETH FF-KID-ETH-00001
+ Sports Set SPS FF-KID-SPS-00001
+ School Wear SCH FF-KID-SCH-00001
+ Baby / Newborn | BAB
+ Product type Code Example product code
+ Romper ROM FF-BAB-ROM-00001
+ Bodysuit BDS FF-BAB-BDS-00001
+ Baby Set SET FF-BAB-SET-00001
+ T-Shirt TSH FF-BAB-TSH-00001
+FOREIGN FITS | Product Code Master 3
+
+ Product type Code Example product code
+ Top TOP FF-BAB-TOP-00001
+ Pant PNT FF-BAB-PNT-00001
+ Shorts SRT FF-BAB-SRT-00001
+ Frock FRK FF-BAB-FRK-00001
+ Dress DRS FF-BAB-DRS-00001
+ Jacket JKT FF-BAB-JKT-00001
+ Sweater SWT FF-BAB-SWT-00001
+ Sleepsuit SLP FF-BAB-SLP-00001
+ Night Suit NGT FF-BAB-NGT-00001
+ Swaddle SWD FF-BAB-SWD-00001
+ Bib BIB FF-BAB-BIB-00001
+ Cap CAP FF-BAB-CAP-00001
+ Socks SOC FF-BAB-SOC-00001
+ Mittens MIT FF-BAB-MIT-00001
+ Baby Blanket BLK FF-BAB-BLK-00001
+ Gift Set GFT FF-BAB-GFT-00001
+ Footwear | FWT
+ Product type Code Example product code
+ Men Casual Shoes MCS FF-FWT-MCS-00001
+ Men Formal Shoes MFS FF-FWT-MFS-00001
+ Men Sports Shoes MSS FF-FWT-MSS-00001
+ Men Slippers MSL FF-FWT-MSL-00001
+ Men Sandals MSD FF-FWT-MSD-00001
+ Women Casual Shoes WCS FF-FWT-WCS-00001
+ Women Heels WHL FF-FWT-WHL-00001
+ Women Flats WFL FF-FWT-WFL-00001
+ Women Sandals WSD FF-FWT-WSD-00001
+ Women Slippers WSL FF-FWT-WSL-00001
+ Kids Shoes KSH FF-FWT-KSH-00001
+ Kids Sports Shoes KSS FF-FWT-KSS-00001
+ Kids Sandals KSD FF-FWT-KSD-00001
+FOREIGN FITS | Product Code Master 4
+
+ Product type Code Example product code
+ Kids Slippers KSL FF-FWT-KSL-00001
+ Baby Shoes BSH FF-FWT-BSH-00001
+ Underwear - Men | UWR-MEN
+ Product type Code Example product code
+ Brief BRF FF-UWR-MEN-BRF-00001
+ Boxer BOX FF-UWR-MEN-BOX-00001
+ Trunk TRK FF-UWR-MEN-TRK-00001
+ Vest VST FF-UWR-MEN-VST-00001
+ Innerwear Set SET FF-UWR-MEN-SET-00001
+ Underwear - Women | UWR-WOM
+Underwear - Kids | UWR-KID
+Accessories | ACC
+ Product type Code Example product code
+ Panty PNT FF-UWR-WOM-PNT-00001
+ Bra BRA FF-UWR-WOM-BRA-00001
+ Innerwear Set SET FF-UWR-WOM-SET-00001
+  Product type Code Example product code
+ Brief BRF FF-UWR-KID-BRF-00001
+ Boxer BOX FF-UWR-KID-BOX-00001
+ Underwear Set SET FF-UWR-KID-SET-00001
+  Product type Code Example product code
+ Belt BLT FF-ACC-BLT-00001
+ Wallet WLT FF-ACC-WLT-00001
+ Cap CAP FF-ACC-CAP-00001
+ Sunglasses SUN FF-ACC-SUN-00001
+ Watch WAT FF-ACC-WAT-00001
+ Men's Bag MBG FF-ACC-MBG-00001
+ Women's Handbag WHB FF-ACC-WHB-00001
+ Sling Bag SLG FF-ACC-SLG-00001
+FOREIGN FITS | Product Code Master 5
+
+ Product type Code Example product code
+ Backpack BPK FF-ACC-BPK-00001
+ Kids Bag KBG FF-ACC-KBG-00001
+ School Bag SBG FF-ACC-SBG-00001
+ Hair Accessory HAR FF-ACC-HAR-00001
+ Scarf SCF FF-ACC-SCF-00001
+ Gloves GLV FF-ACC-GLV-00001
+ Socks SOC FF-ACC-SOC-00001
+ Tie TIE FF-ACC-TIE-00001
+ Bow Tie BOW FF-ACC-BOW-00001
+ Jewellery JWL FF-ACC-JWL-00001
+ Bracelet BRC FF-ACC-BRC-00001
+ Necklace NCK FF-ACC-NCK-00001
+ Toys | TOY
+ Product type Code Example product code
+ Soft Toy SFT FF-TOY-SFT-00001
+ Car Toy CAR FF-TOY-CAR-00001
+ Remote Control Toy RCT FF-TOY-RCT-00001
+ Doll DOL FF-TOY-DOL-00001
+ Educational Toy EDU FF-TOY-EDU-00001
+ Building Blocks BLK FF-TOY-BLK-00001
+ Puzzle PUZ FF-TOY-PUZ-00001
+ Musical Toy MUS FF-TOY-MUS-00001
+ Baby Toy BAB FF-TOY-BAB-00001
+ Outdoor Toy OUT FF-TOY-OUT-00001
+ Gun Toy GTY FF-TOY-GTY-00001
+ Robot ROB FF-TOY-ROB-00001
+ Kitchen Set KIT FF-TOY-KIT-00001
+ Doctor Set DOC FF-TOY-DOC-00001
+ General Toy GEN FF-TOY-GEN-00001
+ How to use these codes
+FOREIGN FITS | Product Code Master 6
+
+Product/style: One design gets one code, for example FF-WOM-PTY-01248. For underwear, the MEN/WOM/KID segment identifies the intended group. Different pack configurations (such as 2-pack and 3-pack) get separate product codes. Size and color do not change the product code.
+SKU: Each sellable size/color combination gets its own SKU, for example FF-WOM-PTY-01248-BLK-M and FF-WOM-PTY-01248-BLK-L. Use standardized size and color abbreviations.
+Barcode: Assign one unique scannable barcode to each SKU. A barcode may encode your internal SKU or be a separate generated value. Do not assume a made-up 13-digit number is a valid registered GTIN/EAN.
+Global sequence: FF-MEN-JKT-00001, FF-WOM-TOP-00002, FF-UWR-MEN-BOX-00003. Generate the next number automatically; never allow manual reuse.
+Locations: Keep the same product and SKU across Warehouse, Ganga and Yamuna; record available quantity by location. Do not add a branch to the code.
+Supplier reference: Store the supplier article/style number separately so purchases can be traced and reordered.
+Hierarchy: Department > category > product type > product/style > variant (SKU and barcode) > stock by location.
+Minimum product record: product code, name, department, category, product type, brand, supplier, supplier article code, purchase and landed cost, MRP and selling price. Keep size, color, SKU and barcode on the variant; keep quantities in stock-by-location records.
+Governance: Maintain this as a fixed lookup list. An admin should approve new codes, avoid duplicate meanings and never rename codes already assigned to products.
+FOREIGN FITS | Product Code Master 7

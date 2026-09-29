@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AppService } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Router } from '@angular/router';
+import { Location } from '../../core/models';
 
 @Component({
   selector: 'app-settings',
@@ -77,6 +78,119 @@ import { Router } from '@angular/router';
         </p>
       </div>
 
+      <!-- Warehouse Management — Admin Only -->
+      <div *ngIf="isAdmin" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-sm font-medium text-gray-700 mb-1">Warehouse Management</h2>
+          <p class="text-xs text-gray-500">View current warehouses, add new warehouses, and delete unused warehouses.</p>
+        </div>
+
+        <form class="grid grid-cols-1 md:grid-cols-2 gap-3" (ngSubmit)="addWarehouse()">
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.name"
+            name="warehouseName"
+            placeholder="Warehouse name"
+            class="px-3 py-2 border border-gray-300 rounded text-sm"
+            required />
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.phone"
+            name="warehousePhone"
+            placeholder="Phone (optional)"
+            class="px-3 py-2 border border-gray-300 rounded text-sm" />
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.address"
+            name="warehouseAddress"
+            placeholder="Address"
+            class="px-3 py-2 border border-gray-300 rounded text-sm md:col-span-2"
+            required />
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.city"
+            name="warehouseCity"
+            placeholder="City"
+            class="px-3 py-2 border border-gray-300 rounded text-sm"
+            required />
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.state"
+            name="warehouseState"
+            placeholder="State"
+            class="px-3 py-2 border border-gray-300 rounded text-sm"
+            required />
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.zipCode"
+            name="warehouseZip"
+            placeholder="Zip Code"
+            class="px-3 py-2 border border-gray-300 rounded text-sm"
+            required />
+          <input
+            type="text"
+            [(ngModel)]="newWarehouse.manager"
+            name="warehouseManager"
+            placeholder="Manager (optional)"
+            class="px-3 py-2 border border-gray-300 rounded text-sm" />
+          <input
+            type="number"
+            min="0"
+            [(ngModel)]="newWarehouse.capacity"
+            name="warehouseCapacity"
+            placeholder="Capacity (optional)"
+            class="px-3 py-2 border border-gray-300 rounded text-sm" />
+          <div class="md:col-span-2 flex gap-2">
+            <button
+              type="submit"
+              [disabled]="warehouseLoading"
+              class="px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm disabled:opacity-50">
+              {{ warehouseLoading ? 'Saving…' : 'Add Warehouse' }}
+            </button>
+            <button
+              type="button"
+              (click)="loadWarehouses()"
+              [disabled]="warehouseLoading"
+              class="px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm disabled:opacity-50">
+              Refresh
+            </button>
+          </div>
+        </form>
+
+        <p *ngIf="warehouseMessage" class="text-xs" [ngClass]="warehouseMessageType === 'success' ? 'text-green-600' : 'text-red-600'">
+          {{ warehouseMessage }}
+        </p>
+
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+          <div class="px-3 py-2 bg-gray-50 text-xs font-medium text-gray-600">
+            Active Warehouses ({{ warehouses.length }})
+          </div>
+
+          <div *ngIf="!warehouses.length" class="px-3 py-3 text-sm text-gray-500">
+            No warehouses found.
+          </div>
+
+          <div *ngFor="let warehouse of warehouses" class="px-3 py-3 border-t border-gray-100 flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-gray-800">{{ warehouse.name }}</p>
+              <p class="text-xs text-gray-500">{{ warehouse.address }}, {{ warehouse.city }}, {{ warehouse.state }} - {{ warehouse.zipCode }}</p>
+              <p class="text-xs text-gray-500" *ngIf="warehouse.phone || warehouse.manager">
+                <span *ngIf="warehouse.phone">📞 {{ warehouse.phone }}</span>
+                <span *ngIf="warehouse.phone && warehouse.manager"> · </span>
+                <span *ngIf="warehouse.manager">👤 {{ warehouse.manager }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              (click)="deleteWarehouse(warehouse)"
+              [disabled]="warehouseLoading"
+              class="px-2 py-1 bg-red-50 text-red-700 border border-red-200 rounded hover:bg-red-100 text-xs disabled:opacity-50">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
         <h2 class="text-sm font-medium text-gray-700 mb-2">About</h2>
         <p class="text-sm text-gray-600">Foreign Fits Dashboard UI — configurable refresh and navigation.</p>
@@ -102,6 +216,31 @@ export class SettingsComponent implements OnInit {
   discountLoading = false;
   discountMessage = '';
 
+  warehouses: Location[] = [];
+  warehouseLoading = false;
+  warehouseMessage = '';
+  warehouseMessageType: 'success' | 'error' = 'success';
+
+  newWarehouse: {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    phone: string;
+    manager: string;
+    capacity: number | null;
+  } = {
+    name: '',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    phone: '',
+    manager: '',
+    capacity: null
+  };
+
   constructor(private appService: AppService, private authService: AuthService, private router: Router) {}
 
   ngOnInit(): void {
@@ -115,6 +254,10 @@ export class SettingsComponent implements OnInit {
         this.discountPercent = 10;
       }
     });
+
+    if (this.isAdmin) {
+      this.loadWarehouses();
+    }
   }
 
   get isAdmin(): boolean {
@@ -145,6 +288,97 @@ export class SettingsComponent implements OnInit {
         this.discountLoading = false;
       }
     });
+  }
+
+  loadWarehouses(): void {
+    if (!this.isAdmin) {
+      return;
+    }
+
+    this.warehouseLoading = true;
+    this.appService.getWarehouses().subscribe({
+      next: (warehouses) => {
+        this.warehouses = warehouses;
+        this.warehouseLoading = false;
+      },
+      error: (error) => {
+        this.warehouseMessageType = 'error';
+        this.warehouseMessage = error?.error?.error || 'Failed to load warehouses.';
+        this.warehouseLoading = false;
+      }
+    });
+  }
+
+  addWarehouse(): void {
+    if (!this.isAdmin) {
+      return;
+    }
+
+    this.warehouseLoading = true;
+    this.warehouseMessage = '';
+
+    this.appService.addWarehouse({
+      name: this.newWarehouse.name,
+      address: this.newWarehouse.address,
+      city: this.newWarehouse.city,
+      state: this.newWarehouse.state,
+      zipCode: this.newWarehouse.zipCode,
+      phone: this.newWarehouse.phone || undefined,
+      manager: this.newWarehouse.manager || undefined,
+      capacity: this.newWarehouse.capacity
+    }).subscribe({
+      next: () => {
+        this.warehouseMessageType = 'success';
+        this.warehouseMessage = 'Warehouse added successfully.';
+        this.resetWarehouseForm();
+        this.loadWarehouses();
+      },
+      error: (error) => {
+        this.warehouseMessageType = 'error';
+        this.warehouseMessage = error?.error?.error || 'Failed to add warehouse.';
+        this.warehouseLoading = false;
+      }
+    });
+  }
+
+  deleteWarehouse(warehouse: Location): void {
+    if (!this.isAdmin) {
+      return;
+    }
+
+    const confirmed = confirm(`Delete warehouse "${warehouse.name}"?\n\nThis action only works when no active users or inventory are assigned.`);
+    if (!confirmed) {
+      return;
+    }
+
+    this.warehouseLoading = true;
+    this.warehouseMessage = '';
+
+    this.appService.deleteWarehouse(Number(warehouse.id)).subscribe({
+      next: () => {
+        this.warehouseMessageType = 'success';
+        this.warehouseMessage = `Warehouse "${warehouse.name}" deleted successfully.`;
+        this.loadWarehouses();
+      },
+      error: (error) => {
+        this.warehouseMessageType = 'error';
+        this.warehouseMessage = error?.error?.error || 'Failed to delete warehouse.';
+        this.warehouseLoading = false;
+      }
+    });
+  }
+
+  private resetWarehouseForm(): void {
+    this.newWarehouse = {
+      name: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      phone: '',
+      manager: '',
+      capacity: null
+    };
   }
 
   applyInterval() {

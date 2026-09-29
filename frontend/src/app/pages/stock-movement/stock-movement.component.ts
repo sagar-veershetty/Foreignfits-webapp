@@ -374,8 +374,10 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       return [];
     }
     
-    // Only show products that have inventory at the FROM location
-    const availableSkus = new Set(inventory.map((inv: any) => inv.productSku));
+    // Only show products that have available inventory (quantity > 0) at the FROM location
+    const availableSkus = new Set(
+      inventory.filter((inv: any) => (inv.quantity || 0) > 0).map((inv: any) => inv.productSku)
+    );
     let availableProducts = allProducts.filter(p => availableSkus.has(p.sku));
     
     // Apply search filter if search query exists

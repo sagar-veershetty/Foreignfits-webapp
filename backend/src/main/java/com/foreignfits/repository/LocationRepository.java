@@ -16,6 +16,10 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     List<Location> findByType(Location.LocationType type);
     
     List<Location> findByTypeAndIsActiveTrue(Location.LocationType type);
+
+    long countByTypeAndIsActiveTrue(Location.LocationType type);
+
+    boolean existsByNameIgnoreCaseAndTypeAndIsActiveTrue(String name, Location.LocationType type);
     
     @Query("SELECT l FROM Location l WHERE l.isActive = true AND l.type = :type")
     List<Location> findActiveLocationsByType(@Param("type") Location.LocationType type);
