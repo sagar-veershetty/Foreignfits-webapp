@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable, throwError, forkJoin, of, interval, Subscription } from 'rxjs';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { catchError, tap, map, timeout, retry } from 'rxjs/operators';
+import { catchError, tap, map, timeout, retry, switchMap } from 'rxjs/operators';
 import { Product, Sale, StockMovement, Location, SaleItem, StockAdjustment, BarcodeHistory } from '../models';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
+import { ProductImageService } from './product-image.service';
 import { Barcode } from '../models';
 
 export interface AppState {
@@ -45,6 +46,7 @@ export class AppService {
   }
 
   private authService = inject(AuthService);
+  private productImages = inject(ProductImageService);
 
   constructor(private http: HttpClient) {
     // Locations will be loaded from API in loadInitialData
@@ -426,8 +428,9 @@ export class AppService {
     this.updateAppState({ ...this._appStateSubject.value, isLoading: true });
 
     const request = this.convertProductToCreateRequest(product, locationId, pricing, applyPriceToBarcode);
-    return this.http.post<Product>(`${this.API_BASE_URL}/products`, request)
+    return this.productImages.prepareImages(product.imageUrls)
       .pipe(
+        switchMap(imageUrls => this.http.post<Product>(`${this.API_BASE_URL}/products`, { ...request, imageUrls })),
         tap(apiProduct => {
           const newProduct = this.convertApiProductToProduct(apiProduct);
           const currentState = this._appStateSubject.value;
@@ -495,8 +498,9 @@ export class AppService {
       imageUrls: product.imageUrls,
     };
     
-    return this.http.put<Product>(`${this.API_BASE_URL}/products/${parseInt(id)}`, request)
+    return this.productImages.prepareImages(product.imageUrls)
       .pipe(
+        switchMap(imageUrls => this.http.put<Product>(`${this.API_BASE_URL}/products/${parseInt(id)}`, { ...request, imageUrls })),
         tap(apiProduct => {
           const updated = this.convertApiProductToProduct(apiProduct);
           const currentState = this._appStateSubject.value;
@@ -1434,4 +1438,3 @@ export class AppService {
     return this.http.post(`${this.API_BASE_URL}/admin/settings/discount-enabled`, { enabled });
   }
 }
-

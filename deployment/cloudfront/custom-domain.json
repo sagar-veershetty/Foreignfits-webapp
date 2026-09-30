@@ -1,0 +1,36 @@
+{
+  "distributionId": "E2CPBZ3MKNEBOR",
+  "certificateArn": "arn:aws:acm:us-east-1:235473625525:certificate/ac53dffb-4c21-4ef7-851b-951687f0bb64",
+  "certificateRegion": "us-east-1",
+  "domains": ["foreignfits.in", "www.foreignfits.in"],
+  "certificateStatus": "ISSUED",
+  "distributionStatus": "Deployed",
+  "dnsProvider": "GoDaddy",
+  "selectedHostname": "www.foreignfits.in",
+  "validationRecordsPublished": true,
+  "websiteRecord": {
+    "type": "CNAME",
+    "name": "www",
+    "value": "doeccawkify87.cloudfront.net",
+    "previousValue": "foreignfits.in.",
+    "ttlSeconds": 3600,
+    "published": true
+  },
+  "rootAndEmailRecordsChanged": false,
+  "validationRecords": [
+    {
+      "type": "CNAME",
+      "name": "_945f1ad3547e2bc1f1a754c15b6764c6",
+      "value": "_8a360169d4486ec880c9f44ccb8a05e8.jkddzztszm.acm-validations.aws"
+    },
+    {
+      "type": "CNAME",
+      "name": "_877a223fb0edfb193b1b4236016f1e42.www",
+      "value": "_f403b71add9dd62d83c4fe6cc68e6cd5.jkddzztszm.acm-validations.aws"
+    }
+  ],
+  "remainingSteps": [
+    "Allow cached DNS and old GoDaddy redirects to expire",
+    "Verify browser login and a real product save on the custom domain"
+  ]
+}

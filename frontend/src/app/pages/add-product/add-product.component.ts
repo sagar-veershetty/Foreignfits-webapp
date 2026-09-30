@@ -5,6 +5,7 @@ import { Observable, forkJoin, of } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ProductImageUploadError } from '../../core/services/product-image.service';
 import { Product, Location } from '../../core/models';
 import {
   DEPARTMENTS,
@@ -529,7 +530,7 @@ export class AddProductComponent implements OnInit {
         },
         error: (err) => {
           this.isSubmitting = false; // Stop loading on error
-          alert('Failed to update product. Please try again.');
+          alert(err instanceof ProductImageUploadError ? err.message : 'Failed to update product. Please try again.');
         }
       });
       return;
@@ -593,7 +594,7 @@ export class AddProductComponent implements OnInit {
           },
           error: (err) => {
             this.isSubmitting = false; // Stop loading on error
-            alert('Failed to add product. Please try again.');
+            alert(err instanceof ProductImageUploadError ? err.message : 'Failed to add product. Please try again.');
           }
         });
       },
@@ -833,9 +834,10 @@ export class AddProductComponent implements OnInit {
               this.variantProgress.current = index + 1;
               createNext(index + 1);
             },
-            error: () => {
+            error: (err) => {
               this.isSubmitting = false;
-              alert(`Failed to create size "${size}". Created ${index} of ${validRows.length} sizes so far. Please check Inventory, then add any remaining sizes.`);
+              const detail = err instanceof ProductImageUploadError ? `${err.message} ` : '';
+              alert(`${detail}Failed to create size "${size}". Created ${index} of ${validRows.length} sizes so far. Please check Inventory, then add any remaining sizes.`);
             }
           });
         },
