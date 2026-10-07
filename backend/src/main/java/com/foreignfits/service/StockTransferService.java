@@ -26,6 +26,25 @@ public class StockTransferService {
     private final LocationInventoryRepository locationInventoryRepository;
     private final BarcodeRepository barcodeRepository;
     private final TransferBarcodeRepository transferBarcodeRepository;
+
+    public List<StockTransferDto> createBatch(List<CreateStockTransferRequest> requests, Long userId) {
+        if (requests == null || requests.isEmpty() || requests.size() > 250) {
+            throw new IllegalArgumentException("Select between 1 and 250 variants.");
+        }
+        Set<Long> products = new HashSet<>();
+        CreateStockTransferRequest first = requests.get(0);
+        if (first == null) throw new IllegalArgumentException("A transfer variant is required.");
+        for (CreateStockTransferRequest request : requests) {
+            if (request == null || request.getProductId() == null || !products.add(request.getProductId())
+                    || request.getQuantity() == null || request.getQuantity() < 1
+                    || !Objects.equals(first.getFromLocationId(), request.getFromLocationId())
+                    || !Objects.equals(first.getToLocationId(), request.getToLocationId())) {
+                throw new IllegalArgumentException("Variants must be unique with positive quantities and the same source and destination.");
+            }
+        }
+        // The service transaction rolls back every variant if any request fails.
+        return requests.stream().map(request -> createTransfer(request, userId)).toList();
+    }
     
     /**
      * Validate a single barcode before adding to transfer list

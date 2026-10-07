@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import { ProductImageService } from './product-image.service';
 import { Barcode } from '../models';
+import { MultiBuyConfig, MultiBuyOffer } from '../models/multi-buy';
 
 export interface AppState {
   products: Product[];
@@ -797,6 +798,13 @@ export class AppService {
       );
   }
   
+  createStockTransferBatch(items: Array<{ productId: string; fromLocationId: string; toLocationId: string; quantity: number; reason: string; reference: string; notes: string }>): Observable<any> {
+    return this.http.post(`${this.API_BASE_URL}/stock-transfers/batch`, { items }).pipe(tap(() => {
+      this.loadProducts().subscribe();
+      this.loadStockMovements().subscribe();
+    }));
+  }
+
   // Validate a single barcode before adding to transfer list
   validateBarcodeForTransfer(barcodeNumber: string, fromLocationId: number): Observable<any> {
     return this.http.get<any>(`${this.API_BASE_URL}/stock-transfers/validate-barcode`, {
@@ -1296,6 +1304,10 @@ export class AppService {
    * Get public product catalog (no authentication required)
    * Returns products without sensitive information like cost
    */
+  getHomepageImages(): Observable<unknown> {
+    return this.http.get<unknown>('/homepage/manifest.json');
+  }
+
   getPublicCatalog(): Observable<any[]> {
     return this.http.get<any[]>(`${this.API_BASE_URL}/inventory/public/catalog`)
       .pipe(
@@ -1304,6 +1316,18 @@ export class AppService {
           return throwError(() => error);
         })
       );
+  }
+
+  getMultiBuyOffers(): Observable<MultiBuyOffer[]> {
+    return this.http.get<MultiBuyOffer[]>(`${this.API_BASE_URL}/promotions/multi-buy`);
+  }
+
+  getMultiBuyConfig(): Observable<MultiBuyConfig> {
+    return this.http.get<MultiBuyConfig>(`${this.API_BASE_URL}/promotions/multi-buy/config`);
+  }
+
+  saveMultiBuyConfig(config: MultiBuyConfig): Observable<MultiBuyConfig> {
+    return this.http.put<MultiBuyConfig>(`${this.API_BASE_URL}/promotions/multi-buy/config`, config);
   }
   
   /**

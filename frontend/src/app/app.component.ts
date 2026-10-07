@@ -13,13 +13,17 @@ import { map, filter } from 'rxjs/operators';
   imports: [CommonModule, RouterOutlet, NavbarComponent, BarcodeScannerDirective],
   template: `
     <div class="min-h-screen bg-gray-50" barcodeScanner (barcodeScanned)="onBarcodeScanned($event)">
-      <app-navbar *ngIf="isAuthenticated$ | async"></app-navbar>
+      <app-navbar *ngIf="(isAuthenticated$ | async) && !isStorefront"></app-navbar>
       <router-outlet></router-outlet>
     </div>
   `,
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
+  get isStorefront(): boolean {
+    const path = this.router.url.split(/[?#]/)[0];
+    return path === '/' || path === '/customer';
+  }
   onBarcodeScanned(barcode: string) {
     // TODO: Implement global barcode handling logic here
     // You can route, search, or dispatch actions as needed
@@ -41,7 +45,7 @@ export class AppComponent implements OnInit {
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
       // Validate token on every navigation
-      const currentUrl = this.router.url;
+      const currentUrl = this.router.url.split(/[?#]/)[0];
       const isHomePage = currentUrl === '/' || currentUrl === '';
       const isLoginPage = currentUrl === '/login' || currentUrl === '/signup' || currentUrl === '/agent-signup';
       const isUnauthorizedPage = currentUrl === '/unauthorized';
@@ -77,7 +81,7 @@ export class AppComponent implements OnInit {
     // Also check token when page becomes visible (user returns to tab)
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
-        const currentUrl = this.router.url;
+        const currentUrl = this.router.url.split(/[?#]/)[0];
         const isHomePage = currentUrl === '/' || currentUrl === '';
         const isLoginPage = currentUrl === '/login' || currentUrl === '/signup' || currentUrl === '/agent-signup';
         const isUnauthorizedPage = currentUrl === '/unauthorized';

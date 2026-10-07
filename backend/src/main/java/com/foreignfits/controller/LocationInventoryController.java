@@ -8,6 +8,7 @@ import com.foreignfits.repository.LocationInventoryRepository;
 import com.foreignfits.repository.ProductRepository;
 import com.foreignfits.service.LocationInventoryService;
 import com.foreignfits.service.UserService;
+import com.foreignfits.service.MultiBuyOfferService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,6 +29,7 @@ public class LocationInventoryController {
     private final UserService userService;
     private final LocationInventoryRepository inventoryRepository;
     private final ProductRepository productRepository;
+    private final MultiBuyOfferService multiBuyOfferService;
     
     /**
      * Get all inventory across all locations (Admin only)
@@ -56,6 +58,8 @@ public class LocationInventoryController {
         
         // Fetch all products at once
         productRepository.findAllById(productIds).forEach(p -> productCache.put(p.getId(), p));
+        Map<String, Object> offersByCode = multiBuyOfferService.getActiveOffers().stream()
+            .collect(Collectors.toMap(com.foreignfits.dto.MultiBuyOfferDto::getProductCode, offer -> offer, (first, ignored) -> first));
         
         // Transform to public catalog format - remove sensitive information
         List<Map<String, Object>> catalog = allInventory.stream()
@@ -74,17 +78,15 @@ public class LocationInventoryController {
                 item.put("size", product != null ? product.getSize() : "");
                 item.put("color", product != null ? product.getColor() : "");
                 item.put("available", inv.getQuantity() > 0);
+                if (product != null && product.getProductCode() != null && offersByCode.containsKey(product.getProductCode())) {
+                    item.put("multiBuyOffer", offersByCode.get(product.getProductCode()));
+                }
                 
                 // Include product images if available
                 if (product != null && product.getImageUrls() != null && !product.getImageUrls().isEmpty()) {
                     item.put("imageUrls", product.getImageUrls());
                 }
                 
-                // Optionally include wholesale pricing if available
-                if (inv.getWholesalePrice() != null && inv.getWholesaleMinQuantity() != null) {
-                    item.put("wholesalePrice", inv.getWholesalePrice());
-                    item.put("wholesaleMinQuantity", inv.getWholesaleMinQuantity());
-                }
                 return item;
             })
             .collect(Collectors.toList());

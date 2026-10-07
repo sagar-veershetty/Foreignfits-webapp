@@ -58,6 +58,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/locations").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/inventory/**").permitAll() // allow read-only public inventory API
+                .requestMatchers(HttpMethod.GET, "/promotions/multi-buy", "/api/promotions/multi-buy").permitAll()
                 .requestMatchers("/inventory/public/**").permitAll()  // legacy public product catalog
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()

@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { ReceiptData, ReceiptItem } from './receipt.model';
+import { buildReceiptItems } from './receipt-items';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -14,6 +15,7 @@ import { Coupon, GeneratedCouponInfo } from '../../models/coupon.model';
 import { BarcodeInputComponent } from '../../components/barcode/barcode-input.component';
 import { PrintReceiptComponent } from './print-receipt.component';
 import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
+import { calculateMultiBuyDiscount, MultiBuyOffer } from '../../core/models/multi-buy';
 
 
 @Component({
@@ -102,6 +104,7 @@ export class SalesComponent implements OnInit {
   // Instant discount feature flag (loaded from server)
   instantDiscountEnabled = true;
   instantDiscountPercent = 10;
+  multiBuyOffers: MultiBuyOffer[] = [];
 
   constructor(
     private appService: AppService,
@@ -131,6 +134,11 @@ export class SalesComponent implements OnInit {
         this.instantDiscountEnabled = true;
         this.instantDiscountPercent = 10;
       }
+    });
+
+    this.appService.getMultiBuyOffers().subscribe({
+      next: offers => this.multiBuyOffers = offers || [],
+      error: () => this.multiBuyOffers = []
     });
 
     // Load active sales persons for dropdown
@@ -490,6 +498,27 @@ export class SalesComponent implements OnInit {
     return appState.currentSale.reduce((sum, item) => sum + item.total, 0);
   }
 
+  getMultiBuyDiscount(appState: AppState): number {
+    if (this.isGangaStore() || !this.multiBuyOffers.length) return 0;
+    const pricesByCode = new Map<string, number[]>();
+    for (const item of appState.currentSale) {
+      const code = item.product.productCode;
+      if (!code) continue;
+      const prices = pricesByCode.get(code) || [];
+      const barcodes = item.barcodes || [];
+      for (let index = 0; index < item.quantity; index += 1) {
+        const barcode = barcodes[index];
+        const price = barcode && item.barcodePrices?.[barcode] != null ? item.barcodePrices[barcode] : item.price;
+        prices.push(Number(price || 0));
+      }
+      pricesByCode.set(code, prices);
+    }
+    return Number(this.multiBuyOffers.reduce((total, offer) => {
+      const prices = pricesByCode.get(offer.productCode);
+      return total + (prices ? calculateMultiBuyDiscount(prices, offer.tiers) : 0);
+    }, 0).toFixed(2));
+  }
+
   /**
    * Calculate total quantity of all items in cart
    */
@@ -622,7 +651,8 @@ export class SalesComponent implements OnInit {
     const loyaltyDiscount = this.discountFromPoints || 0;
     const instantDiscount = this.getInstantDiscount(appState).amount;
     const couponDiscount = this.couponDiscount || 0;
-    return loyaltyDiscount + instantDiscount + couponDiscount;
+    const multiBuyDiscount = this.getMultiBuyDiscount(appState);
+    return loyaltyDiscount + instantDiscount + couponDiscount + multiBuyDiscount;
   }
 
   getTax(appState: AppState): number {
@@ -745,12 +775,7 @@ export class SalesComponent implements OnInit {
         
         // Build receipt data
         const now = new Date();
-        const receiptItems: ReceiptItem[] = appState.currentSale.map(item => ({
-          name: item.product.name,
-          details: `${item.product.size} – ${item.product.color}`,
-          qty: item.quantity,
-          price: item.price
-        }));
+        const receiptItems = buildReceiptItems(appState.currentSale);
         const subtotal = this.getSubtotal(appState);
         const tax = this.getTax(appState);
         const total = this.getTotal(appState);
@@ -815,6 +840,7 @@ export class SalesComponent implements OnInit {
             code: this.couponCode.toUpperCase(),
             discount: this.couponDiscount
           } : undefined,
+          multiBuyDiscount: Number(sale.multiBuyDiscountAmount || 0),
           generatedCoupon: sale.generatedCouponCode ? {
             code: sale.generatedCouponCode,
             amount: 500,

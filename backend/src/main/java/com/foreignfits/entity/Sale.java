@@ -98,6 +98,9 @@ public class Sale {
     
     @Column(name = "instant_discount_amount", precision = 12, scale = 2)
     private BigDecimal instantDiscountAmount; // Actual discount amount
+
+    @Column(name = "multi_buy_discount_amount", precision = 12, scale = 2)
+    private BigDecimal multiBuyDiscountAmount;
     
     // Exchange-related fields
     @Column(name = "is_exchange_sale")
@@ -200,6 +203,8 @@ public class Sale {
     
     public BigDecimal getInstantDiscountAmount() { return instantDiscountAmount; }
     public void setInstantDiscountAmount(BigDecimal instantDiscountAmount) { this.instantDiscountAmount = instantDiscountAmount; }
+    public BigDecimal getMultiBuyDiscountAmount() { return multiBuyDiscountAmount; }
+    public void setMultiBuyDiscountAmount(BigDecimal multiBuyDiscountAmount) { this.multiBuyDiscountAmount = multiBuyDiscountAmount; }
     
     public Boolean getIsExchangeSale() { return isExchangeSale; }
     public void setIsExchangeSale(Boolean isExchangeSale) { this.isExchangeSale = isExchangeSale; }

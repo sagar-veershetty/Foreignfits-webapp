@@ -48,7 +48,8 @@ aws s3 sync dist/foreign-fits-angular/ s3://$S3_BUCKET/ \
     --region $AWS_REGION \
     --profile "$DEPLOY_PROFILE" \
     --cache-control "public, max-age=31536000, immutable" \
-    --exclude "index.html"
+    --exclude "index.html" \
+    --exclude "homepage/*"
 
 # Upload index.html separately with no-cache
 aws s3 cp dist/foreign-fits-angular/index.html s3://$S3_BUCKET/index.html \

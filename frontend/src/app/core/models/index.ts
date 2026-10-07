@@ -179,6 +179,7 @@ export interface Sale {
   generatedCouponCode?: string;
   instantDiscountPercent?: number; // Instant discount percentage (e.g., 10 for 10%)
   instantDiscountAmount?: number;  // Instant discount amount in rupees
+  multiBuyDiscountAmount?: number;
   isExchangeSale?: boolean;
   exchangeId?: number;
   exchangePriceDifference?: number;

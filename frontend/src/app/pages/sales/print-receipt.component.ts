@@ -47,7 +47,8 @@ export class PrintReceiptComponent {
   getTotalSavings(): number {
     const instant = Number(this.receipt?.instantDiscount?.amount || 0);
     const coupon = Number(this.receipt?.appliedCoupon?.discount || 0);
-    return Number((instant + coupon).toFixed(2));
+    const multiBuy = Number(this.receipt?.multiBuyDiscount || 0);
+    return Number((instant + coupon + multiBuy).toFixed(2));
   }
 
   getItemGridTemplateColumns(): string {

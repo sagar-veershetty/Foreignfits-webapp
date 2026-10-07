@@ -5,6 +5,8 @@ import { AppService } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Router } from '@angular/router';
 import { Location } from '../../core/models';
+import { MultiBuyConfig, MultiBuyOffer } from '../../core/models/multi-buy';
+import { buildMultiBuyProductOptions, filterMultiBuyProductOptions, MultiBuyProductOption } from '../../core/models/multi-buy-products';
 
 @Component({
   selector: 'app-settings',
@@ -77,6 +79,32 @@ import { Location } from '../../core/models';
           {{ discountMessage }}
         </p>
       </div>
+
+      <section *ngIf="isAdmin" class="bg-white border border-gray-200 p-4 space-y-4" aria-labelledby="multi-buy-title">
+        <div class="flex flex-wrap justify-between items-start gap-3">
+          <div><h2 id="multi-buy-title" class="text-sm font-semibold text-gray-900">Multi-buy offers</h2><p class="text-xs text-gray-500 mt-1">Set fixed bundle prices for a product style. The best combination applies automatically at checkout.</p></div>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" [(ngModel)]="multiBuy.enabled" [disabled]="multiBuySaving"> Offers active</label>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-[minmax(240px,1fr)_130px_150px_auto] gap-3 items-end">
+          <div class="text-xs text-gray-600">
+            <label for="multi-buy-product-search">Find product style</label>
+            <input id="multi-buy-product-search" type="search" [(ngModel)]="multiBuyProductSearch" placeholder="Search by name or product code" class="mt-1 w-full px-3 py-2 border border-gray-300 text-sm">
+            <label for="multi-buy-product" class="sr-only">Product style</label>
+            <select id="multi-buy-product" [(ngModel)]="multiBuyProductCode" class="mt-2 w-full px-3 py-2 border border-gray-300 text-sm"><option value="">Select product ({{ filteredMultiBuyProducts.length }} available)</option><option *ngFor="let product of filteredMultiBuyProducts" [value]="product.productCode">{{ product.productName }} ({{ product.productCode }}){{ product.locations.length ? ' · ' + product.locations.join(', ') : '' }}</option></select>
+          </div>
+          <label class="text-xs text-gray-600">Pieces<input type="number" min="2" step="1" [(ngModel)]="multiBuyQuantity" class="mt-1 w-full px-3 py-2 border border-gray-300 text-sm"></label>
+          <label class="text-xs text-gray-600">Bundle price (₹)<input type="number" min="0.01" step="0.01" [(ngModel)]="multiBuyPrice" class="mt-1 w-full px-3 py-2 border border-gray-300 text-sm"></label>
+          <button (click)="addMultiBuyTier()" [disabled]="multiBuySaving" class="px-3 py-2 bg-gray-900 text-white text-sm disabled:opacity-50">Add offer</button>
+        </div>
+        <p *ngIf="multiBuyFormMessage" class="text-xs" [ngClass]="multiBuyFormError ? 'text-red-600' : 'text-green-700'" role="status">{{ multiBuyFormMessage }}</p>
+        <div *ngIf="multiBuy.offers.length" class="divide-y divide-gray-200 border-t border-b border-gray-200">
+          <div *ngFor="let offer of multiBuy.offers; let i = index" class="py-3 flex flex-wrap items-center justify-between gap-3">
+            <div><p class="text-sm font-medium text-gray-900">{{ offer.productName }} <span class="text-xs text-gray-500">{{ offer.productCode }}</span></p><p class="text-sm text-blue-900 mt-1">{{ formatTiers(offer) }}</p></div>
+            <button (click)="removeMultiBuyOffer(i)" [disabled]="multiBuySaving" [attr.aria-label]="'Remove offer for ' + offer.productName" class="text-sm text-red-700 underline disabled:opacity-50">Remove</button>
+          </div>
+        </div>
+        <div class="flex items-center gap-3"><button (click)="saveMultiBuy()" [disabled]="multiBuySaving" class="px-3 py-2 bg-blue-900 text-white text-sm disabled:opacity-50">{{ multiBuySaving ? 'Saving…' : 'Save offers' }}</button><p *ngIf="multiBuySaveMessage" class="text-xs" [ngClass]="multiBuySaveError ? 'text-red-600' : 'text-green-700'" role="status">{{ multiBuySaveMessage }}</p></div>
+      </section>
 
       <!-- Warehouse Management — Admin Only -->
       <div *ngIf="isAdmin" class="bg-white rounded-xl border border-gray-100 p-4 shadow-sm space-y-4">
@@ -215,6 +243,17 @@ export class SettingsComponent implements OnInit {
   discountPercent = 10;
   discountLoading = false;
   discountMessage = '';
+  multiBuy: MultiBuyConfig = { enabled: false, offers: [] };
+  multiBuyProducts: MultiBuyProductOption[] = [];
+  multiBuyProductSearch = '';
+  multiBuyProductCode = '';
+  multiBuyQuantity: number | null = 3;
+  multiBuyPrice: number | null = null;
+  multiBuySaving = false;
+  multiBuyFormMessage = '';
+  multiBuyFormError = false;
+  multiBuySaveMessage = '';
+  multiBuySaveError = false;
 
   warehouses: Location[] = [];
   warehouseLoading = false;
@@ -257,11 +296,29 @@ export class SettingsComponent implements OnInit {
 
     if (this.isAdmin) {
       this.loadWarehouses();
+      this.loadMultiBuyConfig();
+      this.loadMultiBuyProducts();
     }
   }
 
   get isAdmin(): boolean {
     return this.authService.getCurrentUser()?.role === 'admin';
+  }
+
+  get filteredMultiBuyProducts(): MultiBuyProductOption[] {
+    return filterMultiBuyProductOptions(this.multiBuyProducts, this.multiBuyProductSearch);
+  }
+
+  private loadMultiBuyProducts(): void {
+    this.appService.getAllLocationInventory().subscribe({
+      next: items => {
+        this.multiBuyProducts = buildMultiBuyProductOptions(items || []);
+      },
+      error: () => {
+        this.multiBuySaveError = true;
+        this.multiBuySaveMessage = 'Could not load store inventory for multi-buy offers.';
+      }
+    });
   }
 
   toggleDiscount(enabled: boolean): void {
@@ -287,6 +344,46 @@ export class SettingsComponent implements OnInit {
         this.discountMessage = error?.error?.error || 'Failed to update discount setting. Please try again.';
         this.discountLoading = false;
       }
+    });
+  }
+
+  loadMultiBuyConfig(): void {
+    this.appService.getMultiBuyConfig().subscribe({
+      next: config => this.multiBuy = { enabled: !!config.enabled, offers: (config.offers || []).map(offer => ({ ...offer, tiers: [...offer.tiers].sort((a, b) => a.quantity - b.quantity) })) },
+      error: error => { this.multiBuySaveError = true; this.multiBuySaveMessage = error?.error?.error || 'Could not load multi-buy offers.'; }
+    });
+  }
+
+  addMultiBuyTier(): void {
+    const product = this.multiBuyProducts.find(item => item.productCode === this.multiBuyProductCode);
+    const quantity = Number(this.multiBuyQuantity);
+    const bundlePrice = Number(this.multiBuyPrice);
+    if (!product) { this.multiBuyFormError = true; this.multiBuyFormMessage = 'Choose a product style first.'; return; }
+    if (!Number.isInteger(quantity) || quantity < 2) { this.multiBuyFormError = true; this.multiBuyFormMessage = 'Pieces must be a whole number of at least 2.'; return; }
+    if (!Number.isFinite(bundlePrice) || bundlePrice <= 0) { this.multiBuyFormError = true; this.multiBuyFormMessage = 'Enter a bundle price greater than ₹0.'; return; }
+    const offer = this.multiBuy.offers.find(item => item.productCode === product.productCode);
+    if (offer?.tiers.some(tier => tier.quantity === quantity)) { this.multiBuyFormError = true; this.multiBuyFormMessage = 'That piece quantity already has an offer for this product.'; return; }
+    if (offer) offer.tiers.push({ quantity, bundlePrice });
+    else this.multiBuy.offers.push({ productCode: product.productCode, productName: product.productName, tiers: [{ quantity, bundlePrice }] });
+    this.multiBuy.offers = [...this.multiBuy.offers].sort((a, b) => a.productName.localeCompare(b.productName));
+    this.multiBuyFormError = false;
+    this.multiBuyFormMessage = `${quantity} for ₹${bundlePrice.toFixed(2)} added. Save offers to publish it.`;
+    this.multiBuyQuantity = 3;
+    this.multiBuyPrice = null;
+  }
+
+  formatTiers(offer: MultiBuyOffer): string {
+    return offer.tiers.slice().sort((a, b) => a.quantity - b.quantity).map(tier => `${tier.quantity} for ₹${Number(tier.bundlePrice).toFixed(2)}`).join(' · ');
+  }
+
+  removeMultiBuyOffer(index: number): void { this.multiBuy.offers.splice(index, 1); this.multiBuy.offers = [...this.multiBuy.offers]; }
+
+  saveMultiBuy(): void {
+    this.multiBuySaving = true;
+    this.multiBuySaveMessage = '';
+    this.appService.saveMultiBuyConfig(this.multiBuy).subscribe({
+      next: config => { this.multiBuy = config; this.multiBuySaveError = false; this.multiBuySaveMessage = `Multi-buy offers ${config.enabled ? 'enabled' : 'disabled'} and saved.`; this.multiBuySaving = false; },
+      error: error => { this.multiBuySaveError = true; this.multiBuySaveMessage = error?.error?.error || 'Could not save multi-buy offers.'; this.multiBuySaving = false; }
     });
   }
 
@@ -405,4 +502,3 @@ export class SettingsComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 }
-

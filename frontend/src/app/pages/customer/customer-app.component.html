@@ -1,210 +1,127 @@
-<div class="min-h-screen bg-gray-50">
-  <!-- Header -->
-  <header class="bg-white shadow-sm sticky top-0 z-20">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="p-2 bg-purple-600 rounded-full">
-          <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl font-bold text-gray-900">Foreign Fits</h1>
-          <p class="text-xs text-gray-500">Shop our latest collection</p>
-        </div>
-      </div>
-      <a routerLink="/" class="text-sm text-purple-700 hover:text-purple-900 font-medium">
-        ← Back to Home
-      </a>
-    </div>
+<div class="storefront">
+  <a class="skip-link" href="#collection">Skip to collection</a>
+  <div class="announcement">A WORLD OF STYLE. RIGHT HERE IN BIDAR. <a href="#visit">Visit Foreign Fits <span aria-hidden="true">↗</span></a></div>
+  <header class="store-header">
+    <a routerLink="/" class="brand" aria-label="Foreign Fits home">
+      <img src="/foreign-fits-logo.png" width="64" height="64" alt="Foreign Fits logo">
+      <span>FOREIGN FITS<small>IMPORTED FASHION</small></span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#collection" (click)="exploreDepartment('all')">Explore</a>
+      <a class="department-link" *ngFor="let department of departmentEdits()" href="#collection" (click)="exploreDepartment(department.value)">{{ department.label }}</a>
+      <a href="#visit" class="visit-link">Visit us</a>
+      <a class="contact-link" [href]="generalEnquiry" target="_blank" rel="noopener noreferrer">Let's talk <lucide-icon [img]="icons.ArrowUpRight" [size]="16" /></a>
+    </nav>
   </header>
 
-  <div class="max-w-7xl mx-auto px-4 py-6">
-    <!-- Filters Bar -->
-    <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <!-- Search -->
-        <div class="sm:col-span-2 lg:col-span-2">
-          <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
-          <input
-            type="text"
-            [ngModel]="searchTerm()"
-            (ngModelChange)="searchTerm.set($event)"
-            placeholder="Search by name, type, color..."
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          />
-        </div>
-
-        <!-- Category (Department) Filter - mirrors Inventory's Filter by Category -->
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Category</label>
-          <select
-            [ngModel]="departmentFilter()"
-            (ngModelChange)="departmentFilter.set($event); onDepartmentFilterChange()"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="all">All Categories</option>
-            <option *ngFor="let dept of departments" [value]="dept.value">{{ dept.label }}</option>
-          </select>
-        </div>
-
-        <!-- Product Filter - options depend on selected Category, mirrors Inventory's Filter by Product -->
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Product</label>
-          <select
-            [ngModel]="productFilter()"
-            (ngModelChange)="productFilter.set($event)"
-            [disabled]="departmentFilter() === 'all'"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-400"
-          >
-            <option value="all">All Products</option>
-            <option *ngFor="let pt of getProductOptionsForDepartmentFilter()" [value]="pt.label">{{ pt.label }}</option>
-          </select>
-        </div>
-
-        <!-- Size -->
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Size</label>
-          <select
-            [ngModel]="selectedSize()"
-            (ngModelChange)="selectedSize.set($event)"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="all">All Sizes</option>
-            <option *ngFor="let s of sizes()" [value]="s">{{ s }}</option>
-          </select>
-        </div>
-
-        <!-- Color -->
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">Color</label>
-          <select
-            [ngModel]="selectedColor()"
-            (ngModelChange)="selectedColor.set($event)"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="all">All Colors</option>
-            <option *ngFor="let c of colors()" [value]="c">{{ c }}</option>
-          </select>
-        </div>
+  <main>
+    <section *ngIf="showHero" class="hero carousel" aria-label="Featured collections" aria-roledescription="carousel" (mouseenter)="setCarouselHover(true)" (mouseleave)="setCarouselHover(false)" (focusin)="carouselFocused.set(true)" (focusout)="onCarouselFocusOut($event)">
+      <div *ngFor="let slide of banners; let i = index" class="banner-slide" [class.current]="activeBanner() === i" [class.newborn-slide]="slide.department === 'newborn'" [class.footwear-slide]="slide.department === 'footwear'" [attr.aria-hidden]="activeBanner() !== i" role="group" aria-roledescription="slide" [attr.aria-label]="slide.label + ', ' + (i + 1) + ' of ' + banners.length">
+        <picture *ngFor="let photo of slide.images; let imageIndex = index" class="campaign-frame">
+          <source *ngIf="slide.mobileImages?.[imageIndex]" media="(max-width: 600px)" [srcset]="slide.mobileImages?.[imageIndex]">
+          <img class="campaign-photo" [src]="bannerImage(photo)" [alt]="'Foreign Fits ' + slide.label + ' collection'" [attr.fetchpriority]="i === 0 ? 'high' : 'low'" (error)="imageFailed($event)">
+        </picture>
       </div>
-
-      <div class="flex items-center justify-between mt-4">
-        <div class="flex items-center space-x-2">
-          <label class="text-xs font-medium text-gray-500">Sort by:</label>
-          <select
-            [ngModel]="sortBy()"
-            (ngModelChange)="sortBy.set($event)"
-            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          >
-            <option value="name-asc">Name (A-Z)</option>
-            <option value="name-desc">Name (Z-A)</option>
-            <option value="price-asc">Price (Low to High)</option>
-            <option value="price-desc">Price (High to Low)</option>
-          </select>
-        </div>
-        <button
-          (click)="clearFilters()"
-          class="text-sm text-purple-700 hover:text-purple-900 font-medium"
-        >
-          Clear Filters
-        </button>
+      <div class="hero-caption" [class.dark-caption]="banner().darkText">
+        <div><p class="eyebrow">{{ banner().label }} / THE COLLECTION</p><h1 id="hero-title">FOREIGN FITS</h1><p>{{ banner().caption }}</p></div>
+        <a href="#collection" class="button light" (click)="exploreDepartment(banner().department)">Explore {{ banner().label }} <lucide-icon [img]="icons.ArrowRight" [size]="20" /></a>
       </div>
-    </div>
+      <div class="carousel-controls">
+        <button class="carousel-icon" (click)="toggleCarousel()" [attr.aria-label]="carouselPaused() ? 'Play slideshow' : 'Pause slideshow'" [title]="carouselPaused() ? 'Play slideshow' : 'Pause slideshow'"><lucide-icon [img]="carouselPaused() ? icons.Play : icons.Pause" [size]="17" /></button>
+        <button class="carousel-icon" (click)="selectBanner(activeBanner() - 1)" aria-label="Previous banner" title="Previous banner"><lucide-icon [img]="icons.ChevronLeft" [size]="20" /></button>
+        <div class="banner-dots" role="group" aria-label="Choose a collection banner"><button *ngFor="let slide of banners; let i = index" (click)="selectBanner(i)" [attr.aria-label]="'Show ' + slide.label + ' banner'" [attr.aria-pressed]="activeBanner() === i" [title]="slide.label" [class.active]="activeBanner() === i"><span></span></button></div>
+        <span class="banner-count">{{ activeBanner() + 1 }} / {{ banners.length }}</span>
+        <button class="carousel-icon" (click)="selectBanner(activeBanner() + 1)" aria-label="Next banner" title="Next banner"><lucide-icon [img]="icons.ChevronRight" [size]="20" /></button>
+      </div>
+    </section>
 
-    <!-- Results count -->
-    <div class="mb-4 text-sm text-gray-600" *ngIf="!loading()">
-      Showing {{ productGroups().length }} of {{ catalog().length }} products
-    </div>
+    <div *ngIf="showHero" class="brand-strip"><span>IMPORTED FASHION</span><span>MEN · WOMEN · KIDS</span><a href="#visit">FIND US IN BIDAR <lucide-icon [img]="icons.ArrowUpRight" [size]="15" /></a></div>
 
-    <!-- Loading -->
-    <div *ngIf="loading()" class="flex items-center justify-center py-20">
-      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600"></div>
-    </div>
+    <section *ngIf="showHero && departmentEdits().length" class="discovery" aria-labelledby="discovery-title">
+      <div class="section-heading"><div><p class="eyebrow">YOUR STYLE STARTS HERE</p><h2 id="discovery-title">A fit for every side of you.</h2></div><a href="#collection" class="editorial-link" (click)="exploreDepartment('all')">View everything <lucide-icon [img]="icons.ArrowUpRight" [size]="18" /></a></div>
+      <div class="department-grid">
+        <a *ngFor="let department of departmentEdits()" class="department-edit" href="#collection" (click)="exploreDepartment(department.value)">
+          <div class="department-photo"><img [src]="department.image || '/foreign-fits-logo.png'" [alt]="department.label + ' collection'" loading="lazy" (error)="imageFailed($event)"></div>
+          <div class="department-caption"><div><h3>{{ department.label }}</h3><span>{{ department.count }} styles to discover</span></div><lucide-icon [img]="icons.ArrowUpRight" [size]="25" /></div>
+        </a>
+      </div>
+    </section>
 
-    <!-- Error -->
-    <div *ngIf="error() && !loading()" class="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 text-center">
-      {{ error() }}
-      <button (click)="loadCatalog()" class="ml-2 underline font-medium">Retry</button>
-    </div>
+    <section *ngIf="showHero && styleEdits().length" class="style-section" aria-labelledby="style-title">
+      <div class="section-heading"><div><p class="eyebrow">DIFFERENT DAYS. DIFFERENT YOU.</p><h2 id="style-title">Find your mood.</h2></div><p class="collection-note">Good pieces. Your way of wearing them.</p></div>
+      <div class="style-grid"><a *ngFor="let edit of styleEdits()" href="#collection" (click)="exploreEdit(edit.term)" class="style-edit"><img [src]="edit.product!.images[0]" [alt]="edit.product!.name" loading="lazy" (error)="imageFailed($event)"><div><p class="eyebrow">FOREIGN FITS / THE EDITS</p><h3>{{ edit.title }}</h3><p>{{ edit.caption }}</p><span class="editorial-link">Explore edit <lucide-icon [img]="icons.ArrowUpRight" [size]="18" /></span></div></a></div>
+    </section>
 
-    <!-- Empty state -->
-    <div *ngIf="!loading() && !error() && productGroups().length === 0" class="text-center py-20 text-gray-500">
-      No products match your filters.
-      <button (click)="clearFilters()" class="ml-2 text-purple-700 underline font-medium">Clear filters</button>
-    </div>
+    <section id="collection" class="collection" aria-labelledby="collection-title" [attr.aria-busy]="loading()">
+      <div class="section-heading"><div><p class="eyebrow">FIND YOUR NEXT FIT</p><h2 id="collection-title">The collection<span class="blue-dot">.</span></h2></div><p class="collection-note">Something that feels like you.</p></div>
+      <nav class="categories" aria-label="Collections">
+        <button (click)="chooseDepartment('all')" [class.active]="departmentFilter() === 'all'" [attr.aria-pressed]="departmentFilter() === 'all'">All styles</button>
+        <button *ngFor="let department of departments()" (click)="chooseDepartment(department.value)" [class.active]="departmentFilter() === department.value" [attr.aria-pressed]="departmentFilter() === department.value">{{ department.label }}</button>
+      </nav>
+      <div class="toolbar">
+        <label class="search"><lucide-icon [img]="icons.Search" [size]="19" /><input type="search" aria-label="Search collection" placeholder="Find your style..." [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event); visibleCount.set(24)"></label>
+        <button class="filter-button" (click)="filtersOpen.set(!filtersOpen())" [attr.aria-expanded]="filtersOpen()" aria-controls="catalog-filters"><lucide-icon [img]="icons.SlidersHorizontal" [size]="18" /> Filters</button>
+        <label class="sort"><span class="sr-only">Sort products</span><select [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event)"><option value="featured">Featured</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="name">Name: A to Z</option></select></label>
+      </div>
+      <div id="catalog-filters" class="filter-panel" *ngIf="filtersOpen()">
+        <label>Product type<select [ngModel]="productFilter()" (ngModelChange)="chooseProductType($event)"><option value="all">All types</option><option *ngFor="let type of productTypes()" [value]="type">{{ type }}</option></select></label>
+        <label>Size<select [disabled]="!variantFiltersEnabled()" [ngModel]="selectedSize()" (ngModelChange)="selectedSize.set($event); visibleCount.set(24)"><option value="all">All sizes</option><option *ngFor="let size of sizes()" [value]="size">{{ size }}</option></select></label>
+        <label>Color<select [disabled]="!variantFiltersEnabled()" [ngModel]="selectedColor()" (ngModelChange)="selectedColor.set($event); visibleCount.set(24)"><option value="all">All colors</option><option *ngFor="let color of colors()" [value]="color">{{ color }}</option></select></label>
+        <button class="text-button" (click)="clearFilters()">Reset filters</button>
+      </div>
+      <div class="result-line" *ngIf="!loading() && !error()" aria-live="polite"><span>{{ filteredGroups().length }} styles</span><button *ngIf="hasFilters()" class="text-button" (click)="clearFilters()">Clear filters <lucide-icon [img]="icons.X" [size]="14" /></button></div>
 
-    <!-- Product Grid -->
-    <div
-      *ngIf="!loading() && !error() && productGroups().length > 0"
-      class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
-    >
-      <div
-        *ngFor="let group of productGroups(); trackBy: trackByGroupKey"
-        class="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
-      >
-        <!-- Image -->
-        <div class="aspect-square">
-          <app-image-carousel
-            [images]="group.imageUrls || []"
-            [alt]="group.productName"
-            heightClass="h-full"
-            (imageClick)="openLightbox($event, group.productName)"
-          ></app-image-carousel>
-        </div>
+      <div *ngIf="loading()" class="product-grid" role="status" aria-label="Loading collection"><div class="skeleton" *ngFor="let n of [1,2,3,4]"><div></div><span></span><span></span></div></div>
+      <div *ngIf="error()" class="empty-state" role="alert"><h3>The collection couldn't load.</h3><p>Please try again, or contact us on WhatsApp.</p><button class="button" (click)="loadCatalog()">Try again</button></div>
+      <div *ngIf="!loading() && !error() && !filteredGroups().length" class="empty-state"><h3>{{ hasFilters() ? 'No matches just yet.' : 'New finds are on their way.' }}</h3><p>{{ hasFilters() ? 'Try another size, color, or search.' : 'Contact us for the latest availability.' }}</p><button *ngIf="hasFilters()" class="button" (click)="clearFilters()">View all styles</button></div>
 
-        <!-- Info -->
-        <div class="p-3 flex flex-col flex-1">
-          <h3 class="text-sm font-semibold text-gray-900 line-clamp-2">{{ group.productName }}</h3>
-          <p class="text-xs text-gray-500 mt-1 capitalize">{{ group.productType || group.category }}</p>
+      <div *ngIf="!loading() && !error()" class="product-grid">
+        <article class="product" *ngFor="let group of visibleGroups()">
+          <button class="product-photo" (click)="openProduct(group)" [attr.aria-label]="'View ' + group.name">
+            <img [src]="group.images[0] || '/foreign-fits-logo.png'" [alt]="group.name" loading="lazy" (error)="imageFailed($event)">
+            <span class="photo-label" *ngIf="!group.images.length">Photo coming soon</span>
+            <span class="quick-view"><lucide-icon [img]="icons.Plus" [size]="18" /> Quick view</span>
+          </button>
+          <div class="product-meta"><span>{{ departmentLabel(group.department) }}</span><span class="availability">Available</span></div>
+          <button class="product-name" (click)="openProduct(group)">{{ group.name }}</button>
+          <p class="price"><span *ngIf="group.minPrice !== group.maxPrice">From </span>{{ group.minPrice | currency:'INR':'symbol':'1.0-2' }}</p>
+          <p class="sizes">{{ group.items.length }} {{ group.items.length === 1 ? 'option' : 'options' }} <span aria-hidden="true">·</span> <button (click)="openProduct(group)">View sizes &amp; colors</button></p>
+          <p *ngIf="group.items[0]?.multiBuyOffer as offer" class="multi-buy-offer">Bundle offer: {{ multiBuyOfferLabel(offer) }}</p>
+        </article>
+      </div>
+      <div class="load-more" *ngIf="!loading() && filteredGroups().length > visibleCount()"><p>{{ visibleGroups().length }} of {{ filteredGroups().length }} styles</p><button class="button" (click)="visibleCount.set(visibleCount() + 24)">Discover more <lucide-icon [img]="icons.Plus" [size]="18" /></button></div>
+    </section>
 
-          <!-- Size selector pills -->
-          <div class="flex flex-wrap gap-1 mt-2" *ngIf="group.sizes.length > 1">
-            <button
-              *ngFor="let size of group.sizes"
-              (click)="selectGroupSize(group, size)"
-              class="px-2 py-0.5 text-xs rounded border transition-colors"
-              [class.bg-purple-600]="group.selectedItem().size === size"
-              [class.text-white]="group.selectedItem().size === size"
-              [class.border-purple-600]="group.selectedItem().size === size"
-              [class.bg-gray-50]="group.selectedItem().size !== size"
-              [class.text-gray-700]="group.selectedItem().size !== size"
-              [class.border-gray-300]="group.selectedItem().size !== size"
-            >
-              {{ size }}
-            </button>
-          </div>
-          <div class="flex items-center gap-2 mt-1 text-xs text-gray-500" *ngIf="group.sizes.length <= 1">
-            <span *ngIf="group.selectedItem().size">Size: {{ group.selectedItem().size }}</span>
-            <span *ngIf="group.selectedItem().color">• {{ group.selectedItem().color }}</span>
-          </div>
+    <section class="contact-band"><div><p class="eyebrow">LET'S FIND YOUR FIT</p><h2>Seen something you love?</h2><p>Ask us about sizes, availability, and ordering.</p></div><a class="button" [href]="generalEnquiry" target="_blank" rel="noopener noreferrer"><lucide-icon [img]="icons.MessageCircle" [size]="20" /> Chat on WhatsApp</a></section>
+    <section id="visit" class="visit-section" aria-labelledby="visit-title">
+      <div class="store-location">
+        <p class="eyebrow">FIND US IN BIDAR</p>
+        <h2 id="visit-title">Drop in. Find your fit.</h2>
+        <address><strong>Foreign Fits, Yamuna Branch</strong><br>Mohan Market Rd, Nandi Colony<br>Bidar, Karnataka 585401</address>
+        <a class="directions-link" href="https://maps.app.goo.gl/wJMubLh8y8VaTub78" target="_blank" rel="noopener noreferrer"><lucide-icon [img]="icons.MapPin" [size]="18" /> Get directions <lucide-icon [img]="icons.ArrowUpRight" [size]="16" /></a>
+      </div>
+      <div class="store-contact">
+        <p class="eyebrow">GET IN TOUCH</p>
+        <a href="mailto:contact@foreignfits.in"><lucide-icon [img]="icons.Mail" [size]="21" /><span><small>Email us</small>contact&#64;foreignfits.in</span><lucide-icon [img]="icons.ArrowUpRight" [size]="18" /></a>
+        <a [href]="generalEnquiry" target="_blank" rel="noopener noreferrer"><lucide-icon [img]="icons.MessageCircle" [size]="21" /><span><small>WhatsApp</small>+353 89 226 6219</span><lucide-icon [img]="icons.ArrowUpRight" [size]="18" /></a>
+      </div>
+    </section>
+  </main>
+  <footer><a routerLink="/" class="footer-brand">FOREIGN FITS</a><span>Imported fashion. Individual style.</span><a routerLink="/login">Staff sign in <lucide-icon [img]="icons.ArrowUpRight" [size]="14" /></a></footer>
 
-          <div class="mt-auto pt-2 flex items-center justify-between">
-            <span class="text-base font-bold text-gray-900">
-              ₹{{ group.selectedItem().salePrice?.toFixed(2) }}
-            </span>
-            <span
-              class="text-xs px-2 py-0.5 rounded-full font-medium"
-              [class.bg-green-100]="group.selectedItem().available"
-              [class.text-green-800]="group.selectedItem().available"
-              [class.bg-red-100]="!group.selectedItem().available"
-              [class.text-red-800]="!group.selectedItem().available"
-            >
-              {{ group.selectedItem().available ? 'In Stock' : 'Out of Stock' }}
-            </span>
-          </div>
-        </div>
+  <dialog #quickView class="product-dialog" aria-labelledby="quick-view-title" (click)="onDialogClick($event)">
+    <button class="close-button" aria-label="Close product" title="Close product" (click)="closeProduct()" autofocus><lucide-icon [img]="icons.X" [size]="22" /></button>
+    <div class="dialog-content" *ngIf="selectedGroup() as group">
+      <div class="gallery">
+        <img [src]="galleryImages()[activeImage()] || '/foreign-fits-logo.png'" [alt]="group.name + ' photo ' + (activeImage() + 1)" (error)="imageFailed($event)">
+        <div class="gallery-controls" *ngIf="galleryImages().length > 1"><button aria-label="Previous photo" title="Previous photo" (click)="moveImage(-1)"><lucide-icon [img]="icons.ChevronLeft" [size]="22" /></button><span aria-live="polite">{{ activeImage() + 1 }} / {{ galleryImages().length }}</span><button aria-label="Next photo" title="Next photo" (click)="moveImage(1)"><lucide-icon [img]="icons.ChevronRight" [size]="22" /></button></div>
+      </div>
+      <div class="product-details" *ngIf="selectedItem() as item"><p class="eyebrow">{{ departmentLabel(group.department) }} / {{ group.type }}</p><h2 id="quick-view-title">{{ group.name }}</h2><p class="detail-price">{{ item.salePrice | currency:'INR':'symbol':'1.0-2' }}</p><p *ngIf="item.multiBuyOffer as offer" class="multi-buy-offer">Bundle offer: {{ multiBuyOfferLabel(offer) }}</p><p class="availability">Available to enquire</p>
+        <label class="variant-label">Size &amp; color<select [ngModel]="item.productSku" (ngModelChange)="selectVariant($event)"><option *ngFor="let variant of group.items" [value]="variant.productSku">{{ variant.size || 'One size' }} / {{ variant.color || 'Unspecified' }}</option></select></label>
+        <p class="sku">SKU: {{ item.productSku }}</p>
+        <a class="button whatsapp" [href]="enquiryUrl(item)" target="_blank" rel="noopener noreferrer"><lucide-icon [img]="icons.MessageCircle" [size]="20" /> Enquire on WhatsApp</a>
+        <p class="enquiry-note">Confirm availability and ordering with our team. No payment is taken on this website.</p>
       </div>
     </div>
-  </div>
+  </dialog>
 </div>
-
-<!-- Fullscreen Image Lightbox -->
-<app-image-lightbox
-  *ngIf="lightboxOpen()"
-  [images]="lightboxImages()"
-  [startIndex]="lightboxStartIndex()"
-  [alt]="lightboxAlt()"
-  (closed)="closeLightbox()"
-></app-image-lightbox>
-

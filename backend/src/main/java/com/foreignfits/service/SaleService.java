@@ -53,6 +53,7 @@ public class SaleService {
     private final CouponService couponService;
     private final SalesPersonService salesPersonService;
     private final AppSettingService appSettingService;
+    private final MultiBuyOfferService multiBuyOfferService;
     
     private static final BigDecimal GST_RATE = new BigDecimal("0.05"); // Flat 5% GST (included in price)
     private static final Long GANGA_LOCATION_ID = 3L;
@@ -254,6 +255,7 @@ public class SaleService {
     // Validate and prepare sale items
         List<SaleItem> saleItems = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
+        java.util.Map<String, List<BigDecimal>> multiBuyPrices = new java.util.HashMap<>();
         
         for (SaleItemRequest itemRequest : request.getItems()) {
             Product product = productRepository.findById(itemRequest.getProductId())
@@ -299,6 +301,10 @@ public class SaleService {
                 }
                 
                 itemTotal = itemTotal.add(BigDecimal.valueOf(barcode.getSalePrice()));
+                if (product.getProductCode() != null) {
+                    multiBuyPrices.computeIfAbsent(product.getProductCode(), ignored -> new ArrayList<>())
+                            .add(BigDecimal.valueOf(barcode.getSalePrice()));
+                }
                 validatedBarcodes.add(barcode);
             }
             
@@ -335,7 +341,15 @@ public class SaleService {
         }
         
     // Start with subtotal (pre-tax, pre-discount)
-    BigDecimal total = subtotal;
+        BigDecimal total = subtotal;
+        BigDecimal multiBuyDiscount = BigDecimal.ZERO;
+        if (!isGangaWholesale) {
+            List<com.foreignfits.dto.MultiBuyOfferDto> activeOffers = multiBuyOfferService.getActiveOffers();
+            for (var entry : multiBuyPrices.entrySet()) {
+                multiBuyDiscount = multiBuyDiscount.add(multiBuyOfferService.calculateDiscount(activeOffers, entry.getKey(), entry.getValue()));
+            }
+            total = total.subtract(multiBuyDiscount).max(BigDecimal.ZERO);
+        }
         
         // Apply coupon if provided
         BigDecimal couponDiscount = BigDecimal.ZERO;
@@ -396,7 +410,7 @@ public class SaleService {
         }
 
         // Calculate GST portion included in the discounted subtotal
-    BigDecimal totalDiscount = couponDiscount.add(instantDiscountAmount);
+    BigDecimal totalDiscount = couponDiscount.add(instantDiscountAmount).add(multiBuyDiscount);
         if (totalDiscount.compareTo(subtotal) > 0) {
             totalDiscount = subtotal;
         }
@@ -420,6 +434,7 @@ public class SaleService {
         sale.setCouponDiscount(couponDiscount.compareTo(BigDecimal.ZERO) > 0 ? couponDiscount : null);
         sale.setInstantDiscountPercent(instantDiscountPercent.compareTo(BigDecimal.ZERO) > 0 ? instantDiscountPercent : null);
         sale.setInstantDiscountAmount(instantDiscountAmount.compareTo(BigDecimal.ZERO) > 0 ? instantDiscountAmount : null);
+        sale.setMultiBuyDiscountAmount(multiBuyDiscount.compareTo(BigDecimal.ZERO) > 0 ? multiBuyDiscount : null);
         sale.setSoldBy(soldBy);
         sale.setLocation(saleLocation); // ✅ Set the location where sale was made
         
@@ -774,6 +789,7 @@ public class SaleService {
         dto.setGeneratedCouponCode(sale.getGeneratedCouponCode());
         dto.setInstantDiscountPercent(sale.getInstantDiscountPercent());
         dto.setInstantDiscountAmount(sale.getInstantDiscountAmount());
+        dto.setMultiBuyDiscountAmount(sale.getMultiBuyDiscountAmount());
         dto.setIsExchangeSale(sale.getIsExchangeSale());
         dto.setExchangeId(sale.getExchangeId());
         dto.setExchangePriceDifference(sale.getExchangePriceDifference());

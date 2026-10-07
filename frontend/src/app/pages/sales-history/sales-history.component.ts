@@ -8,7 +8,8 @@ import { AppService, AppState } from '../../core/services/app.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Sale, SaleItem, SalesPerson } from '../../core/models';
 import { PrintReceiptComponent } from '../sales/print-receipt.component';
-import { ReceiptData, ReceiptItem } from '../sales/receipt.model';
+import { ReceiptData } from '../sales/receipt.model';
+import { buildReceiptItems } from '../sales/receipt-items';
 import { ExchangeModalComponent } from '../../components/sales/exchange-modal.component';
 import { SalesPersonService } from '../../core/services/sales-person.service';
 
@@ -678,37 +679,7 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
   printSale(): void {
     if (!this.selectedSale) return;
 
-    // Convert sale items to receipt items.
-    // If an item has barcodes with different individual prices, expand into one
-    // ReceiptItem per barcode so the receipt shows the real per-barcode price
-    // instead of the averaged item.price.
-    const receiptItems: ReceiptItem[] = [];
-
-    for (const item of this.selectedSale.items) {
-      const details = `${item.product.size} – ${item.product.color}`;
-
-      if (this.hasVariedPrices(item)) {
-        // Expand: one receipt line per barcode with its individual price
-        for (const row of this.getBarcodeRows(item)) {
-          receiptItems.push({
-            name: item.product.name,
-            details,
-            qty: 1,
-            price: row.price,
-            barcode: row.barcode
-          });
-        }
-      } else {
-        // All barcodes same price — single line as before
-        receiptItems.push({
-          name: item.product.name,
-          details,
-          qty: item.quantity,
-          price: item.price,
-          barcode: item.barcodes?.[0]
-        });
-      }
-    }
+    const receiptItems = buildReceiptItems(this.selectedSale.items);
 
     this.receiptData = {
       number: this.selectedSale.id || 'N/A',
@@ -723,7 +694,8 @@ export class SalesHistoryComponent implements OnInit, OnDestroy {
       total: this.selectedSale.total,
       paymentMethod: this.selectedSale.paymentMethod.toUpperCase(),
       paidAmount: this.getPaidAmount(this.selectedSale),
-      pendingAmount: this.getPendingAmount(this.selectedSale)
+      pendingAmount: this.getPendingAmount(this.selectedSale),
+      multiBuyDiscount: Number(this.selectedSale.multiBuyDiscountAmount || 0)
     };
 
     // Close sale details modal and open receipt modal

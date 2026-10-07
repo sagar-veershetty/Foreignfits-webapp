@@ -1,0 +1,37 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Foreign Fits homepage image manifest updater (existing S3 bucket)",
+  "Resources": {
+    "Logs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {"LogGroupName": "/aws/lambda/foreignfits-homepage-images", "RetentionInDays": 14}
+    },
+    "Role": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]},
+        "Policies": [{"PolicyName": "HomepageManifestOnly", "PolicyDocument": {"Version": "2012-10-17", "Statement": [
+          {"Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::foreign-fits-web", "Condition": {"StringEquals": {"s3:prefix": ["homepage/images/", "homepage/manifest.json"]}}},
+          {"Effect": "Allow", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::foreign-fits-web/homepage/manifest.json"},
+          {"Effect": "Allow", "Action": ["logs:CreateLogStream", "logs:PutLogEvents"], "Resource": {"Fn::Sub": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/foreignfits-homepage-images:*"}}
+        ]}}]
+      }
+    },
+    "Updater": {
+      "Type": "AWS::Lambda::Function",
+      "DependsOn": "Logs",
+      "Properties": {
+        "FunctionName": "foreignfits-homepage-images",
+        "Runtime": "python3.13", "Handler": "index.handler", "Timeout": 60, "MemorySize": 128,
+        "Role": {"Fn::GetAtt": ["Role", "Arn"]},
+        "Environment": {"Variables": {"BUCKET": "foreign-fits-web"}},
+        "Code": {"ZipFile": "REPLACED_BY_DEPLOY_SCRIPT"}
+      }
+    },
+    "S3Invoke": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {"FunctionName": {"Ref": "Updater"}, "Action": "lambda:InvokeFunction", "Principal": "s3.amazonaws.com", "SourceArn": "arn:aws:s3:::foreign-fits-web", "SourceAccount": {"Ref": "AWS::AccountId"}}
+    }
+  },
+  "Outputs": {"FunctionArn": {"Value": {"Fn::GetAtt": ["Updater", "Arn"]}}}
+}

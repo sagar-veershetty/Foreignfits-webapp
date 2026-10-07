@@ -33,6 +33,7 @@ public class SaleDto {
     private String generatedCouponCode;
     private BigDecimal instantDiscountPercent; // Instant discount percentage
     private BigDecimal instantDiscountAmount;  // Instant discount amount
+    private BigDecimal multiBuyDiscountAmount;
     private Boolean isExchangeSale;
     private Long exchangeId;
     private BigDecimal exchangePriceDifference;
@@ -103,6 +104,8 @@ public class SaleDto {
     
     public BigDecimal getInstantDiscountAmount() { return instantDiscountAmount; }
     public void setInstantDiscountAmount(BigDecimal instantDiscountAmount) { this.instantDiscountAmount = instantDiscountAmount; }
+    public BigDecimal getMultiBuyDiscountAmount() { return multiBuyDiscountAmount; }
+    public void setMultiBuyDiscountAmount(BigDecimal multiBuyDiscountAmount) { this.multiBuyDiscountAmount = multiBuyDiscountAmount; }
     
     public Boolean getIsExchangeSale() { return isExchangeSale; }
     public void setIsExchangeSale(Boolean isExchangeSale) { this.isExchangeSale = isExchangeSale; }

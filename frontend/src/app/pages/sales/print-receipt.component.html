@@ -84,14 +84,15 @@
               <div>
                 <div class="receipt-item-name">{{ item.name }}</div>
                 <div class="receipt-item-details">{{ item.details }}</div>
+                <div class="receipt-item-details">Qty: {{ item.qty }}</div>
                 <div *ngIf="item.barcode" class="receipt-item-barcode" style="font-family: 'Courier New', monospace; font-size: 9px; color: #666;">
                   Barcode: {{ item.barcode }}
                 </div>
               </div>
-              <div style="text-align:right; font-size:12px;">{{ item.price.toFixed(0) }}</div>
-              <div style="text-align:right; font-size:12px;" *ngIf="hasInstantDiscount()">{{ getItemDiscountPerUnit(item).toFixed(0) }}</div>
+              <div style="text-align:right; font-size:12px;">{{ item.price.toFixed(2) }}</div>
+              <div style="text-align:right; font-size:12px;" *ngIf="hasInstantDiscount()">{{ getItemDiscountPerUnit(item).toFixed(2) }}</div>
               <div style="text-align:right; font-size:12px; font-weight:800;" [style.color]="receipt?.exchangeDetails ? '#059669' : 'inherit'">
-                {{ receipt?.exchangeDetails ? '+' : '' }}{{ hasInstantDiscount() ? getItemNetAmount(item).toFixed(0) : (item.qty * item.price).toFixed(0) }}
+                {{ receipt?.exchangeDetails ? '+' : '' }}{{ hasInstantDiscount() ? getItemNetAmount(item).toFixed(2) : (item.qty * item.price).toFixed(2) }}
               </div>
             </div>
           </div>
@@ -107,6 +108,11 @@
           <div *ngIf="hasInstantDiscount()" style="color: #166534; font-weight: 700;">
             <span>Total savings ({{ receipt?.instantDiscount?.percent }}%)</span>
             <span>- ₹{{ receipt?.instantDiscount?.amount?.toFixed(2) }}</span>
+          </div>
+
+          <div *ngIf="receipt?.multiBuyDiscount > 0" style="color: #1e40af; font-weight: 700;">
+            <span>Multi-buy offer savings</span>
+            <span>- ₹{{ receipt?.multiBuyDiscount?.toFixed(2) }}</span>
           </div>
 
           <!-- Coupon/voucher stays visible whenever applied (existing behavior) -->

@@ -57,6 +57,36 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   
   // Product search for transfer
   transferProductSearch = signal<string>('');
+  transferStyleKey = '';
+  transferVariants: Array<{ product: Product; available: number; quantity: number }> = [];
+
+  getTransferStyles() {
+    const groups = new Map<string, { key: string; name: string; products: Product[] }>();
+    for (const product of this.products()) {
+      if (this.getProductAvailableQuantity(product.sku) <= 0) continue;
+      const key = product.productCode || `product:${product.id}`;
+      const group = groups.get(key) || { key, name: product.name, products: [] };
+      group.products.push(product);
+      groups.set(key, group);
+    }
+    const query = this.transferProductSearch().trim().toLowerCase();
+    return [...groups.values()].filter(group =>
+      `${group.name} ${group.key} ${group.products.map(p => `${p.sku} ${p.bagNumber || ''}`).join(' ')}`.toLowerCase().includes(query)
+    ).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  selectTransferStyle(group: { key: string; name: string; products: Product[] }) {
+    this.transferStyleKey = group.key;
+    this.transferVariants = group.products.map(product => ({ product, available: this.getProductAvailableQuantity(product.sku), quantity: 0 }));
+  }
+
+  fillTransferQuantities(all: boolean) {
+    this.transferVariants.forEach(row => row.quantity = all ? row.available : 0);
+  }
+
+  get transferTotal(): number {
+    return this.transferVariants.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
+  }
   
   // Barcode Transfer Form (Warehouse/Store - barcode-based)
   barcodeTransferForm = {
@@ -313,6 +343,8 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     
     // Clear selected product as it may not be available at new location
     this.transferForm.productId = '';
+    this.transferStyleKey = '';
+    this.transferVariants = [];
     
     // Clear search query
     this.transferProductSearch.set('');
@@ -337,7 +369,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   loadTransferLocationInventory(locationId: number) {
     this.appService.getLocationInventory(locationId).subscribe({
       next: (inventory) => {
-        this.transferFromLocationInventory.set(inventory);
+        if (String(locationId) === String(this.transferForm.fromLocationId)) this.transferFromLocationInventory.set(inventory);
       },
       error: (error) => {
         this.transferFromLocationInventory.set([]);
@@ -457,16 +489,21 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   submitTransfer() {
     this.clearMessages();
     
-    if (!this.transferForm.productId || 
+    if (!this.transferVariants.length ||
         !this.transferForm.fromLocationId || 
         !this.transferForm.toLocationId || 
-        !this.transferForm.quantity || 
-        this.transferForm.quantity <= 0 ||
+        this.transferTotal <= 0 ||
         !this.transferForm.reason || 
         !this.transferForm.reason.trim()) {
       this.errorMessage.set('Please fill in all required fields');
       return;
     }
+
+    if (this.transferVariants.some(row => !Number.isInteger(row.quantity) || row.quantity < 0 || row.quantity > row.available)) {
+      this.errorMessage.set('Enter a whole number between zero and available stock for each size.');
+      return;
+    }
+    if (this.isLoading()) return;
     
     if (this.transferForm.fromLocationId === this.transferForm.toLocationId) {
       this.errorMessage.set('Source and destination locations must be different');
@@ -484,15 +521,15 @@ export class StockMovementComponent implements OnInit, OnDestroy {
     
     this.isLoading.set(true);
     
-    this.appService.createStockTransfer({
-      productId: this.transferForm.productId,
+    this.appService.createStockTransferBatch(this.transferVariants.filter(row => row.quantity > 0).map(row => ({
+      productId: String(row.product.id),
       fromLocationId: this.transferForm.fromLocationId,
       toLocationId: this.transferForm.toLocationId,
-      quantity: this.transferForm.quantity,
+      quantity: row.quantity,
       reason: this.transferForm.reason,
       reference: this.transferForm.reference,
       notes: this.transferForm.notes
-    }).subscribe({
+    }))).subscribe({
       next: () => {
         this.successMessage.set('Stock transfer request created successfully!');
         this.resetTransferForm();
@@ -505,7 +542,7 @@ export class StockMovementComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.isLoading.set(false);
-        this.errorMessage.set(error.error?.message || 'Failed to create stock transfer. Please try again.');
+        this.errorMessage.set((typeof error.error === 'string' ? error.error : error.error?.message) || 'Failed to create stock transfer. Please try again.');
       }
     });
   }
@@ -522,7 +559,9 @@ export class StockMovementComponent implements OnInit, OnDestroy {
   }
 
   resetTransferForm() {
-    const preserveFromLocation = this.isWarehouseUser() ? this.transferForm.fromLocationId : '';
+    this.transferStyleKey = '';
+    this.transferVariants = [];
+    const preserveFromLocation = this.transferForm.fromLocationId;
     this.transferForm = {
       productId: '',
       fromLocationId: preserveFromLocation,

@@ -28,6 +28,23 @@ public class StockTransferController {
     private final StockTransferService stockTransferService;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserService userService;
+
+    @PostMapping("/batch")
+    @PreAuthorize("hasAuthority('request:stock_transfer')")
+    public ResponseEntity<?> createBatch(
+            @Valid @RequestBody com.foreignfits.dto.request.CreateStockTransferBatchRequest request,
+            @RequestHeader("Authorization") String token, Authentication authentication) {
+        UserDto user = userService.getUserByEmail(authentication.getName()).orElseThrow();
+        if (user.getRole() != User.UserRole.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED).body(stockTransferService.createBatch(
+                    request.getItems(), jwtTokenProvider.getUserIdFromToken(token.substring(7))));
+        } catch (RuntimeException exception) {
+            return ResponseEntity.badRequest().body(exception.getMessage());
+        }
+    }
     
     /**
      * Validate a single barcode for transfer
