@@ -11,6 +11,19 @@ import java.util.List;
 
 @Repository
 public interface BarcodeHistoryRepository extends JpaRepository<BarcodeHistory, Long> {
+    // Apply the limit in SQL before materializing history entities.
+    @Query("SELECT bh FROM BarcodeHistory bh WHERE " +
+           "(:barcodeNumber IS NULL OR bh.barcodeNumber = :barcodeNumber) AND " +
+           "(:eventType IS NULL OR bh.eventType = :eventType) AND " +
+           "bh.createdAt >= :startDate AND bh.createdAt <= :endDate AND " +
+           "(:locationId IS NULL OR EXISTS (SELECT touched.id FROM BarcodeHistory touched WHERE " +
+           "touched.barcodeNumber = bh.barcodeNumber AND (touched.locationId = :locationId OR " +
+           "touched.fromLocationId = :locationId OR touched.toLocationId = :locationId))) " +
+           "ORDER BY bh.createdAt DESC, bh.id DESC")
+    List<BarcodeHistory> findHistoryPage(
+        @Param("barcodeNumber") String barcodeNumber, @Param("eventType") String eventType,
+        @Param("locationId") Long locationId, @Param("startDate") LocalDateTime startDate,
+        @Param("endDate") LocalDateTime endDate, org.springframework.data.domain.Pageable pageable);
     
     // Find all history for a specific barcode number
     List<BarcodeHistory> findByBarcodeNumberOrderByCreatedAtDesc(String barcodeNumber);

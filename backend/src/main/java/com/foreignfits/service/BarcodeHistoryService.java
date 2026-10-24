@@ -146,6 +146,21 @@ public class BarcodeHistoryService {
             .collect(Collectors.toList());
     }
     
+    @Transactional(readOnly = true)
+    public List<BarcodeHistoryDto> getHistoryPage(String barcodeNumber, String eventType,
+            Long locationId, LocalDateTime startDate, LocalDateTime endDate, int page, int size) {
+        if (page < 0 || size < 1 || size > 200) {
+            throw new IllegalArgumentException("Page must be nonnegative and size must be between 1 and 200");
+        }
+        return barcodeHistoryRepository.findHistoryPage(
+                barcodeNumber == null || barcodeNumber.isBlank() ? null : barcodeNumber.trim(),
+                eventType == null || eventType.isBlank() ? null : eventType.trim(), locationId,
+                startDate == null ? LocalDateTime.of(1970, 1, 1, 0, 0) : startDate,
+                endDate == null ? LocalDateTime.of(9999, 12, 31, 23, 59, 59) : endDate,
+                org.springframework.data.domain.PageRequest.of(page, size))
+            .stream().map(this::toDto).collect(Collectors.toList());
+    }
+
     private BarcodeHistoryDto toDto(BarcodeHistory history) {
         BarcodeHistoryDto dto = new BarcodeHistoryDto();
         dto.setId(history.getId());

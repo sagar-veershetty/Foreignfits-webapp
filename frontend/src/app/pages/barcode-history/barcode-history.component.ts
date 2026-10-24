@@ -17,6 +17,10 @@ export class BarcodeHistoryComponent implements OnInit {
   history = signal<BarcodeHistory[]>([]);
   filteredHistory = signal<BarcodeHistory[]>([]);
   isLoading = signal<boolean>(false);
+  page = 0;
+  readonly pageSize = 100;
+  hasNext = false;
+  loadError = '';
   
   // Filter controls
   searchBarcode: string = '';
@@ -36,10 +40,12 @@ export class BarcodeHistoryComponent implements OnInit {
     this.loadHistory();
   }
   
-  loadHistory() {
+  loadHistory(page = 0) {
+    if (this.isLoading()) return;
     this.isLoading.set(true);
+    this.loadError = '';
     
-    const params: any = {};
+    const params: any = { page, size: this.pageSize, eventType: this.selectedEventType };
     
     if (this.searchBarcode) {
       params.barcodeNumber = this.searchBarcode;
@@ -52,11 +58,14 @@ export class BarcodeHistoryComponent implements OnInit {
     
     this.appService.getBarcodeHistory(params).subscribe({
       next: (data) => {
+        this.page = page;
+        this.hasNext = data.length === this.pageSize;
         this.history.set(data);
         this.applyFilters();
         this.isLoading.set(false);
       },
       error: (error) => {
+        this.loadError = 'Unable to load barcode history. Please try again.';
         this.isLoading.set(false);
       }
     });
@@ -84,7 +93,7 @@ export class BarcodeHistoryComponent implements OnInit {
   }
   
   onEventTypeChange() {
-    this.applyFilters();
+    this.loadHistory();
   }
   
   clearFilters() {

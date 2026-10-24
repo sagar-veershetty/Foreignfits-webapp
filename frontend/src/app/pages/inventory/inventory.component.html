@@ -242,9 +242,14 @@
 
             <!-- Size Badges -->
             <div class="flex flex-wrap gap-1 mt-2">
-              <span *ngFor="let size of group.sizes" class="px-2 py-0.5 text-[10px] rounded bg-gray-100 text-gray-700 font-medium">
+              <button *ngFor="let size of group.sizes" type="button"
+                (click)="openProductCodeSize(group.key, size, $event)"
+                [attr.aria-label]="'View size ' + size + ' for ' + group.productName"
+                [attr.aria-pressed]="selectedProductCodeSizes.get(group.key) === size && isProductCodeGroupExpanded(group.key)"
+                [ngClass]="selectedProductCodeSizes.get(group.key) === size && isProductCodeGroupExpanded(group.key) ? 'bg-indigo-100 text-indigo-700 ring-1 ring-indigo-400' : 'bg-gray-100 text-gray-700'"
+                class="px-2 py-1 text-xs rounded font-medium hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
                 {{ size }}
-              </span>
+              </button>
             </div>
 
             <!-- Summary Row -->
@@ -267,8 +272,12 @@
 
         <!-- Expanded: one row per size with full details/actions -->
         <div *ngIf="isProductCodeGroupExpanded(group.key)" class="border-t border-gray-200 bg-gray-50 p-3">
+          <div *ngIf="selectedProductCodeSizes.has(group.key)" class="flex items-center justify-between gap-3 mb-3">
+            <p class="text-sm font-medium text-gray-700">Size: {{ selectedProductCodeSizes.get(group.key) }}</p>
+            <button type="button" (click)="showAllProductCodeSizes(group.key)" class="text-sm text-indigo-700 underline focus-visible:ring-2 focus-visible:ring-indigo-500">Show all sizes</button>
+          </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div *ngFor="let item of group.items"
+            <div *ngFor="let item of visibleProductCodeItems(group)"
                  class="bg-white p-3 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
               <!-- Size / Color / Status -->
               <div class="flex justify-between items-start mb-2">
@@ -780,4 +789,3 @@
   [alt]="lightboxAlt()"
   (closed)="closeLightbox()"
 ></app-image-lightbox>
-

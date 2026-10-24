@@ -296,12 +296,17 @@ export class AppService {
 
   // Barcode History Methods
   getBarcodeHistory(params?: {
+    page?: number;
+    size?: number;
+    eventType?: string;
     barcodeNumber?: string;
     locationId?: number;
     startDate?: string;
     endDate?: string;
   }): Observable<BarcodeHistory[]> {
     let queryParams = new HttpParams();
+    queryParams = queryParams.set('page', params?.page ?? 0).set('size', params?.size ?? 100);
+    if (params?.eventType) queryParams = queryParams.set('eventType', params.eventType);
     if (params?.barcodeNumber) {
       queryParams = queryParams.set('barcodeNumber', params.barcodeNumber);
     }

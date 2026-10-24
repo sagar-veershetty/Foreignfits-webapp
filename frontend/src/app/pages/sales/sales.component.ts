@@ -239,6 +239,7 @@ export class SalesComponent implements OnInit {
         id: barcodeInfo.product.id,
         name: barcodeInfo.product.name,
         sku: barcodeInfo.product.sku,
+        productCode: inventory.product?.productCode || undefined,
         size: barcodeInfo.product.size || '',
         color: barcodeInfo.product.color || '',
         category: 'shirts' as any, // Default, will be fetched from full product if needed
@@ -502,7 +503,7 @@ export class SalesComponent implements OnInit {
     if (this.isGangaStore() || !this.multiBuyOffers.length) return 0;
     const pricesByCode = new Map<string, number[]>();
     for (const item of appState.currentSale) {
-      const code = item.product.productCode;
+      const code = item.product.productCode || appState.products.find(product => product.sku === item.product.sku)?.productCode;
       if (!code) continue;
       const prices = pricesByCode.get(code) || [];
       const barcodes = item.barcodes || [];
@@ -1653,6 +1654,9 @@ export class SalesComponent implements OnInit {
         return;
       }
 
+      // Refresh offers for registers that have stayed open while an admin changed offers.
+      this.multiBuyOffers = await this.appService.getMultiBuyOffers().toPromise() || [];
+
       // Create product object from barcode info
       const product: Product = {
         id: barcodeInfo.product.id,
@@ -1660,6 +1664,7 @@ export class SalesComponent implements OnInit {
         sku: barcodeInfo.product.sku,
         size: barcodeInfo.product.size || '',
         color: barcodeInfo.product.color || '',
+        productCode: inventory.product?.productCode || undefined,
         category: 'shirts' as any,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1675,6 +1680,7 @@ export class SalesComponent implements OnInit {
       const existingProductItem = appState.currentSale.find(item => item.productId === product.id);
 
       if (existingProductItem && existingProductItem.barcodes) {
+        existingProductItem.product.productCode = product.productCode || existingProductItem.product.productCode;
         // Add this barcode to existing item
         existingProductItem.barcodes.push(barcodeNumber);
         

@@ -6,124 +6,67 @@ import com.foreignfits.entity.User;
 import com.foreignfits.service.BarcodeHistoryService;
 import com.foreignfits.service.UserService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 @RestController
 @RequestMapping("/barcode-history")
 @RequiredArgsConstructor
-@Slf4j
 @CrossOrigin(origins = "*")
 public class BarcodeHistoryController {
-    
     private final BarcodeHistoryService barcodeHistoryService;
     private final UserService userService;
-    
+
     @GetMapping
     @PreAuthorize("hasAnyAuthority('view:inventory', 'view:products')")
     public ResponseEntity<List<BarcodeHistoryDto>> getBarcodeHistory(
-        Authentication authentication,
-        @RequestParam(required = false) String barcodeNumber,
-        @RequestParam(required = false) Long locationId,
-        @RequestParam(required = false) String startDate,
-        @RequestParam(required = false) String endDate
-    ) {
+            Authentication authentication,
+            @RequestParam(required = false) String barcodeNumber,
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size) {
+        UserDto user = userService.getUserByEmail(authentication.getName()).orElseThrow();
+        // Query parameters cannot widen a non-admin's location scope.
+        Long scope = user.getRole() == User.UserRole.ADMIN ? locationId : user.getLocationId();
+        if (user.getRole() != User.UserRole.ADMIN && scope == null) {
+            return ResponseEntity.status(403).build();
+        }
+        if (page < 0 || size < 1 || size > 200) return ResponseEntity.badRequest().build();
         try {
-            String email = authentication.getName();
-            UserDto currentUser = userService.getUserByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            
-            User.UserRole role = currentUser.getRole();
-            Long userLocationId = currentUser.getLocationId();
-            
-            log.info("Get barcode history - User: {}, Role: {}, LocationId: {}", email, role, userLocationId);
-            
-            List<BarcodeHistoryDto> history;
-            
-            // If specific barcode number is requested
-            if (barcodeNumber != null && !barcodeNumber.trim().isEmpty()) {
-                if (role == User.UserRole.ADMIN) {
-                    history = barcodeHistoryService.getHistoryByBarcodeNumber(barcodeNumber);
-                } else {
-                    // Warehouse/Store can see complete history if barcode is/was at their location
-                    Long filterLocationId = locationId != null ? locationId : userLocationId;
-                    List<BarcodeHistoryDto> locationSpecificHistory = 
-                        barcodeHistoryService.getHistoryByBarcodeNumberAndLocation(barcodeNumber, filterLocationId);
-                    
-                    // If barcode touched this location, show complete history
-                    if (!locationSpecificHistory.isEmpty()) {
-                        history = barcodeHistoryService.getHistoryByBarcodeNumber(barcodeNumber);
-                    } else {
-                        history = locationSpecificHistory; // Empty list
-                    }
-                }
-            }
-            // If date range is specified
-            else if (startDate != null && endDate != null) {
-                LocalDateTime start = LocalDateTime.parse(startDate);
-                LocalDateTime end = LocalDateTime.parse(endDate);
-                
-                if (role == User.UserRole.ADMIN) {
-                    history = barcodeHistoryService.getHistoryByDateRange(start, end);
-                } else {
-                    Long filterLocationId = locationId != null ? locationId : userLocationId;
-                    history = barcodeHistoryService.getHistoryByLocationAndDateRange(filterLocationId, start, end);
-                }
-            }
-            // Default: get all history based on role
-            else {
-                if (role == User.UserRole.ADMIN) {
-                    history = barcodeHistoryService.getAllHistory();
-                } else {
-                    // Warehouse/Store see complete history for all barcodes at their location
-                    // This includes creation and all transfers even from other locations
-                    Long filterLocationId = locationId != null ? locationId : userLocationId;
-                    history = barcodeHistoryService.getCompleteHistoryForBarcodesAtLocation(filterLocationId);
-                }
-            }
-            
-            log.info("Returning {} barcode history records", history.size());
-            return ResponseEntity.ok(history);
-            
-        } catch (Exception e) {
-            log.error("Error fetching barcode history", e);
-            return ResponseEntity.internalServerError().build();
+            LocalDateTime start = parseDate(startDate);
+            LocalDateTime end = parseDate(endDate);
+            if (start != null && end != null && start.isAfter(end)) return ResponseEntity.badRequest().build();
+            return ResponseEntity.ok(barcodeHistoryService.getHistoryPage(
+                    barcodeNumber, eventType, scope, start, end, page, size));
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().build();
         }
     }
-    
+
+    private LocalDateTime parseDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return LocalDateTime.parse(value);
+        } catch (DateTimeParseException e) {
+            return OffsetDateTime.parse(value).atZoneSameInstant(java.time.ZoneId.of("Asia/Kolkata")).toLocalDateTime();
+        }
+    }
+
     @GetMapping("/barcode/{barcodeNumber}")
     @PreAuthorize("hasAnyAuthority('view:inventory', 'view:products')")
     public ResponseEntity<List<BarcodeHistoryDto>> getHistoryForBarcode(
-        Authentication authentication,
-        @PathVariable String barcodeNumber
-    ) {
-        try {
-            String email = authentication.getName();
-            UserDto currentUser = userService.getUserByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            
-            User.UserRole role = currentUser.getRole();
-            Long userLocationId = currentUser.getLocationId();
-            
-            List<BarcodeHistoryDto> history;
-            
-            if (role == User.UserRole.ADMIN) {
-                history = barcodeHistoryService.getHistoryByBarcodeNumber(barcodeNumber);
-            } else {
-                history = barcodeHistoryService.getHistoryByBarcodeNumberAndLocation(barcodeNumber, userLocationId);
-            }
-            
-            return ResponseEntity.ok(history);
-            
-        } catch (Exception e) {
-            log.error("Error fetching barcode history for: {}", barcodeNumber, e);
-            return ResponseEntity.internalServerError().build();
-        }
+            Authentication authentication, @PathVariable String barcodeNumber,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "100") int size) {
+        return getBarcodeHistory(authentication, barcodeNumber, null, null, null, null, page, size);
     }
 }

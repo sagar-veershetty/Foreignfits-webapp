@@ -113,7 +113,7 @@ export class PrintBarcodeComponent implements OnInit {
       case 'size':
         return {
           fontWeight: 700,
-          fontSize: `calc(0.07 * ${dims.height}mm)`,
+          fontSize: `calc(0.07 * ${dims.height}mm + 5px)`,
           color: '#1a2233',
           marginBottom: '1px',
           textAlign: 'center',
@@ -137,7 +137,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'price':
         return {
-          fontSize: `calc(0.09 * ${dims.height}mm)`, // Increased from 0.055
+          fontSize: `calc(0.09 * ${dims.height}mm + 5px)`,
           fontWeight: 700,
           color: '#2563eb',
           marginBottom: '2px',
@@ -150,7 +150,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'originalPrice':
         return {
-          fontSize: `calc(0.065 * ${dims.height}mm)`,
+          fontSize: `calc(0.065 * ${dims.height}mm + 5px)`,
           fontWeight: 500,
           color: '#6b7280',
           marginBottom: '1px',
@@ -160,7 +160,7 @@ export class PrintBarcodeComponent implements OnInit {
         };
       case 'discountPrice':
         return {
-          fontSize: `calc(0.11 * ${dims.height}mm)`,
+          fontSize: `calc(0.11 * ${dims.height}mm + 5px)`,
           fontWeight: 800,
           color: '#dc2626',
           marginBottom: '2px',
@@ -800,7 +800,7 @@ export class PrintBarcodeComponent implements OnInit {
               text-overflow: ellipsis;
             }
             .sticker-size-mock {
-              font-size: calc(0.05 * ${dims.height}mm);
+              font-size: calc(0.05 * ${dims.height}mm + 5px);
               font-weight: 700;
               color: #000000;
               margin-bottom: 1px;
@@ -856,7 +856,7 @@ export class PrintBarcodeComponent implements OnInit {
               text-overflow: ellipsis;
             }
             .sticker-price-mock {
-              font-size: calc(0.05 * ${dims.height}mm);
+              font-size: calc(0.05 * ${dims.height}mm + 5px);
               font-weight: 700;
               color: #000000;
               margin-bottom: 2px;
@@ -883,7 +883,7 @@ export class PrintBarcodeComponent implements OnInit {
               border: 1px dotted #000000;
             }
             .original-price {
-              font-size: calc(0.045 * ${dims.height}mm);
+              font-size: calc(0.045 * ${dims.height}mm + 5px);
               font-weight: 800;
               color: #000000;
               text-align: center;
@@ -894,7 +894,7 @@ export class PrintBarcodeComponent implements OnInit {
               font-size: calc(0.035 * ${dims.height}mm);
             }
             .discount-price {
-              font-size: calc(0.065 * ${dims.height}mm);
+              font-size: calc(0.065 * ${dims.height}mm + 5px);
               font-weight: 900;
               color: #000000;
               text-align: center;

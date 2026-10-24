@@ -183,9 +183,15 @@
       </div>
     </div>
 
+    <p *ngIf="loadError" role="alert" class="mt-4 text-red-600">{{ loadError }}</p>
+    <div class="mt-4 flex items-center justify-between gap-4">
+      <button type="button" class="px-4 py-2 border rounded disabled:opacity-40" [disabled]="isLoading() || page === 0" (click)="loadHistory(page - 1)">Previous</button>
+      <span>Page {{ page + 1 }}</span>
+      <button type="button" class="px-4 py-2 border rounded disabled:opacity-40" [disabled]="isLoading() || !hasNext" (click)="loadHistory(page + 1)">Next</button>
+    </div>
     <!-- Summary Stats -->
     <div *ngIf="!isLoading() && filteredHistory().length > 0" class="mt-6 bg-white rounded-lg shadow-md p-6">
-      <h3 class="text-lg font-semibold mb-4">Summary</h3>
+      <h3 class="text-lg font-semibold mb-4">Page Summary</h3>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="text-center">
           <div class="text-3xl font-bold text-blue-600">{{ filteredHistory().length }}</div>

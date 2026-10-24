@@ -181,6 +181,21 @@ public class StockService {
                     .findByLocationIdAndProductSku(adjustmentLocation.getId(), product.getSku())
                     .orElseThrow(() -> new RuntimeException("Inventory not found for product at location"));
             
+            if (movement.getType() == StockMovement.MovementType.ADJUSTMENT) {
+                // Apply the approved delta to current stock, which may have changed while pending.
+                int newQuantity = inventory.getQuantity() + movement.getQuantity();
+                if (newQuantity < 0) {
+                    throw new RuntimeException("Insufficient stock for this adjustment");
+                }
+                movement.setPreviousStock(inventory.getQuantity());
+                movement.setNewStock(newQuantity);
+                if (movement.getQuantity() > 0) {
+                    movement.setBarcodes(barcodeService.generateBarcodes(
+                            product, adjustmentLocation, movement.getQuantity(),
+                            inventory.getCost() != null ? inventory.getCost().doubleValue() : null,
+                            inventory.getSalePrice() != null ? inventory.getSalePrice().doubleValue() : null));
+                }
+            }
             inventory.setQuantity(movement.getNewStock());
             inventory.setLastMovementId(movement.getId());
             locationInventoryRepository.save(inventory);

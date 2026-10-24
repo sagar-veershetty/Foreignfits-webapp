@@ -220,8 +220,26 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   // Expanded state for Card View's parent/child Product Code groups
   expandedProductCodeGroups = new Set<string>();
+  selectedProductCodeSizes = new Map<string, string>();
+
+  openProductCodeSize(key: string, size: string, event: Event): void {
+    event.stopPropagation();
+    this.selectedProductCodeSizes.set(key, size);
+    this.expandedProductCodeGroups.add(key);
+  }
+
+  showAllProductCodeSizes(key: string): void {
+    this.selectedProductCodeSizes.delete(key);
+    this.expandedProductCodeGroups.add(key);
+  }
+
+  visibleProductCodeItems(group: ProductCodeGroup): LocationInventoryItem[] {
+    const size = this.selectedProductCodeSizes.get(group.key);
+    return size === undefined ? group.items : group.items.filter(item => item.product?.size === size);
+  }
 
   toggleProductCodeGroup(key: string): void {
+    this.selectedProductCodeSizes.delete(key);
     if (this.expandedProductCodeGroups.has(key)) {
       this.expandedProductCodeGroups.delete(key);
     } else {
